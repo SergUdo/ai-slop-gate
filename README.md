@@ -87,7 +87,7 @@ flowchart TD
 
 ## 🧪 Getting Started (Early Preview)
 
-	git clone https://github.com/<your-org>/ai-slop-gate
+	git clone git@github.com:SergUdo/ai-slop-gate.git
 	cd ai-slop-gate
 	npm install
 	npm run dev
