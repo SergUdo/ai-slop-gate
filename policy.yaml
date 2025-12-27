@@ -1,0 +1,20 @@
+stage: 1
+
+mode: advisory
+
+checks:
+  ai_slop:
+    enabled: true
+    severity: warning
+
+  dockerfile_lint:
+    enabled: true
+    severity: error
+
+  security:
+    enabled: true
+    severity: warning
+
+providers:
+  primary: gemini
+  fallback: copilot
