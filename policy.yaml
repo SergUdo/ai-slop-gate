@@ -1,20 +1,43 @@
-stage: 1
+# policy.yaml
+# 🛡️ ai-slop-gate Policy Configuration
+# Defines rules for analyzing code quality, AI slop, and security issues.
+# Advisory mode highlights issues without failing the workflow.
+# Blocking mode can be enabled per rule if needed.
 
-mode: advisory
+# Global mode
+mode: advisory  # options: advisory | blocking
 
-checks:
-  ai_slop:
-    enabled: true
-    severity: warning
+# Rules for AI-generated code
+ai_slop:
+  enabled: true
+  max_redundancy: 3          # Warn if identical snippet appears more than 3 times
+  max_length: 50             # Warn if single AI-generated snippet exceeds 50 lines
+  detect_todo: true          # Warn on TODO comments
+  detect_fixme: true         # Warn on FIXME comments
 
-  dockerfile_lint:
-    enabled: true
-    severity: error
+# Dockerfile linting
+dockerfile:
+  enabled: true
+  max_warnings: 5            # Advisory threshold
+  enforce_best_practices: true
 
-  security:
-    enabled: true
-    severity: warning
+# Security checks
+security:
+  enabled: true
+  check_root_user: true
+  check_sensitive_env: true
+  enforce_advisory_only: true
 
+# Reporting
+reporting:
+  output_format: console     # Options: console, github-pr-comment, file
+  fail_build_on_blocking: true
+
+# AI provider configuration (Llama via OpenRouter)
 providers:
-  primary: gemini
-  fallback: copilot
+  llama:
+    enabled: true
+    api_key: ${LLAMA_API_KEY}   # GitHub secret
+    model: "Llama-3.3"          # Model used for advisory checks
+    max_tokens: 1000
+    temperature: 0.0
