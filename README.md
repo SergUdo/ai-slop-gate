@@ -89,7 +89,7 @@ flowchart TD
 
 	git clone git@github.com:SergUdo/ai-slop-gate.git
 	cd ai-slop-gate
-	npm install
+	npm install --save-dev @types/node
 	npm run dev
 
 

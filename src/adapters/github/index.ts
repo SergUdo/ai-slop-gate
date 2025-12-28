@@ -1,20 +1,17 @@
-import { AnalysisInput } from "../../core/result.js";
+import { readPullRequestDiff } from "./diffReader.js";
+import { mapDiffToAnalysisInput } from "./mapper.js";
+import type { AnalysisInput } from "../../core/result.js";
 
 /**
- * GitHub adapter.
- *
- * Converts GitHub-specific context into a generic AnalysisInput.
- *
- * Stage 1:
- * - No GitHub API
- * - No filesystem access
- * - Deterministic fake payload
+ * Entry point for GitHub adapter.
+ * Coordinates reading PR diff and mapping it to AnalysisInput.
+ * No business logic, no policies, no AI.
  */
-export function createGitHubInput(): AnalysisInput {
-  return {
-    content: "// TODO: refactor this function",
-    metadata: {
-      source: "github",
-    },
-  };
+export async function analyzeGitHubPullRequest(
+  repo: string,
+  prNumber: number
+): Promise<AnalysisInput> {
+  const diff = await readPullRequestDiff(repo, prNumber);
+  return mapDiffToAnalysisInput(diff);
 }
+
