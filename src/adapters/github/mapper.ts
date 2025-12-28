@@ -1,16 +1,15 @@
 import type { AnalysisInput } from "../../core/result.js";
 
 /**
- * Maps raw git diff into AnalysisInput.
- * At this stage we keep it raw and un-opinionated.
- * Any interpretation belongs to analyzers, not adapters.
+ * Maps raw GitHub diff into core AnalysisInput.
+ * GitHub-specific details go into metadata.
  */
 export function mapDiffToAnalysisInput(diff: string): AnalysisInput {
   return {
-    source: "github",
     content: diff,
     metadata: {
-      format: "git-diff",
-    },
+      source: "github"
+    }
   };
 }
+

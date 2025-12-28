@@ -1,23 +1,23 @@
 import { Engine } from "./core/engine.js";
-import { createProvider } from "./providers/provider.js";
-import { createGitHubInput } from "./adapters/github/index.js";
 import { ConsoleReporter } from "./reporters/consoleReporter.js";
+import { createGitHubInput } from "./adapters/github/index.js";
+import { DummyProvider } from "./providers/dummy.js";
+import { logger } from "./utils/logger.js";
 
-/**
- * CLI entry point.
- *
- * Wires together adapters, engine, and reporters.
- * No business logic should live here.
- */
-async function main() {
-  const provider = createProvider();
-  const engine = new Engine(provider);
-  const reporter = new ConsoleReporter();
+async function main(): Promise<void> {
+  try {
+    const provider = new DummyProvider();
+    const engine = new Engine(provider);
+    const reporter = new ConsoleReporter();
 
-  const input = createGitHubInput();
-  const result = await engine.run(input);
+    const input = await createGitHubInput();
+    const result = await engine.run(input);
 
-  reporter.report(result);
+    await reporter.report(result);
+  } catch {
+    logger.error("ai-slop-gate failed");
+    process.exit(1);
+  }
 }
 
 main();

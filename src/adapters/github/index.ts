@@ -3,15 +3,12 @@ import { mapDiffToAnalysisInput } from "./mapper.js";
 import type { AnalysisInput } from "../../core/result.js";
 
 /**
- * Entry point for GitHub adapter.
- * Coordinates reading PR diff and mapping it to AnalysisInput.
- * No business logic, no policies, no AI.
+ * High-level GitHub adapter entry point.
+ * Used by CLI to produce AnalysisInput from GitHub PR context.
  */
-export async function analyzeGitHubPullRequest(
-  repo: string,
-  prNumber: number
-): Promise<AnalysisInput> {
-  const diff = await readPullRequestDiff(repo, prNumber);
+export async function createGitHubInput(): Promise<AnalysisInput> {
+  const diff = await readPullRequestDiff();
   return mapDiffToAnalysisInput(diff);
 }
+
 

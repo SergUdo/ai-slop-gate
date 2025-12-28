@@ -11,10 +11,13 @@
  */
 
 export interface AnalysisInput {
-  /** Raw code or content to be analyzed */
+  /** Source content to be analyzed (file, diff, snippet, etc.) */
   content: string;
 
-  /** Optional metadata (file name, source, etc.) */
+  /**
+   * Optional contextual metadata.
+   * Used by adapters and policies, ignored by core engine.
+   */
   metadata?: Record<string, unknown>;
 }
 
