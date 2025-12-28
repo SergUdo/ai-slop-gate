@@ -94,7 +94,7 @@ flowchart TD
 
 
 ## 📄 License
-MIT License © 2025 Serhii Udovychenko.
+MIT License © 2025 Vira Udovychenko.
 
 See the LICENSE file for details.
 
