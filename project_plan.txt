@@ -1,0 +1,264 @@
+📌 PROJECT CONTEXT SNAPSHOT — for ai-slop-gate
+🗂 Repository Overview
+
+Branches
+
+main-ts — legacy TypeScript implementation including early Stage 2 work (2.2 and partial 2.3).
+
+Contains workflows previously tested (TypeScript based).
+
+Gemini integration present but requires refactoring to be provider-agnostic.
+
+main — Python implementation started for Stage 1.
+
+Mixed experimental files still present.
+
+Needs cleanup and stabilization.
+
+This snapshot reflects the current state as of last analysis.
+
+🧱 What’s Been Implemented
+Python (main branch)
+
+CLI structure started (ai_slop_gate.cli)
+
+Policy YAML exists (policy.yml)
+
+Basic provider integration for Gemini working (tested)
+
+Workflow exists for GitHub Actions using Gemini provider (advisory)
+
+Local LLM support (local providers) not yet implemented
+
+TypeScript code removed from main (should be fully cleaned)
+
+TypeScript (main-ts branch)
+
+Longer history of experimentation
+
+Workflow for GitHub Action set up
+
+CLI and providers (Gemini, Copilot concept)
+
+Some tests run
+
+Yet to be fully refactored
+
+⚠️ Known Issues / Technical Debt
+🔹 Model Integration
+
+OpenRouter is not free; cannot use it without paid keys.
+
+Gemini provider currently working but uses deprecated package (google.generativeai) and needs upgrade to google.genai API.
+
+Existing output includes PASS / FAIL decisions inside provider — violates provider contract.
+
+🔹 Provider Contract Not Yet Enforced
+
+Current Gemini output includes high-level judgements like “PASS”
+
+Providers must be refactored to emit structured observations, not decisions.
+
+🔹 Workflow and Policy Logic
+
+Workflows exist but may be tied to TS implementation logic.
+
+Policy integration lacks separation of observation vs decision logic.
+
+🔹 Testing Constraints
+
+Limited ability to test heavy LLM models due to API costs.
+
+Local/offline alternatives (LLaMA via Ollama / vllm) not yet bootstrapped.
+
+📜 Definitions & Principles (Locked for Project)
+Provider Contract (fixed)
+
+Providers must return data in this shape (no PASS/FAIL):
+
+ProviderObservation:
+  provider: str            # e.g. "gemini", "local-llama"
+  model: str
+  observations: list[Observation]
+  raw_text: str            # raw output from model if applicable
+
+Observation:
+  category: "quality" | "style" | "hallucination"
+  signal: "positive" | "neutral" | "negative"
+  confidence: float        # 0.0–1.0
+  message: str
+  evidence:
+    file: str | None
+    line: int | None
+
+
+LLM providers should never make PASS/FAIL decisions; that is the job of the policy evaluation layer.
+
+🚦 Stage 1 — Python MVP (Status)
+
+Achieved:
+
+Basic CLI scaffold exists
+
+Static observation / mock provider logic exists
+
+Basic reporting logic exists
+
+Needs:
+
+Policy parser logic
+
+Updated provider output to match contract
+
+Remove all decisions from providers
+
+Consolidate core into clean Python structure
+
+🚧 Stage 2 — Provider Integration & Workflow (To Implement)
+Stage 2.0 — Provider Infrastructure
+
+Local model support (Ollama / llama.cpp / vLLM)
+
+Optional free external providers (Gemini via official API, without deprecated libraries)
+
+Stage 2.1 — Observation Layer
+
+Providers produce structured observations
+
+Use only signal data
+
+Remove Gemini PASS/FAIL logic
+
+Stage 2.2 — Policy Evaluation
+
+Evaluate observations against policy rules
+
+Produce advisory / blocking flags
+
+Stage 2.3 — GitHub workflow
+
+Python GitHub Action based on CLI
+
+Bind provider outputs into GitHub status / comments
+
+Advisory mode first; blocking mode later
+
+📡 Workflow Logic to Port From main-ts
+
+We already have a GitHub Actions workflow in main-ts that does the following:
+
+Trigger on PR to main branch
+
+Checkout code
+
+Setup environment
+
+Run CLI tool with provider
+
+Use policy file
+
+Post results as advisory
+
+This logic must be adapted from TS/Node into Python-based workflow (e.g., run Python CLI in GitHub Actions).
+
+🧩 Testing Constraints
+❗ Free or Offline Models
+
+Until free models or local models are fully integrated:
+
+Testing heavy inference locally is difficult for users without GPU/paid API keys.
+
+CLI should support a “dry run” / mock provider that always returns deterministic observation, so workflows can be tested without API calls.
+
+🧠 What To Do Next (Priority Queue)
+
+Clean and freeze Python Stage 1 core
+
+Implement Provider Observation Contract
+
+Refactor Gemini provider to emit structured observations
+
+Wrap LLM API responses into Observation objects
+
+Remove decision logic from providers
+
+Add Local Provider skeleton (dummy for now)
+
+Plan for Ollama/vllm integration in Stage 2
+
+Policy Evaluation Module
+
+Take observations and apply policy rules
+
+Build policy engine
+
+Workflow Integration
+
+Port GitHub Action from main-ts to Python workflow
+
+Ensure runs on free tier / advisory mode
+
+Documentation
+
+Update README with Python instructions
+
+Add architecture doc
+
+Add spec for providers & policy
+
+🧱 Constraints & Guardrails
+
+Don’t implement model decision logic in providers
+
+Keep provider outputs observation-only
+
+Workflow must be usable without paid API
+
+Default to advisory mode
+
+🛡️ Why This Matters
+
+This project’s purpose is to provide quality gates for AI-generated code.
+If providers start doing decisions internally, the system becomes:
+
+❌ opaque
+❌ inconsistent
+❌ non-deterministic
+
+Instead, we must keep:
+
+🟢 providers as sensors
+🔵 policy as decision engine
+🟠 workflows as enforcement layer
+
+This architecture enables:
+
+reuse across GitHub, GitLab, Bitbucket
+
+offline testing
+
+reproducibility
+
+⏱️ What To Do When Tokens Run Out
+
+If session ends or context is lost:
+
+Restore Python Stage 1 using this snapshot
+
+Implement ProviderObservation output structure
+
+Build policy evaluator
+
+Port workflow from main-ts
+
+Test workflow in GitHub Actions with dummy provider
+
+🗂️ Where We Stopped (Concrete Summary)
+
+Provider logic exists but violates contract
+
+Workflow logic exists (TS), needs porting
+
+Policy file exists but should not be used by provider as decision-maker
+
+Need to unify provider outputs

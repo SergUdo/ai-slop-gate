@@ -18,4 +18,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
           LLAMA_API_KEY2: ${{ secrets.LLAMA_API_KEY2 }} 
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python -m ai_slop_gate.cli --policy policy.yml --github-repo ${{ github.repository }} --pr-id ${{ github.event.pull_request.number }}
