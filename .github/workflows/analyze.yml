@@ -1,0 +1,21 @@
+# .github/workflows/analyze.yml
+name: AI Slop Gate Analysis
+
+on: [pull_request]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run AI Slop Gate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          LLAMA_API_KEY2: ${{ secrets.LLAMA_API_KEY2 }} 
+        run: python -m ai_slop_gate.cli --policy policy.yml --github-repo ${{ github.repository }} --pr-id ${{ github.event.pull_request.number }}

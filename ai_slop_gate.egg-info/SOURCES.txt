@@ -1,4 +1,6 @@
+README.md
 pyproject.toml
+ai_slop_gate/__init__.py
 ai_slop_gate/cli.py
 ai_slop_gate/engine.py
 ai_slop_gate/policy.py
@@ -9,5 +11,8 @@ ai_slop_gate.egg-info/dependency_links.txt
 ai_slop_gate.egg-info/entry_points.txt
 ai_slop_gate.egg-info/requires.txt
 ai_slop_gate.egg-info/top_level.txt
+ai_slop_gate/adapters/github.py
 ai_slop_gate/providers/openrouter.py
 ai_slop_gate/reporters/console.py
+ai_slop_gate/reporters/github.py
+ai_slop_gate/reporters/json.py

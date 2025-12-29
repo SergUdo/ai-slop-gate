@@ -1,0 +1,6 @@
+# policy.yml
+# model: mistralai/mistral-7b-instruct
+provider: gemini
+model: gemini-1.5-flash
+mode: advisory
+

@@ -2,6 +2,11 @@ from dataclasses import dataclass
 from typing import Literal
 
 @dataclass
+class AnalysisInput:
+    text: str
+    filename: str
+
+@dataclass
 class AnalysisIssue:
     message: str
     severity: Literal["info", "warning", "error"]
