@@ -1,0 +1,7 @@
+[project]
+name = "ai-slop-gate"
+version = "0.1.0"
+dependencies = ["pyyaml"]
+
+[project.scripts]
+ai-slop-gate = "ai_slop_gate.cli:main"

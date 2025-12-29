@@ -1,0 +1,13 @@
+pyproject.toml
+ai_slop_gate/cli.py
+ai_slop_gate/engine.py
+ai_slop_gate/policy.py
+ai_slop_gate/result.py
+ai_slop_gate.egg-info/PKG-INFO
+ai_slop_gate.egg-info/SOURCES.txt
+ai_slop_gate.egg-info/dependency_links.txt
+ai_slop_gate.egg-info/entry_points.txt
+ai_slop_gate.egg-info/requires.txt
+ai_slop_gate.egg-info/top_level.txt
+ai_slop_gate/providers/openrouter.py
+ai_slop_gate/reporters/console.py
