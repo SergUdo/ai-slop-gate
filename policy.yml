@@ -1,6 +1,63 @@
-# policy.yml
-# model: mistralai/mistral-7b-instruct
 provider: gemini
-model: gemini-1.5-flash
+model: gemini-2.5-flash
 mode: advisory
 
+ai_provider:
+  name: llama
+  model: Llama-3.3
+  temperature: 0.0
+
+ai_slop:
+  max_redundancy: 3
+  max_length: 50
+  detect_todo: true
+  detect_fixme: true
+
+  detect_llm_quality:
+    enabled: true
+    prompt_template: |
+      Analyze the following code snippet for potential AI slop, unidiomatic patterns, or inefficiency.
+      Focus on identifying:
+      1. Overly generic or repetitive code.
+      2. Code that doesn't match typical human-written patterns for this language.
+      3. Comments or documentation that seem AI-generated (e.g., overly verbose, vague, or mismatched with the code).
+      Provide a concise 'PASS' or 'FAIL' and a brief explanation if 'FAIL'.
+      Code snippet:
+      ```
+      {code_snippet}
+      ```
+
+  detect_style_violations:
+    enabled: true
+    prompt_template: |
+      Does the following code adhere to best practices and common idioms for its language?
+      Identify any areas that feel 'off' or generic, potentially indicating AI generation.
+      Code snippet:
+      ```
+      {code_snippet}
+      ```
+
+  detect_hallucinations:
+    enabled: true
+    prompt_template: |
+      Check the following code and comments for potential hallucinations or inaccuracies.
+      Focus on:
+      1. Comments that don't match the code.
+      2. Incorrect assumptions or outdated practices.
+      Code snippet:
+      ```
+      {code_snippet}
+      ```
+
+code_quality:
+  detect_todo: true
+  detect_fixme: true
+  max_function_length: 50
+
+dockerfile:
+  check_user: true
+  check_sensitive_env: true
+
+security:
+  check_root_user: true
+  check_sensitive_env: true
