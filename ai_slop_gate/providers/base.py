@@ -1,20 +1,15 @@
-from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import List
 from ai_slop_gate.domain.observation import Observation
 
-
-class Provider(ABC):
+@dataclass(frozen=True)
+class ProviderObservation:
     """
-    Provider extracts raw signals from a source and converts them into
-    domain-level Observations.
-
-    Providers must not:
-    - apply policy
-    - make decisions
-    - know about enforcement mode
+    Stage 2.2 contract.
+    Providers are sensors.
+    They emit observations, never decisions.
     """
-
-    @abstractmethod
-    def collect(self) -> List[Observation]:
-        """Return a list of Observations."""
-        raise NotImplementedError
+    provider: str           # e.g. "gemini", "local-llama"
+    model: str              # model identifier
+    observations: List[Observation]
+    raw_text: str           # raw LLM output (for debugging / audit)
