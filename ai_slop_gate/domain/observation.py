@@ -1,20 +1,14 @@
 from dataclasses import dataclass
-from typing import Optional
-
+from typing import Literal, Dict, Optional
 
 @dataclass(frozen=True)
 class Observation:
     """
-    Raw signal produced by a provider or static analyzer.
-
-    Stage 1 invariant:
-    - NO verdict
-    - NO severity
-    - NO enforcement logic
+    Stage 2.2 contract.
+    Structured observation from a provider.
     """
-
-    code: str                 # e.g. "TODO_FOUND", "AI_SUSPECT_COMMENT"
-    message: str              # human-readable description
-    file: Optional[str] = None
-    line: Optional[int] = None
-    provider: Optional[str] = None
+    category: Literal["quality", "style", "hallucination"]
+    signal: Literal["positive", "neutral", "negative"]
+    confidence: float        # 0.0 – 1.0
+    message: str
+    evidence: Dict[str, Optional[int | str]]
