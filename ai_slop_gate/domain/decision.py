@@ -19,3 +19,38 @@ class Decision:
 
     mode: DecisionMode
     reasons: List[str]
+from .observation import Observation
+from .contracts import PolicyRule
+
+
+def evaluate_policy(
+    observations: List[Observation],
+    rules: List[PolicyRule],
+) -> Decision:
+    """
+    Pure domain function.
+
+    Evaluates observations against policy rules
+    and produces a Decision.
+
+    Stage 2.1 invariant:
+    - No IO
+    - No providers
+    - No reporters
+    """
+
+    reasons: List[str] = []
+    mode = DecisionMode.ADVISORY
+
+    for rule in rules:
+        for obs in observations:
+            if obs.code in rule.match:
+                reasons.append(rule.message)
+                if rule.decision == DecisionMode.BLOCKING.value:
+                    mode = DecisionMode.BLOCKING
+                break
+
+    return Decision(
+        mode=mode,
+        reasons=reasons,
+    )

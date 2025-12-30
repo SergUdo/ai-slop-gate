@@ -1,4 +1,17 @@
-## ai-slop gate
+# 🛡️ ai-slop-gate
+
+⚠️ **Status: Pre-Alpha / Experimental**
+
+*ai-slop-gate is under active development. APIs, behavior, and policies may change without notice. Do NOT rely on this tool for production security decisions yet.*
+
+---
+
+**ai-slop-gate** is an open-source tool designed for automatic analysis of PRs/MRs to detect low-quality AI-generated code ("AI slop"), security vulnerabilities, and style issues. It provides a vendor-agnostic way to maintain code quality in the age of AI-assisted development.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![Stage](https://img.shields.io/badge/stage-MVP-blue)
+
 
 ### Run
 
@@ -27,3 +40,8 @@ python -m ai_slop_gate.cli --policy <path_to_policy> --github-repo <owner/repo> 
 ```
 python -m ai_slop_gate.cli --policy policy.yml --github-repo zaproxy/zaproxy --pr-id 13407
 ```
+
+## 📄 License
+MIT License © 2025 Vira Udovychenko.
+
+See the LICENSE file for details.
