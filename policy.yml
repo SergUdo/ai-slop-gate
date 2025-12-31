@@ -63,11 +63,45 @@ security:
   check_sensitive_env: true
 
 rules:
-  - id: no-todo
+  - id: hardcoded-secret
+    when:
+      category: security
+      signal: negative
+      min_confidence: 0.9
+    then:
+      action: blocking
+      message: "Hardcoded secret detected"
+
+  - id: insecure-defaults
+    when:
+      category: security
+      signal: negative
+      min_confidence: 0.9
+    then:
+      action: blocking
+      message: "Insecure default configuration detected"
+
+  - id: missing-required-config
+    when:
+      category: security
+      signal: negative
+      min_confidence: 1.0
+    then:
+      action: blocking
+      message: "Missing required configuration"
+
+  - id: dev-config-in-prod
+    when:
+      category: security
+      signal: negative
+    then:
+      action: blocking
+      message: "Development config detected in production code"
+
+  - id: todo-advisory
     when:
       category: quality
       signal: negative
-      min_confidence: 0.7
     then:
       action: advisory
-      message: Remove TODOs before merge
+      message: "Remove TODOs before merge"
