@@ -1,2 +1,0 @@
-[console_scripts]
-ai-slop-gate = ai_slop_gate.cli:main
