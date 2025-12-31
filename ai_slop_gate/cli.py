@@ -2,7 +2,8 @@ import argparse
 import sys
 import yaml
 
-from ai_slop_gate.providers.static import StaticProvider
+# from ai_slop_gate.providers.static import StaticProvider
+from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.domain.policy_engine import PolicyRule, evaluate_policy
 from ai_slop_gate.domain.decision import DecisionMode
 
@@ -36,7 +37,7 @@ def main() -> None:
 
     # --- provider selection (MVP) ---
     if args.provider == "static":
-        provider = StaticProvider()
+        provider = StaticPipelineProvider()
     else:
         raise ValueError(f"Unknown provider: {args.provider}")
 
