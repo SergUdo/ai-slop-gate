@@ -26,7 +26,7 @@ python src/cli.py --policy policy.yaml --mode advisory
 To run the analysis manually from your terminal, use the following command:
 
 ```
-python -m ai_slop_gate.cli --policy <path_to_policy> --github-repo <owner/repo> --pr-id <pull_request_number>
+python -m ai_slop_gate.cli --policy policy.yml
 ```
 
 #### Options Breakdown
@@ -35,11 +35,6 @@ python -m ai_slop_gate.cli --policy <path_to_policy> --github-repo <owner/repo> 
 * **`-github-repo`**: The full name of the GitHub repository (e.g., `owner/repo`).
 * **`-pr-id`**: The numeric ID of the Pull Request you wish to analyze.
 
-#### Example
-
-```
-python -m ai_slop_gate.cli --policy policy.yml --github-repo zaproxy/zaproxy --pr-id 13407
-```
 
 ## 📄 License
 MIT License © 2025 Vira Udovychenko.

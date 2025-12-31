@@ -24,6 +24,6 @@ jobs:
       - name: Run analysis
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python -m ai_slop_gate.cli --policy policy.yml --provider static
+          AI_SLOP_GATE_TOKEN: ${{ secrets.AI_SLOP_GATE_TOKEN }}
+        run: python -m ai_slop_gate.cli --policy policy.yml
 
