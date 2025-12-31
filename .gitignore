@@ -7,11 +7,30 @@ __pycache__/
 .env
 .venv/
 venv/
+ENV/
+
+# Distribution / packaging
+*.egg-info/
+build/
+dist/
+*.egg
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS files
 .DS_Store
-.env
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# Coverage and tests
+.coverage
+htmlcov/
+*.pyc
