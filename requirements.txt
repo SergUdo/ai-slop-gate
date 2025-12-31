@@ -1,4 +1,7 @@
 PyGithub
-requests
-google.genai
+PyYAML>=6.0
+python-dotenv
+google-genai
 google-generativeai
+requests
+

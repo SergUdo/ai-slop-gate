@@ -61,3 +61,13 @@ dockerfile:
 security:
   check_root_user: true
   check_sensitive_env: true
+
+rules:
+  - id: no-todo
+    when:
+      category: quality
+      signal: negative
+      min_confidence: 0.7
+    then:
+      action: advisory
+      message: Remove TODOs before merge

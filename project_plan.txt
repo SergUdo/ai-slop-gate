@@ -1,0 +1,226 @@
+📌 PROJECT CONTEXT SNAPSHOT — ai-slop-gate
+Checkpoint: End of Stage 2.2 / Start of Stage 2.3
+🔖 Purpose of Snapshot
+
+This snapshot freezes architecture, contracts, current behavior, and next steps so work can resume safely after session loss.
+
+🗂 Repository Overview
+Active branch
+
+main — Python implementation (authoritative)
+
+Legacy / reference
+
+main-ts — TypeScript implementation
+Used only as reference for GitHub Actions & earlier logic
+❌ Not used for production or new code
+
+🧱 Architecture Status
+Stage 1 — Core Domain (FROZEN ✅)
+
+Invariant:
+
+Decisions are derived ONLY from policy + observations
+
+Key models (stable):
+
+# ai_slop_gate/domain/decision.py
+class DecisionMode(Enum):
+    ADVISORY = "advisory"
+    BLOCKING = "blocking"
+
+@dataclass(frozen=True)
+class Decision:
+    mode: DecisionMode
+    reasons: list[str]
+
+
+No provider, workflow, or CLI is allowed to bypass this.
+
+🟡 Stage 2.2 — Observation Layer (COMPLETED)
+Canonical Contracts (LOCKED 🔒)
+Observation
+@dataclass(frozen=True)
+class Observation:
+    category: Literal["quality", "style", "hallucination"]
+    signal: Literal["positive", "neutral", "negative"]
+    confidence: float          # 0.0 – 1.0
+    message: str
+    evidence:
+        file: str | None
+        line: int | None
+
+ProviderObservation
+@dataclass(frozen=True)
+class ProviderObservation:
+    provider: str              # "gemini", "mock", "local-llama"
+    model: str
+    observations: list[Observation]
+    raw_text: str              # raw LLM output (audit/debug only)
+
+🚨 Non-Negotiable Rules
+
+Providers are SENSORS, not judges
+
+Providers MUST NOT:
+
+emit PASS / FAIL
+
+emit advisory / blocking
+
+reference policy
+
+short-circuit workflow
+
+Providers MUST emit ONLY ProviderObservation
+
+🤖 Gemini Provider — Current State
+Status
+
+Gemini provider successfully refactored
+
+Emits:
+
+structured Observation[]
+
+raw text preserved
+
+No policy logic
+
+No decisions
+
+Example Runtime Output (Verified)
+Provider: gemini
+Model: models/gemini-2.5-flash
+Raw text:
+<full Gemini analysis text>
+
+Observations:
+- Observation(category='quality', signal='negative', confidence=0.8, message='Code contains TODO comments')
+- Observation(category='hallucination', signal='negative', confidence=0.6, message='Generic placeholder patterns detected')
+
+
+✅ This output fully complies with Stage 2.2 contract.
+
+🧪 Testing Constraints
+
+Paid APIs mostly unavailable
+
+Gemini is usable only for limited tests
+
+MUST support:
+
+mock provider
+
+deterministic output
+
+offline runs
+
+Mock provider is mandatory for Stage 2.3 testing.
+
+🚦 Stage 2.3 — Policy Evaluation (NEXT)
+Goal
+
+Convert structured observations → deterministic decision.
+
+Input
+list[ProviderObservation]
+
+Output
+Decision(
+  mode = DecisionMode.ADVISORY | BLOCKING,
+  reasons = [...]
+)
+
+🧠 Policy Evaluation Rules (DESIGN LOCK)
+
+Policy engine:
+
+sees ONLY observations
+
+NEVER sees raw LLM text
+
+NEVER knows provider internals
+
+Deterministic
+
+Pure function:
+
+observations + policy → decision
+
+📜 policy.yml — Status
+
+Exists
+
+NOT modified during Stage 2.2
+
+Will be consumed by policy evaluator in Stage 2.3
+
+Providers must NEVER read it
+
+📡 GitHub Actions — Reference State
+
+Working workflow exists in main-ts
+
+Behavior:
+
+trigger on PR
+
+run CLI
+
+advisory output
+
+Needs port to Python CLI AFTER Stage 2.3
+
+🧭 Immediate Next Actions (Stage 2.3 Checklist)
+
+Implement Policy Evaluator
+
+Input: list[Observation]
+
+Apply YAML rules
+
+Output: Decision
+
+Implement MockProvider
+
+deterministic
+
+zero network
+
+fixed observations
+
+CLI flow:
+
+provider → observations → policy → decision → exit/report
+
+
+Freeze Stage 2.3 invariants
+
+🛡️ Guardrails (DO NOT VIOLATE)
+
+Providers NEVER decide
+
+Policy NEVER reads raw text
+
+Workflow NEVER inspects providers
+
+Default mode = advisory
+
+Offline reproducibility REQUIRED
+
+🧠 One-Line Architecture Summary
+
+Providers observe.
+Policy decides.
+Workflow enforces.
+
+📍 Where Work Stopped
+
+Stage 2.2 completed successfully
+
+Gemini provider emits compliant observations
+
+Ready to implement Stage 2.3: Policy Evaluation Engine
+
+📌 END OF SNAPSHOT — SAFE TO RESUME FROM HERE

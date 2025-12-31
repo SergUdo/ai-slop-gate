@@ -1,16 +1,26 @@
 from typing import List
+from ai_slop_gate.providers.base import ProviderObservation
 from ai_slop_gate.domain.observation import Observation
-from ai_slop_gate.providers.base import Provider
 
 
-class StaticProvider(Provider):
-    """
-    Static provider returns predefined observations.
-    Used for testing, CI, and contract validation.
-    """
 
-    def __init__(self, observations: List[Observation]):
-        self._observations = observations
+class StaticProvider:
+    def __init__(self, findings: list[str] | None = None):
+        self.findings = findings or []
 
-    def collect(self) -> List[Observation]:
-        return list(self._observations)
+    def observe(self) -> ProviderObservation:
+        observations = [
+            Observation(
+                kind="static",
+                message=msg,
+                severity="warning"
+            )
+            for msg in self.findings
+        ]
+
+        return ProviderObservation(
+            provider="static",
+            model="static",
+            observations=observations,
+            raw_text=""
+        )
