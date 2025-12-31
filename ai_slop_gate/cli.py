@@ -1,38 +1,60 @@
-# cli.py
 import argparse
-import os
-from dotenv import load_dotenv
-from ai_slop_gate.adapters.github import GitHubAdapter
-from ai_slop_gate.reporters.github import GitHubReporter
-from ai_slop_gate.engine import run_analysis
+import sys
+import yaml
 
-load_dotenv()  # Завантаження змінних з .env
+from ai_slop_gate.providers.static import StaticProvider
+from ai_slop_gate.domain.policy_engine import PolicyRule, evaluate_policy
+from ai_slop_gate.domain.decision import DecisionMode
+
+
+def load_policy_rules(path: str) -> list[PolicyRule]:
+    with open(path, "r") as f:
+        raw = yaml.safe_load(f)
+
+    rules = []
+    for rule in raw.get("rules", []):
+        rules.append(
+            PolicyRule(
+                id=rule["id"],
+                category=rule["when"]["category"],
+                signal=rule["when"]["signal"],
+                min_confidence=rule["when"].get("min_confidence", 0.0),
+                action=rule["then"]["action"],
+                message=rule["then"]["message"],
+            )
+        )
+
+    return rules
+
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ai-slop-gate — detect low-quality AI-generated code")
-    parser.add_argument("--policy", required=True, help="Path to policy.yaml file")
-    parser.add_argument("--mode", choices=["advisory", "blocking"], default="advisory", help="Run mode")
-    parser.add_argument("--input", required=False, default="Example input text", help="Input text or code to analyze")
-    parser.add_argument("--github-repo", help="GitHub repository (e.g., SergUdo/ai-slop-gate)")
-    parser.add_argument("--pr-id", type=int, help="Pull Request ID to analyze")
+    parser = argparse.ArgumentParser("ai-slop-gate")
+    parser.add_argument("--policy", required=True)
+    parser.add_argument("--provider", default="static")
 
     args = parser.parse_args()
 
-    github_token = os.getenv("GITHUB_TOKEN")
-    if not github_token:
-        raise ValueError("GITHUB_TOKEN is missing. Set it in .env or GitHub Secrets.")
-
-    if args.github_repo and args.pr_id:
-        adapter = GitHubAdapter(github_token)
-        inputs = adapter.fetch_pr_diff(args.github_repo, args.pr_id)
-        for input_text in inputs:
-            result = run_analysis(args.policy, input_text)
-            reporter = GitHubReporter(github_token)
-            reporter.comment_on_pr(args.github_repo, args.pr_id, result)
+    # --- provider selection (MVP) ---
+    if args.provider == "static":
+        provider = StaticProvider()
     else:
-        result = run_analysis(args.policy, args.input)
-        from ai_slop_gate.reporters.console import print_result
-        print_result(result)
+        raise ValueError(f"Unknown provider: {args.provider}")
+
+    provider_observation = provider.observe()
+    observations = provider_observation.observations
+
+    rules = load_policy_rules(args.policy)
+    decision = evaluate_policy(observations, rules)
+
+    print(f"\nDecision: {decision.mode.value.upper()}")
+    for reason in decision.reasons:
+        print(f"- {reason}")
+
+    if decision.mode == DecisionMode.BLOCKING:
+        sys.exit(1)
+
+    sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

@@ -44,4 +44,4 @@ python -m ai_slop_gate.cli --policy policy.yml --github-repo zaproxy/zaproxy --p
 ## 📄 License
 MIT License © 2025 Vira Udovychenko.
 
-See the LICENSE file for details.
+See the [MIT License](LICENSE) file for details.
