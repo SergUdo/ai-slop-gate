@@ -26,5 +26,5 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python -m ai_slop_gate.cli --policy policy.yml --github-repo ${{ github.repository }} --pr-id ${{ github.event.pull_request.number }}
+          run: python -m ai_slop_gate.cli --policy policy.yml
 
