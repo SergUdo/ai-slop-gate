@@ -9,7 +9,7 @@ def _get_pr_number() -> str | None:
     return None
 
 def publish_pr_comment(decision: Decision) -> None:
-    token = os.getenv("GITHUB_TOKEN")
+    token = os.getenv("AI_SLOP_GATE_TOKEN")
     repo = os.getenv("GITHUB_REPOSITORY")
     pr_number = _get_pr_number()
 

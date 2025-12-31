@@ -59,7 +59,7 @@ def main() -> None:
     for reason in decision.reasons:
         print(f"- {reason}")
 
-    if os.getenv("GITHUB_TOKEN") and os.getenv("GITHUB_REPOSITORY"):
+    if os.getenv("AI_SLOP_GATE_TOKEN") and os.getenv("GITHUB_REPOSITORY"):
         publish_pr_comment(decision)
 
     if decision.mode == DecisionMode.BLOCKING:
