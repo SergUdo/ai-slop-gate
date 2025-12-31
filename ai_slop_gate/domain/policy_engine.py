@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
-from .decision import Decision, DecisionMode
+from .decision import Decision, DecisionMode, Annotation
 from .observation import Observation
-
 
 @dataclass(frozen=True)
 class PolicyRule:
@@ -14,23 +13,16 @@ class PolicyRule:
     action: str          # "advisory" | "blocking"
     message: str
 
-
 def evaluate_policy(
     observations: List[Observation],
     rules: List[PolicyRule],
 ) -> Decision:
-    """
-    Stage 2.3 invariant:
-    - Policy evaluates ONLY structured observations
-    - Deterministic
-    - No provider / LLM knowledge
-    """
-
     reasons: list[str] = []
+    annotations: list[Annotation] = []
     mode = DecisionMode.ADVISORY
 
-    for rule in rules:
-        for obs in observations:
+    for obs in observations:
+        for rule in rules:
             if (
                 obs.category == rule.category
                 and obs.signal == rule.signal
@@ -38,7 +30,21 @@ def evaluate_policy(
             ):
                 reasons.append(rule.message)
 
+                if hasattr(obs, 'evidence') and obs.evidence and "file" in obs.evidence:
+                    annotations.append(
+                        Annotation(
+                            file=obs.evidence["file"],
+                            line=obs.evidence.get("line", 1),
+                            message=rule.message,
+                            level="error" if rule.action == "blocking" else "warning"
+                        )
+                    )
+
                 if rule.action == "blocking":
                     mode = DecisionMode.BLOCKING
 
-    return Decision(mode=mode, reasons=reasons)
+    return Decision(
+        mode=mode,
+        reasons=reasons,
+        annotations=annotations if annotations else None
+    )

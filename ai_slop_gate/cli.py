@@ -1,12 +1,22 @@
 import argparse
 import sys
 import yaml
+import os
+from dataclasses import dataclass
 
-# from ai_slop_gate.providers.static import StaticProvider
 from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.domain.policy_engine import PolicyRule, evaluate_policy
 from ai_slop_gate.domain.decision import DecisionMode
+from ai_slop_gate.github.pr_commenter import publish_pr_comment
 
+@dataclass(frozen=True)
+class PolicyRule:
+    id: str
+    category: str
+    signal: str
+    min_confidence: float
+    action: str
+    message: str
 
 def load_policy_rules(path: str) -> list[PolicyRule]:
     with open(path, "r") as f:
@@ -27,7 +37,6 @@ def load_policy_rules(path: str) -> list[PolicyRule]:
 
     return rules
 
-
 def main() -> None:
     parser = argparse.ArgumentParser("ai-slop-gate")
     parser.add_argument("--policy", required=True)
@@ -35,13 +44,12 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # --- provider selection (MVP) ---
     if args.provider == "static":
         provider = StaticPipelineProvider()
     else:
         raise ValueError(f"Unknown provider: {args.provider}")
 
-    provider_observation = provider.observe()
+    provider_observation = provider.collect()
     observations = provider_observation.observations
 
     rules = load_policy_rules(args.policy)
@@ -51,11 +59,13 @@ def main() -> None:
     for reason in decision.reasons:
         print(f"- {reason}")
 
+    if os.getenv("GITHUB_TOKEN") and os.getenv("GITHUB_REPOSITORY"):
+        publish_pr_comment(decision)
+
     if decision.mode == DecisionMode.BLOCKING:
         sys.exit(1)
 
     sys.exit(0)
-
 
 if __name__ == "__main__":
     main()

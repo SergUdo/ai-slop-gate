@@ -1,12 +1,17 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
-
+from typing import List, Optional
 
 class DecisionMode(str, Enum):
     ADVISORY = "advisory"
     BLOCKING = "blocking"
 
+@dataclass(frozen=True)
+class Annotation:
+    file: str
+    line: int
+    message: str
+    level: str  # "warning" or "error"
 
 @dataclass(frozen=True)
 class Decision:
@@ -16,12 +21,12 @@ class Decision:
     Stage 1 invariant:
     - Decision is derived ONLY from policy + observations
     """
-
     mode: DecisionMode
     reasons: List[str]
+    annotations: Optional[List[Annotation]] = None
+
 from .observation import Observation
 from .contracts import PolicyRule
-
 
 def evaluate_policy(
     observations: List[Observation],
@@ -38,19 +43,34 @@ def evaluate_policy(
     - No providers
     - No reporters
     """
-
     reasons: List[str] = []
+    annotations: List[Annotation] = []
     mode = DecisionMode.ADVISORY
 
-    for rule in rules:
-        for obs in observations:
-            if obs.code in rule.match:
+    for obs in observations:
+        for rule in rules:
+            if (
+                obs.category == rule.category
+                and obs.signal == rule.signal
+                and obs.confidence >= rule.min_confidence
+            ):
                 reasons.append(rule.message)
-                if rule.decision == DecisionMode.BLOCKING.value:
+
+                if obs.evidence and "file" in obs.evidence:
+                    annotations.append(
+                        Annotation(
+                            file=obs.evidence["file"],
+                            line=obs.evidence.get("line", 1),
+                            message=rule.message,
+                            level="error" if rule.decision == DecisionMode.BLOCKING else "warning"
+                        )
+                    )
+
+                if rule.decision == DecisionMode.BLOCKING:
                     mode = DecisionMode.BLOCKING
-                break
 
     return Decision(
         mode=mode,
         reasons=reasons,
+        annotations=annotations if annotations else None
     )
