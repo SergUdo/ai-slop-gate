@@ -1,0 +1,9 @@
+python -m scripts.test_groq_provider
+🚀 Sending request to Groq (llama-3.3-70b-versatile)...
+⏱️ Response received in 1.99 seconds.
+------------------------------
+1. [CODE_QUALITY] - Unclear TODO comment
+2. [TECHNICAL_DEBT] - Potential performance issue
+3. [CODE_QUALITY] - Lack of input validation
+4. [CODE_QUALITY] - Variable naming
+5. [CODE_QUALITY] - AI-generated code pattern
