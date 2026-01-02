@@ -1,3 +1,5 @@
+# python -m scripts.test_gemini_provider
+
 from ai_slop_gate.providers.gemini import GeminiProvider
 
 code = """

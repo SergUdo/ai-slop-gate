@@ -28,7 +28,8 @@ def evaluate_policy(
                 and obs.signal == rule.signal
                 and obs.confidence >= rule.min_confidence
             ):
-                reasons.append(rule.message)
+                reasons_set = set()
+                reasons_set.add(rule.message)
 
                 if hasattr(obs, 'evidence') and obs.evidence and "file" in obs.evidence:
                     annotations.append(
@@ -45,6 +46,6 @@ def evaluate_policy(
 
     return Decision(
         mode=mode,
-        reasons=reasons,
+        reasons=sorted(reasons_set),
         annotations=annotations if annotations else None
     )

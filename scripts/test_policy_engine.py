@@ -1,3 +1,5 @@
+# python -m scripts.test_est_policy_engine
+
 from ai_slop_gate.domain.observation import Observation
 from ai_slop_gate.domain.policy_engine import PolicyRule, evaluate_policy
 from ai_slop_gate.domain.decision import DecisionMode

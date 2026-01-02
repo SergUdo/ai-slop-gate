@@ -1,4 +1,5 @@
 import argparse
+from html import parser
 import sys
 import yaml
 import os
@@ -42,6 +43,14 @@ def main() -> None:
     parser.add_argument("--policy", required=True)
     parser.add_argument("--provider", default="static")
     parser.add_argument("--advisory-only", action="store_true")
+    parser.add_argument("--github-repo")
+    parser.add_argument("--pr-id", type=int)
+    parser.add_argument(
+        "--enforcement",
+        choices=["never", "blocking", "advisory"],
+        default="advisory",
+    )
+
 
     args = parser.parse_args()
 
@@ -56,6 +65,17 @@ def main() -> None:
     rules = load_policy_rules(args.policy)
     decision = evaluate_policy(observations, rules)
 
+    if args.github_repo and args.pr_id:
+        from ai_slop_gate.reporters.github import GitHubPRReporter
+    import os
+
+    reporter = GitHubPRReporter(
+        token=os.environ["GITHUB_TOKEN"],
+        repo=args.github_repo,
+        pr_id=args.pr_id,
+    )
+    reporter.post(decision)
+
     print(f"\nDecision: {decision.mode.value.upper()}")
     for reason in decision.reasons:
         print(f"- {reason}")
@@ -63,10 +83,11 @@ def main() -> None:
     if os.getenv("AI_SLOP_GATE_TOKEN") and os.getenv("GITHUB_REPOSITORY"):
         publish_pr_comment(decision)
 
-    if decision.mode == DecisionMode.BLOCKING and not args.advisory_only:
-        sys.exit(1)
-
-    sys.exit(0)
+    if decision.mode == DecisionMode.BLOCKING:
+        if args.enforcement == "blocking":
+            sys.exit(1)
+        else:
+            sys.exit(0)
 
 if __name__ == "__main__":
     main()
