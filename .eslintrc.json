@@ -1,0 +1,7 @@
+{
+  "extends": [
+    "./ai_slop_gate/rulesets/eslint/base.json",
+    "./ai_slop_gate/rulesets/eslint/secrets.json",
+    "./ai_slop_gate/rulesets/eslint/prod_safety.json"
+  ]
+}

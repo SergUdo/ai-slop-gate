@@ -1,4 +1,5 @@
 # python -m scripts.test_static_pipeline
+# python -m ai_slop_gate.cli --policy policy.yml
 
 from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.domain.policy_engine import evaluate_policy
