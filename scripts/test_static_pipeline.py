@@ -1,3 +1,5 @@
+# python -m scripts.test_static_pipeline
+
 from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.domain.policy_engine import evaluate_policy
 from ai_slop_gate.cli import load_policy_rules
