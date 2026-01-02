@@ -41,6 +41,7 @@ def main() -> None:
     parser = argparse.ArgumentParser("ai-slop-gate")
     parser.add_argument("--policy", required=True)
     parser.add_argument("--provider", default="static")
+    parser.add_argument("--advisory-only", action="store_true")
 
     args = parser.parse_args()
 
@@ -62,7 +63,7 @@ def main() -> None:
     if os.getenv("AI_SLOP_GATE_TOKEN") and os.getenv("GITHUB_REPOSITORY"):
         publish_pr_comment(decision)
 
-    if decision.mode == DecisionMode.BLOCKING:
+    if decision.mode == DecisionMode.BLOCKING and not args.advisory_only:
         sys.exit(1)
 
     sys.exit(0)
