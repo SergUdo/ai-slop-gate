@@ -1,14 +1,21 @@
 from dataclasses import dataclass
-from typing import Literal, Dict, Optional
+from typing import Any, Dict
+
 
 @dataclass(frozen=True)
 class Observation:
-    """
-    Stage 2.2 contract.
-    Structured observation from a provider.
-    """
-    category: Literal["quality", "style", "hallucination"]
-    signal: Literal["positive", "neutral", "negative"]
-    confidence: float        # 0.0 – 1.0
+    # Identity
+    rule_id: str
+
+    # Policy matching
+    category: str
+    signal: str
+    confidence: float
+
+    # Human-readable
+    severity: str
     message: str
-    evidence: Dict[str, Optional[int | str]]
+    location: str
+
+    # Context / proof
+    evidence: Dict[str, Any] | None = None

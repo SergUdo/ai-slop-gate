@@ -1,11 +1,9 @@
-# ai_slop_gate/providers/static_js.py
-
 import re
 from pathlib import Path
 from typing import List
 
-from ai_slop_gate.domain.observation import Observation
 from ai_slop_gate.providers.base import ProviderObservation
+from ai_slop_gate.domain.observation_factory import make_observation
 
 
 JS_EXTENSIONS = {".js", ".ts", ".jsx", ".tsx"}
@@ -33,23 +31,22 @@ REQUIRED_ENV = [
 
 class StaticJSProvider:
     def collect(self) -> ProviderObservation:
-        observations: List[Observation] = []
+        observations = []
         all_text = ""
 
         files = self._collect_js_files()
-        content_map = {}
 
         for file in files:
             text = file.read_text(errors="ignore")
-            content_map[file] = text
             all_text += text + "\n"
 
             for i, line in enumerate(text.splitlines(), start=1):
                 if SECRET_RE.search(line):
                     observations.append(
-                        Observation(
+                        make_observation(
+                            provider="static-js",
                             category="security",
-                            signal="negative",
+                            signal="hardcoded_secret",
                             confidence=0.95,
                             message="Hardcoded secret detected in JS code",
                             evidence={"file": str(file), "line": i},
@@ -58,35 +55,36 @@ class StaticJSProvider:
 
                 if INSECURE_DEFAULTS_RE.search(line):
                     observations.append(
-                        Observation(
+                        make_observation(
+                            provider="static-js",
                             category="security",
-                            signal="negative",
+                            signal="insecure_default",
                             confidence=0.9,
                             message="Insecure default configuration detected",
                             evidence={"file": str(file), "line": i},
                         )
                     )
 
-        # Missing required envs
         for env in REQUIRED_ENV:
             if env not in all_text:
                 observations.append(
-                    Observation(
+                    make_observation(
+                        provider="static-js",
                         category="security",
-                        signal="negative",
+                        signal="missing_required",
                         confidence=1.0,
                         message=f"Missing required config: {env}",
                         evidence={"file": None, "line": None},
                     )
                 )
 
-        # Dev config in prod
         if "process.env.NODE_ENV" in all_text and '"production"' in all_text:
             if "debug" in all_text or "console.log" in all_text:
                 observations.append(
-                    Observation(
+                    make_observation(
+                        provider="static-js",
                         category="security",
-                        signal="negative",
+                        signal="dev_in_prod",
                         confidence=1.0,
                         message="Development config detected in production code",
                         evidence={"file": None, "line": None},

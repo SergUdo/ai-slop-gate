@@ -8,6 +8,7 @@ __pycache__/
 .venv/
 venv/
 ENV/
+env/
 
 # Distribution / packaging
 *.egg-info/
@@ -30,7 +31,6 @@ Thumbs.db
 *.sqlite
 *.db
 
-# Coverage and tests
-.coverage
-htmlcov/
-*.pyc
+# Node.js
+node_modules/
+package-lock.json

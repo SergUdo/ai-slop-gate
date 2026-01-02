@@ -1,6 +1,8 @@
 from typing import List
-from ai_slop_gate.providers.base import Provider, ProviderObservation
-from ai_slop_gate.domain.observation import Observation
+
+from ai_slop_gate.providers.base import ProviderObservation
+from ai_slop_gate.domain.observation_factory import make_observation
+
 
 class StaticProvider:
     def __init__(self, findings: list[str] | None = None):
@@ -8,12 +10,13 @@ class StaticProvider:
 
     def observe(self) -> ProviderObservation:
         observations = [
-            Observation(
+            make_observation(
+                provider="static",
                 category="quality",
-                signal="negative", 
+                signal="negative",
                 confidence=0.9,
                 message=msg,
-                evidence={}
+                evidence={},
             )
             for msg in self.findings
         ]
@@ -22,7 +25,7 @@ class StaticProvider:
             provider="static",
             model="static",
             observations=observations,
-            raw_text=""
+            raw_text="",
         )
 
     def collect(self) -> ProviderObservation:
@@ -31,12 +34,13 @@ class StaticProvider:
             model="static-fixture",
             raw_text="static test data",
             observations=[
-                Observation(
+                make_observation(
+                    provider="static",
                     category="quality",
                     signal="negative",
                     confidence=0.9,
                     message="TODO found",
-                    evidence={"file": "example.js", "line": 1}
+                    evidence={"file": "example.js", "line": 1},
                 )
-            ]
+            ],
         )
