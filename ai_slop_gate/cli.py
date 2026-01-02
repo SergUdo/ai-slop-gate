@@ -40,8 +40,16 @@ def main() -> None:
         choices=["never", "blocking", "advisory"],
         default="advisory",
     )
+    parser.add_argument(
+        "--advisory-only",
+        action="store_true",
+        help="DEPRECATED: use --enforcement advisory",
+    )
 
     args = parser.parse_args()
+
+    if args.advisory_only:
+        args.enforcement = "advisory"
 
     # Provider
     if args.provider == "static":
