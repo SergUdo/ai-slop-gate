@@ -1,10 +1,21 @@
 from dataclasses import dataclass
-from typing import Literal, Dict, Optional
+from typing import Any, Dict
+
 
 @dataclass(frozen=True)
 class Observation:
+    # Identity
+    rule_id: str
+
+    # Policy matching
     category: str
     signal: str
+    confidence: float
+
+    # Human-readable
+    severity: str
     message: str
-    confidence: float = 1.0
-    source: Optional[str] = None
+    location: str
+
+    # Context / proof
+    evidence: Dict[str, Any] | None = None

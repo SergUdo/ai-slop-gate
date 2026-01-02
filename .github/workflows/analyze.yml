@@ -1,5 +1,4 @@
-# .github/workflows/analyze.yml
-name: Analyze PR with ai-slop-gate
+name: Analyze PR with ESLint and ai-slop-gate
 
 on:
   pull_request:
@@ -9,21 +8,37 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      # --- Setup Node.js environment for ESLint ---
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        # This will only fail on actual errors, not warnings
+        run: npm run lint
+
+      # --- Setup Python environment for ai-slop-gate ---
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -e .
 
-      - name: Run analysis
+      - name: Run ai-slop-gate analysis
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AI_SLOP_GATE_TOKEN: ${{ secrets.AI_SLOP_GATE_TOKEN }}
         run: python -m ai_slop_gate.cli --policy policy.yml --advisory-only --enforcement advisory
-
