@@ -1,23 +1,13 @@
 import argparse
-from html import parser
 import sys
 import yaml
 import os
-from dataclasses import dataclass
 
 from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
-from ai_slop_gate.domain.policy_engine import PolicyRule, evaluate_policy
+from ai_slop_gate.domain.policy_engine import evaluate_policy, PolicyRule
 from ai_slop_gate.domain.decision import DecisionMode
-from ai_slop_gate.github.pr_commenter import publish_pr_comment
+from ai_slop_gate.reporters.github import GitHubPRReporter
 
-@dataclass(frozen=True)
-class PolicyRule:
-    id: str
-    category: str
-    signal: str
-    min_confidence: float
-    action: str
-    message: str
 
 def load_policy_rules(path: str) -> list[PolicyRule]:
     with open(path, "r") as f:
@@ -38,11 +28,11 @@ def load_policy_rules(path: str) -> list[PolicyRule]:
 
     return rules
 
+
 def main() -> None:
     parser = argparse.ArgumentParser("ai-slop-gate")
     parser.add_argument("--policy", required=True)
     parser.add_argument("--provider", default="static")
-    parser.add_argument("--advisory-only", action="store_true")
     parser.add_argument("--github-repo")
     parser.add_argument("--pr-id", type=int)
     parser.add_argument(
@@ -51,9 +41,9 @@ def main() -> None:
         default="advisory",
     )
 
-
     args = parser.parse_args()
 
+    # Provider
     if args.provider == "static":
         provider = StaticPipelineProvider()
     else:
@@ -62,32 +52,32 @@ def main() -> None:
     provider_observation = provider.collect()
     observations = provider_observation.observations
 
+    # Policy
     rules = load_policy_rules(args.policy)
     decision = evaluate_policy(observations, rules)
 
+    # Reporter (optional, but SAFE)
+    reporter = None
     if args.github_repo and args.pr_id:
-        from ai_slop_gate.reporters.github import GitHubPRReporter
-    import os
+        reporter = GitHubPRReporter(
+            token=os.environ["GITHUB_TOKEN"],
+            repo=args.github_repo,
+            pr_id=args.pr_id,
+        )
+        reporter.post(decision)
 
-    reporter = GitHubPRReporter(
-        token=os.environ["GITHUB_TOKEN"],
-        repo=args.github_repo,
-        pr_id=args.pr_id,
-    )
-    reporter.post(decision)
-
+    # Console output
     print(f"\nDecision: {decision.mode.value.upper()}")
     for reason in decision.reasons:
         print(f"- {reason}")
 
-    if os.getenv("AI_SLOP_GATE_TOKEN") and os.getenv("GITHUB_REPOSITORY"):
-        publish_pr_comment(decision)
-
+    # Enforcement
     if decision.mode == DecisionMode.BLOCKING:
         if args.enforcement == "blocking":
             sys.exit(1)
-        else:
-            sys.exit(0)
+
+    sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
