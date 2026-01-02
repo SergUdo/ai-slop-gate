@@ -16,10 +16,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          # Cache removed because package-lock.json is gitignored
 
       - name: Install JS dependencies
-        run: npm ci
+        # Using 'npm install' as 'npm ci' requires a lockfile
+        run: npm install
 
       - name: Run ESLint
         # This will only fail on actual errors, not warnings
