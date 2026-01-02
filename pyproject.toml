@@ -5,3 +5,7 @@ dependencies = ["pyyaml"]
 
 [project.scripts]
 ai-slop-gate = "ai_slop_gate.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["ai_slop_gate*"]
+exclude = ["node_modules*", "tests*", "docs*"]
