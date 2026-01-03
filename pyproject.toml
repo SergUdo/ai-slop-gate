@@ -1,7 +1,11 @@
 [project]
 name = "ai-slop-gate"
 version = "0.1.0"
-dependencies = ["pyyaml", "requests"]
+dependencies = [
+    "pyyaml",
+    "requests",
+    "PyGithub"
+    ]
 
 [project.scripts]
 ai-slop-gate = "ai_slop_gate.cli:main"

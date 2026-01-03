@@ -1,41 +1,57 @@
-from github import Github
-from ai_slop_gate.reporters.base import CheckReporter
-from ai_slop_gate.domain.checks import CheckReport, CheckStatus
+import logging
+import os
+from ai_slop_gate.reporters.base import Reporter
+from ai_slop_gate.domain.checks import CheckReport
 
+logger = logging.getLogger(__name__)
 
-class GitHubChecksReporter(CheckReporter):
+class GitHubChecksReporter(Reporter):
     def __init__(self, token: str, repo: str, sha: str):
+        try:
+            from github import Github
+        except ImportError:
+            raise RuntimeError("GitHubChecksReporter requires PyGithub. Run: pip install PyGithub")
+            
         self.client = Github(token)
         self.repo = self.client.get_repo(repo)
         self.sha = sha
 
     def report(self, report: CheckReport) -> None:
-        conclusion = {
-            CheckStatus.PASS: "success",
-            CheckStatus.ADVISORY: "neutral",
-            CheckStatus.FAIL: "failure",
-        }[report.status]
+        """
+        Creates a GitHub Check Run with annotations.
+        """
+        # Convert CheckStatus to GitHub conclusion strings
+        conclusion = "success"
+        if report.status.value == "fail":
+            conclusion = "failure"
+        elif report.status.value == "advisory":
+            conclusion = "neutral"
 
-        annotations = []
-        for ann in report.annotations or []:
-            annotations.append(
-                {
+        output = {
+            "title": report.title,
+            "summary": report.summary,
+            "annotations": []
+        }
+
+        if report.annotations:
+            for ann in report.annotations:
+                output["annotations"].append({
                     "path": ann.file,
                     "start_line": ann.line,
                     "end_line": ann.line,
-                    "annotation_level": ann.level,
+                    "annotation_level": ann.level, # 'failure' or 'warning'
                     "message": ann.message,
-                }
-            )
+                })
 
-        self.repo.create_check_run(
-            name="AI Slop Gate",
-            head_sha=self.sha,
-            status="completed",
-            conclusion=conclusion,
-            output={
-                "title": report.title,
-                "summary": report.summary,
-                "annotations": annotations[:50],  # GitHub hard limit
-            },
-        )
+        try:
+            # Create the check run on GitHub
+            self.repo.create_check_run(
+                name=report.title,
+                head_sha=self.sha,
+                status="completed",
+                conclusion=conclusion,
+                output=output
+            )
+            logger.info(f"GitHub Check Run created: {report.status}")
+        except Exception as e:
+            logger.error(f"Failed to create GitHub Check Run: {e}")
