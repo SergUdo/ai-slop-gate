@@ -43,3 +43,15 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AI_SLOP_GATE_TOKEN: ${{ secrets.AI_SLOP_GATE_TOKEN }}
         run: python -m ai_slop_gate.cli --policy policy.yml --enforcement advisory
+
+      # --- Run ai-slop-gate as GitHub Action ---
+      - name: AI Slop Gate
+        run: |
+          python -m ai_slop_gate.cli \
+            --policy policy.yml \
+            --enforcement advisory \
+            --github-checks \
+            --github-repo ${{ github.repository }} \
+            --github-sha ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
