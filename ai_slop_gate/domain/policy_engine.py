@@ -47,5 +47,5 @@ def evaluate_policy(
     return Decision(
         mode=mode,
         reasons=sorted(reasons_set),
-        annotations=annotations if annotations else None
+        annotations=annotations if annotations is not None else []
     )
