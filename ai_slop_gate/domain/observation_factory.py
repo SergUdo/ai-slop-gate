@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from ai_slop_gate.domain.observation import Observation
+from ai_slop_gate.domain.observation import Observation, Location
 
 
 def make_observation(
@@ -43,9 +43,11 @@ def make_observation(
         rule_id=rule_id,
         category=category,
         signal=signal,
-        confidence=confidence,
-        severity=resolved_severity,
         message=message,
-        location=location,
-        evidence=evidence,
+        severity=severity,
+        confidence=confidence,
+        location=Location(
+            file=evidence.get("file"),
+            line=evidence.get("line"),
+        ) if evidence else None,
     )

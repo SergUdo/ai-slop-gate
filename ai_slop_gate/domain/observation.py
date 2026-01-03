@@ -1,21 +1,26 @@
 from dataclasses import dataclass
-from typing import Any, Dict
+from enum import Enum
+from typing import Optional
+
+
+class Severity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+@dataclass(frozen=True)
+class Location:
+    file: str
+    line: Optional[int] = None
 
 
 @dataclass(frozen=True)
 class Observation:
-    # Identity
     rule_id: str
-
-    # Policy matching
     category: str
     signal: str
-    confidence: float
-
-    # Human-readable
-    severity: str
     message: str
-    location: str
-
-    # Context / proof
-    evidence: Dict[str, Any] | None = None
+    severity: Severity
+    confidence: float
+    location: Optional[Location] = None
