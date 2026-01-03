@@ -1,3 +1,4 @@
+# ai_slop_gate/cli.py
 import argparse
 import sys
 import yaml
@@ -6,7 +7,8 @@ import os
 from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.domain.policy_engine import evaluate_policy, PolicyRule
 from ai_slop_gate.domain.decision import DecisionMode
-from ai_slop_gate.reporters.github import GitHubPRReporter
+from ai_slop_gate.reporters.github_pr import GitHubPRReporter
+
 
 
 def load_policy_rules(path: str) -> list[PolicyRule]:
@@ -40,18 +42,10 @@ def main() -> None:
         choices=["never", "blocking", "advisory"],
         default="advisory",
     )
-    parser.add_argument(
-        "--advisory-only",
-        action="store_true",
-        help="DEPRECATED: use --enforcement advisory",
-    )
 
     args = parser.parse_args()
 
-    if args.advisory_only:
-        args.enforcement = "advisory"
-
-    # Provider
+    # --- Provider
     if args.provider == "static":
         provider = StaticPipelineProvider()
     else:
@@ -60,29 +54,27 @@ def main() -> None:
     provider_observation = provider.collect()
     observations = provider_observation.observations
 
-    # Policy
+    # --- Policy
     rules = load_policy_rules(args.policy)
     decision = evaluate_policy(observations, rules)
 
-    # Reporter (optional, but SAFE)
-    reporter = None
+    # --- Reporter (safe side-effect)
     if args.github_repo and args.pr_id:
         reporter = GitHubPRReporter(
             token=os.environ["GITHUB_TOKEN"],
             repo=args.github_repo,
-            pr_id=args.pr_id,
+            pr_number=args.pr_id,
         )
-        reporter.post(decision)
+        reporter.report(decision, observations)
 
-    # Console output
+    # --- Console output
     print(f"\nDecision: {decision.mode.value.upper()}")
     for reason in decision.reasons:
         print(f"- {reason}")
 
-    # Enforcement
-    if decision.mode == DecisionMode.BLOCKING:
-        if args.enforcement == "blocking":
-            sys.exit(1)
+    # --- Enforcement
+    if decision.mode == DecisionMode.BLOCKING and args.enforcement == "blocking":
+        sys.exit(1)
 
     sys.exit(0)
 
