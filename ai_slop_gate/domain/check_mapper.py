@@ -7,7 +7,8 @@ from ai_slop_gate.domain.checks import (
 
 def decision_to_check(decision: Decision) -> CheckReport:
     """
-    Maps a Policy Decision to a GitHub-compatible CheckReport with Suggestions support.
+    Maps a Policy Decision to a GitHub-compatible CheckReport.
+    Handles potential None values for annotations safely.
     """
     if decision.mode == DecisionMode.BLOCKING:
         status = CheckStatus.FAIL
@@ -27,13 +28,17 @@ def decision_to_check(decision: Decision) -> CheckReport:
     )
 
     annotations = []
+    # FIX: Explicitly check if annotations is not None before iterating
     decision_annotations = getattr(decision, "annotations", [])
     
+    # If the attribute exists but is None, reset it to an empty list
+    if decision_annotations is None:
+        decision_annotations = []
+    
     for a in decision_annotations:
-        # Building the message with a GitHub Suggestion block if suggested_code exists
         msg = a.message
         
-        # Check if the annotation has a 'suggested_code' attribute
+        # Safely check for suggested_code
         suggested_code = getattr(a, "suggested_code", None)
         if suggested_code:
             msg += f"\n\n```suggestion\n{suggested_code}\n```"
