@@ -1,4 +1,4 @@
-# python -m scripts.verify_stage_6
+ # python -m scripts.verify_stage_6
 
 
 from ai_slop_gate.providers.terraform_static import TerraformStaticProvider

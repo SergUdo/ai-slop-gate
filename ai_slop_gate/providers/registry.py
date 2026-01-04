@@ -1,5 +1,6 @@
 from ai_slop_gate.providers.terraform_static import TerraformStaticProvider
 from ai_slop_gate.providers.k8s_static import KubernetesStaticProvider
+from ai_slop_gate.providers.terraform_plan import TerraformPlanProvider
 
 
 class ProviderRegistry:
@@ -8,6 +9,7 @@ class ProviderRegistry:
 
     def register_defaults(self):
         self.register(TerraformStaticProvider())
+        self.register(TerraformPlanProvider())
         self.register(KubernetesStaticProvider())
 
     def register(self, provider):
