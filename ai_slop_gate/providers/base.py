@@ -22,3 +22,17 @@ class Provider(ABC):
     @abstractmethod
     def collect(self) -> ProviderObservation:
         raise NotImplementedError
+    
+class BaseProvider:
+    name: str
+    kind: str  # scm | infra | llm
+
+    def analyze(self, input_data):
+        raise NotImplementedError
+
+    def cache_key(self, input_data):
+        return None
+
+    def rate_limit_key(self):
+        return self.name
+

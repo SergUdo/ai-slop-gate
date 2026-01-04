@@ -10,3 +10,7 @@ class Reporter(ABC):
         :param report: The unified domain object containing check results.
         """
         pass
+
+class BaseReporter:
+    def report(self, report):
+        raise NotImplementedError
