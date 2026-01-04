@@ -105,3 +105,39 @@ rules:
     then:
       action: advisory
       message: "Remove TODOs before merge"
+  
+  - id: TF_PUBLIC_ACCESS
+    when:
+      category: TERRAFORM
+      signal: INSECURE_CONFIG
+      min_confidence: 0.95
+    then:
+      action: BLOCKING
+      message: "Terraform plan exposes resource to public access (0.0.0.0/0)"
+
+  - id: TF_MISSING_TAGS
+    when:
+      category: TERRAFORM
+      signal: MISSING_TAGS
+      min_confidence: 0.8
+    then:
+      action: ADVISORY
+      message: "Terraform resource is missing mandatory tags"
+
+  - id: TF_HARDCODED_ID
+    when:
+      category: TERRAFORM
+      signal: HARDCODED_VALUE
+      min_confidence: 0.85
+    then:
+      action: ADVISORY
+      message: "Terraform plan contains hardcoded identifiers — consider variables"
+
+  - id: TF_ANY_WARNING
+    when:
+      category: TERRAFORM
+      signal: "*"
+      min_confidence: 0.7
+    then:
+      action: ADVISORY
+      message: "Terraform plan contains potential issues"
