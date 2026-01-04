@@ -9,6 +9,10 @@ from ai_slop_gate.domain.decision import DecisionMode
 from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.domain.check_mapper import decision_to_check
 from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
+from ai_slop_gate.providers.registry import ProviderRegistry
+from ai_slop_gate.cache.file_backend import FileCacheBackend
+from ai_slop_gate.providers.cached_provider import CachedProvider
+
 
 def load_policy_rules(path: str) -> list[PolicyRule]:
     with open(path, "r") as f:
