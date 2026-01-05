@@ -16,6 +16,10 @@ build/
 dist/
 *.egg
 
+# Local cache for ai-slop-gate
+tmp-cache/
+.ai-slop-cache/
+
 # IDE
 .vscode/
 .idea/
