@@ -3,105 +3,146 @@ import argparse
 import sys
 import yaml
 from pathlib import Path
+from typing import Optional, Union
 
 from ai_slop_gate.cli.logger import logger
 from ai_slop_gate.cli.init import run_init
-from ai_slop_gate.domain.policy_engine import evaluate_policy, PolicyRule
+from ai_slop_gate.cli.utils import load_policy_rules
+
+from ai_slop_gate.domain.policy_engine import evaluate_policy
 from ai_slop_gate.domain.decision import DecisionMode
 from ai_slop_gate.domain.check_mapper import decision_to_check
+
 from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
+
 from ai_slop_gate.providers.registry import provider_registry
 from ai_slop_gate.providers.cached_provider import CachedProvider
+
 from ai_slop_gate.cache.file_backend import FileCacheBackend
-from ai_slop_gate.cli.utils import load_policy_rules
+
 
 CONFIG_FILE = ".ai-slop-gate.yml"
 
 
-def load_policy_rules(path: str) -> list[PolicyRule]:
-    """Load policy rules from a YAML file."""
-    with open(path, "r") as f:
-        raw = yaml.safe_load(f)
-
-    rules = []
-    for rule in raw.get("rules", []):
-        rules.append(
-            PolicyRule(
-                id=rule["id"],
-                category=rule["when"]["category"],
-                signal=rule["when"]["signal"],
-                min_confidence=rule["when"].get("min_confidence", 0.0),
-                action=rule["then"]["action"],
-                message=rule["then"]["message"],
-            )
-        )
-    return rules
+def normalize_path(value: Optional[Union[str, list]]) -> Optional[str]:
+    """
+    argparse / CI / shell may pass arguments as list[str]
+    Normalize to single string path.
+    """
+    if value is None:
+        return None
+    if isinstance(value, list):
+        if not value:
+            return None
+        return value[0]
+    return value
 
 
-def get_provider_with_cache(provider_name: str):
-    """Return provider wrapped with cache if applicable."""
+def get_provider_with_cache(provider_name: str, *, k8s_manifests=None):
+    """
+    Instantiate provider and wrap it with cache.
+    Handles providers with constructor arguments (e.g. k8s-runtime).
+    """
     provider_cls = provider_registry.get(provider_name)
-    if isinstance(provider_cls, type):
-        provider = provider_cls()
-    else:
-        provider = provider_cls
 
+    # --- provider instantiation
+    if provider_name == "k8s-runtime":
+        if not k8s_manifests:
+            raise ValueError("k8s-runtime provider requires --k8s-manifests")
+        provider = provider_cls(k8s_manifests)
+    else:
+        provider = provider_cls()
+
+    # --- cache wrapper
     cache_backend = FileCacheBackend()
-    cached_provider = CachedProvider(provider, cache=cache_backend)
-    return cached_provider
+    return CachedProvider(provider, cache=cache_backend)
+
+
+def normalize_observations(result):
+    """
+    Providers may return:
+    - ProviderObservation(observations=[...])
+    - list[Observation] (cached)
+    """
+    if result is None:
+        return []
+
+    if hasattr(result, "observations"):
+        return list(result.observations)
+
+    if isinstance(result, list):
+        return result
+
+    raise TypeError(f"Unsupported provider result type: {type(result)}")
 
 
 def run_analysis(args):
-    """Run analysis for a given provider and policy."""
     try:
-        provider = get_provider_with_cache(args.provider)
         logger.info(f"Running provider: {args.provider}")
 
-        # Collect observations
-        provider_observation = provider.collect()
-        if hasattr(provider_observation, "observations"):
-            observations = provider_observation.observations
-        else:
-            observations = provider_observation  # fallback for cached lists
+        # --- Normalize k8s-manifests argument
+        k8s_manifests_arg = normalize_path(args.k8s_manifests)
 
-        # K8s manifests (optional)
-        if args.k8s_manifests and args.provider != "k8s-runtime":
-            with open(args.k8s_manifests, "r") as f:
-                import yaml
+        # --- Load K8s manifests early if provided
+        manifests = None
+        if k8s_manifests_arg:
+            path = Path(k8s_manifests_arg)
+            if not path.exists():
+                raise FileNotFoundError(f"K8s manifests not found: {path}")
 
+            with path.open("r") as f:
                 manifests = list(yaml.safe_load_all(f))
+
+        # --- Main provider
+        provider = get_provider_with_cache(
+            args.provider,
+            k8s_manifests=manifests if args.provider == "k8s-runtime" else None,
+        )
+
+        primary_result = provider.collect()
+        observations = normalize_observations(primary_result)
+
+        # --- Optional k8s-runtime enrichment
+        if manifests and args.provider != "k8s-runtime":
             k8s_provider_cls = provider_registry.get("k8s-runtime")
             k8s_provider = k8s_provider_cls(manifests)
             k8s_result = k8s_provider.collect()
-            observations.extend(k8s_result.observations)
+            observations.extend(normalize_observations(k8s_result))
 
-        # Load rules & evaluate
+        # --- Load policy rules
         rules = load_policy_rules(args.policy)
+
+        # --- Evaluate policy
         decision = evaluate_policy(observations, rules)
 
-        # Map decision -> checks
+        # --- Map decision to check report
         check_report = decision_to_check(decision)
 
-        # GitHub reporting
-        github_token = args.github_token if hasattr(args, "github_token") else None
+        # --- GitHub reporting
+        github_token = getattr(args, "github_token", None)
+
         if github_token and args.github_repo:
             if args.github_checks and args.github_sha:
                 GitHubChecksReporter(
-                    token=github_token, repo=args.github_repo, sha=args.github_sha
+                    token=github_token,
+                    repo=args.github_repo,
+                    sha=args.github_sha,
                 ).report(check_report)
 
             if args.pr_id:
                 GitHubPRReporter(
-                    token=github_token, repo_name=args.github_repo, pr_number=args.pr_id
+                    token=github_token,
+                    repo_name=args.github_repo,
+                    pr_number=args.pr_id,
                 ).report(check_report)
 
-        # Console output
+        # --- Console output
         logger.info(f"Decision: {decision.mode.value.upper()}")
         for reason in decision.reasons:
             logger.info(f"- {reason}")
 
-        # Exit codes for blocking
+        # --- Exit code handling
         if decision.mode == DecisionMode.BLOCKING and args.enforcement == "blocking":
             sys.exit(1)
 
@@ -128,7 +169,11 @@ def main():
     run_parser.add_argument("--github-checks", action="store_true")
     run_parser.add_argument("--github-repo")
     run_parser.add_argument("--github-sha")
-    run_parser.add_argument("--enforcement", choices=["never", "blocking", "advisory"], default="advisory")
+    run_parser.add_argument(
+        "--enforcement",
+        choices=["never", "blocking", "advisory"],
+        default="advisory",
+    )
     run_parser.add_argument("--k8s-manifests", help="Path to Kubernetes YAML manifests")
 
     args = parser.parse_args()
