@@ -162,8 +162,22 @@ if you have `.ai-slop-gate.yml`  Use `--force` to overwrite
 To run the analysis manually from your terminal, use the following command:
 
 ```
-python -m ai_slop_gate.cli run --provider groq --policy policy.yml
+python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
 ```
+
+Optional arguments:
+
+ - `k8s-manifests <path>` – path to Kubernetes YAML manifests
+
+ - `github-checks` – report results as GitHub Checks
+
+ - `github-repo <repo>` – repository name for GitHub reporting
+
+ - `github-sha <sha>` – commit SHA for GitHub Checks
+
+ - `pr-id <number>` – GitHub PR number to comment results
+
+ - `enforcement <never|blocking|advisory>` – enforcement level (default: advisory)
 
 ### Run
 

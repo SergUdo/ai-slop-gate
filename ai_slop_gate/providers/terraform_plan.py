@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from ai_slop_gate.domain.observation import Observation
+from ai_slop_gate.domain.observation_result import ObservationResult
 from ai_slop_gate.domain.signals import Signal
 
 
@@ -44,4 +45,4 @@ class TerraformPlanProvider:
                         )
                     )
 
-        return observations
+        return ObservationResult(observations)

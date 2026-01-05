@@ -11,22 +11,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --- Setup Node.js environment for ESLint ---
+      # --- Setup Node.js for ESLint ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # Cache removed because package-lock.json is gitignored
 
       - name: Install JS dependencies
-        # Using 'npm install' as 'npm ci' requires a lockfile
         run: npm install
 
       - name: Run ESLint
-        # This will only fail on actual errors, not warnings
         run: npm run lint
 
-      # --- Setup Python environment for ai-slop-gate ---
+      # --- Setup Python for ai-slop-gate ---
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -38,20 +35,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
-      - name: Run ai-slop-gate analysis
+      # --- Run ai-slop-gate analysis with GitHub Checks ---
+      - name: Run ai-slop-gate
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AI_SLOP_GATE_TOKEN: ${{ secrets.AI_SLOP_GATE_TOKEN }}
-        run: python -m ai_slop_gate.cli --policy policy.yml --enforcement advisory
-
-      # --- Run ai-slop-gate as GitHub Action ---
-      - name: AI Slop Gate
         run: |
-          python -m ai_slop_gate.cli \
+          python -m ai_slop_gate.cli.main run \
+            --provider static \
             --policy policy.yml \
             --enforcement advisory \
             --github-checks \
             --github-repo ${{ github.repository }} \
             --github-sha ${{ github.sha }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
