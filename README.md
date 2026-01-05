@@ -156,6 +156,7 @@ Create your `.ai-slop-gate.yml` in seconds:
 ```
 python -m ai_slop_gate.cli init
 ```
+if you have `.ai-slop-gate.yml`  Use `--force` to overwrite
 
 ### 3. Local Usage
 To run the analysis manually from your terminal, use the following command:

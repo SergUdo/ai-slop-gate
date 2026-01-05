@@ -1,4 +1,5 @@
-# ./scripts/verify_stage_5.sh
+# chmod +x scripts/verify_init.sh
+# ./scripts/verify_init.sh
 
 set -e
 
