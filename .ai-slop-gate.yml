@@ -1,0 +1,9 @@
+version: 1
+mode: advisory
+providers:
+- static
+- llm
+reporters:
+- stdout
+policy:
+  ruleset: default

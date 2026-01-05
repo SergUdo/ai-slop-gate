@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-app
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: app
+          image: nginx
+          securityContext:
+            runAsUser: 0
+            privileged: true

@@ -141,3 +141,20 @@ rules:
     then:
       action: ADVISORY
       message: "Terraform plan contains potential issues"
+
+  - id: k8s-no-root
+    when:
+      category: security
+      signal: RUN_AS_ROOT
+    then:
+      action: blocking
+      message: "Kubernetes container must not run as root"
+
+  - id: k8s-no-privileged
+    when:
+      category: security
+      signal: PRIVILEGED_CONTAINER
+    then:
+      action: blocking
+      message: "Privileged containers are forbidden"
+
