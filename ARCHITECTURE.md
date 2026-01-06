@@ -1,5 +1,7 @@
 # ai-slop-gate — Stage 1 (canonical state)
 
+!!All architectural decisions are defined in ai_slop_gate_snapshot.json
+
 ## Project structure
 
 ~~~

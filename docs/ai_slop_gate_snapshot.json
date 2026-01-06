@@ -1,0 +1,108 @@
+{
+  "project": {
+    "name": "ai_slop_gate",
+    "goal": "Deterministic, cacheable analysis pipeline for code, infra and AI-based evaluations",
+    "owner": "single developer",
+    "main_risk": "loss of architectural invariants across iterations and chat sessions"
+  },
+ 
+  "global_principles": [
+    "Explicit contracts over implicit behavior",
+    "Minimal responsibility per component",
+    "Determinism > convenience",
+    "No hidden coupling between run, init, policy and providers",
+    "Caching must be transparent and reproducible"
+  ],
+ 
+  "architecture_invariants": {
+    "separation_of_concerns": {
+      "init": "prepares environment only (dirs, cache, config)",
+      "policy": "immutable input, pure data",
+      "run": "orchestration only, no init, no policy loading",
+      "provider": "black box execution unit",
+      "cache": "storage only, no logic",
+      "cached_provider": "transparent cache wrapper only"
+    }
+  },
+ 
+  "cached_provider_contract": {
+    "version": "v2",
+    "responsibility": "cache results of provider method calls",
+    "supported_methods": ["collect", "analyze"],
+    "does_not_know_about": [
+      "policy loading",
+      "run",
+      "init",
+      "cli",
+      "stages",
+      "fixtures"
+    ],
+    "cache_key": {
+      "inputs": [
+        "provider_class_name",
+        "method_name",
+        "args",
+        "kwargs"
+      ],
+      "normalization": "json.dumps(sort_keys=True, default=str)",
+      "hash": "sha256"
+    },
+    "rules": [
+      "No business logic",
+      "No decision which method to call",
+      "No transformation of results",
+      "Provider treated as black box"
+    ]
+  },
+ 
+  "providers": {
+    "types": [
+      "static",
+      "k8s_runtime",
+      "ai (LLM-based)"
+    ],
+    "common_rule": "Provider may implement collect() or analyze() or both"
+  },
+ 
+  "pipeline_execution": {
+    "decision_logic": "Outside CachedProvider",
+    "rule": "If provider has analyze() -> use analyze, else collect",
+    "cached_layer": "Wraps provider transparently"
+  },
+ 
+  "project_stage_status": {
+    "6.1": {
+      "name": "CachedProvider smoke test",
+      "status": "contract defined, needs simple smoke test only"
+    },
+    "6.3.2": {
+      "name": "run/init/policy normalization",
+      "status": "identified as problematic, not yet refactored"
+    }
+  },
+ 
+  "explicit_non_goals": [
+    "Do not redesign CLI now",
+    "Do not add new abstractions",
+    "Do not mix init and run",
+    "Do not add magic behavior"
+  ],
+ 
+  "known_problems": [
+    "run() previously mixed orchestration, init and policy logic",
+    "loss of context between chat sessions caused architectural drift",
+    "CachedProvider v1 cached only collect(), not analyze()"
+  ],
+ 
+  "next_allowed_steps": [
+    "Implement CachedProvider v2 exactly as per contract",
+    "Add minimal smoke test proving cache hit",
+    "Refactor run() strictly after CachedProvider is stable"
+  ],
+ 
+  "how_to_resume_in_new_chat": {
+    "instruction": "Paste this JSON and say: 'Continue from ai_slop_gate snapshot v1'",
+    "expectation": "Assistant must respect all contracts and invariants defined here",
+    "warning": "Any suggestion violating this snapshot must be rejected"
+  }
+}

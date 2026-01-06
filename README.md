@@ -193,6 +193,19 @@ python src/cli.py --policy policy.yaml --mode advisory
 * **`-policy`**: Path to your YAML configuration file (e.g., `policy.yml`).
 * **`-provider`**: AI engine to use (groq, gemini, openrouter, or copilot).
 
+### Running Tests
+
+To run all tests with verbose output:
+
+```bash
+# From the project root
+python -m pytest ai_slop_gate/tests -v
+
+# or if using virtual environment
+source .venv/bin/activate
+python -m pytest ai_slop_gate/tests -v
+```
+
 ### GitHub Actions Integration
 
 When running in a CI/CD pipeline, you must add these variables to your **GitHub Repository Secrets**:
