@@ -1,34 +1,16 @@
 from pathlib import Path
 import yaml
-from ai_slop_gate.providers.base import BaseProvider
-from ai_slop_gate.domain.observation import Observation
 from ai_slop_gate.cli.logger import logger
+from ai_slop_gate.domain.observation import Observation, Severity
 
-
-class K8sRuntimeProvider(BaseProvider):
-    """
-    Analyzes Kubernetes manifests for runtime risks.
-    """
-
-    def __init__(self, manifests: str | list | None = None):
-        self.manifests_path: str | None = None
-        self.manifests: list | None = None
-
-        if isinstance(manifests, (str, Path)):
-            self.manifests_path = str(manifests)
-        elif isinstance(manifests, list):
-            self.manifests = manifests
-
-    def cache_key(self):
-        return {
-            "provider": "k8s-runtime",
-            "manifests_path": self.manifests_path or "inline",
-        }
+class K8sRuntimeProvider:
+    def __init__(self, manifests=None, manifests_path=None):
+        self.manifests = manifests
+        self.manifests_path = manifests_path
 
     def collect(self) -> list[Observation]:
         if self.manifests is None and self.manifests_path:
             path = Path(self.manifests_path)
-
             if not path.exists():
                 logger.warning(f"K8s manifests not found: {path}, skipping")
                 return []
@@ -56,11 +38,14 @@ class K8sRuntimeProvider(BaseProvider):
                 if replicas == 1:
                     observations.append(
                         Observation(
-                            source="k8s-runtime",
-                            level="warning",
+                            rule_id="k8s_single_replica",
+                            category="k8s",
+                            signal="deployment_replicas",
                             message=f"Deployment {metadata.get('name')} has only 1 replica",
+                            severity=Severity.MEDIUM,
+                            confidence=0.9,
+                            location=None,
                         )
                     )
 
         return observations
-
