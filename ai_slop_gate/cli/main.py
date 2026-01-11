@@ -18,9 +18,6 @@ from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
 from ai_slop_gate.providers.cached_provider import CachedProvider
 from ai_slop_gate.cache.file_backend import FileCacheBackend
 
-# --- FIXED: Importing provider_registry to ensure 'gemini' can be added ---
-from ai_slop_gate.providers.registry import provider_registry
-
 def normalize_path(value: Optional[Union[str, list]]) -> Optional[str]:
     if value is None: return None
     if isinstance(value, list): return value[0] if value else None
@@ -31,6 +28,7 @@ def get_provider_with_cache(provider_name: str, *, k8s_manifests=None):
     Instantiate provider and wrap with cache.
     """
     # Check if provider exists in registry
+    from ai_slop_gate.providers.registry import provider_registry
     provider_cls = provider_registry.get(provider_name)
     if not provider_cls:
         # Fallback for gemini if not yet in registry
