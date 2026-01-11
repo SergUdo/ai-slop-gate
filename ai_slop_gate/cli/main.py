@@ -27,11 +27,9 @@ def get_provider_with_cache(provider_name: str, *, k8s_manifests=None):
     """
     Instantiate provider and wrap with cache.
     """
-    # Check if provider exists in registry
     from ai_slop_gate.providers.registry import provider_registry
     provider_cls = provider_registry.get(provider_name)
     if not provider_cls:
-        # Fallback for gemini if not yet in registry
         if provider_name == "gemini":
             from ai_slop_gate.providers.gemini import GeminiProvider
             provider_cls = GeminiProvider
@@ -43,7 +41,6 @@ def get_provider_with_cache(provider_name: str, *, k8s_manifests=None):
             raise ValueError("k8s-runtime provider requires --k8s-manifests")
         provider = provider_cls(k8s_manifests)
     elif provider_name == "gemini":
-        # Gemini usually needs a model name
         provider = provider_cls(model="models/gemini-2.5-flash")
     else:
         provider = provider_cls()
@@ -69,13 +66,12 @@ def run_analysis(args):
                 with path.open("r") as f:
                     manifests = list(yaml.safe_load_all(f))
 
-        # --- Use the improved provider factory ---
         provider = get_provider_with_cache(
             args.provider,
             k8s_manifests=manifests if args.provider == "k8s-runtime" else None,
         )
 
-        # Gemini and AI providers often need the text content
+        # --- Read input content from file or text argument ---
         content = ""
         if args.input_file and os.path.exists(args.input_file):
             with open(args.input_file, "r") as f:
@@ -83,16 +79,14 @@ def run_analysis(args):
         elif args.input_text:
             content = args.input_text
 
-        # If it's an AI provider, we might need to pass the content to collect()
-        # or have a dedicated analyze method. Assuming collect() works:
-        primary_result = provider.collect()
+        # --- Pass content to the provider ---
+        primary_result = provider.collect(content)
         observations = normalize_observations(primary_result)
 
         rules = load_policy_rules(args.policy)
         decision = evaluate_policy(observations, rules)
         check_report = decision_to_check(decision)
 
-        # --- FIXED: Properly handle GitHub Token from ENV if not in args ---
         github_token = getattr(args, "github_token", None) or os.getenv("GITHUB_TOKEN")
         
         if github_token and args.github_repo:
@@ -119,13 +113,11 @@ def main():
     parser = argparse.ArgumentParser("ai-slop-gate")
     subparsers = parser.add_subparsers(dest="command")
 
-    # init ... (as before)
     init_parser = subparsers.add_parser("init")
     init_parser.add_argument("--force", action="store_true")
     init_parser.add_argument("--policy")
     init_parser.add_argument("--provider")
 
-    # run
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--policy", required=True)
     run_parser.add_argument("--provider", default="static")
@@ -147,3 +139,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

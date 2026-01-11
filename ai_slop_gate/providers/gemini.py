@@ -1,7 +1,7 @@
 import os
 import json
 import google.generativeai as genai
-from typing import List
+from typing import List, Optional
 
 from ai_slop_gate.providers.base import ProviderObservation
 from ai_slop_gate.domain.observation_factory import make_observation
@@ -17,7 +17,23 @@ class GeminiProvider:
         genai.configure(api_key=self.api_key)
         self._model = genai.GenerativeModel(self.model)
 
+    def collect(self, content: str = "") -> ProviderObservation:
+        """
+        Interface method for the provider registry.
+        Redirects to analyze method.
+        """
+        return self.analyze(content)
+
     def analyze(self, code: str) -> ProviderObservation:
+        # Avoid calling API with empty content
+        if not code or len(code.strip()) == 0:
+            return ProviderObservation(
+                provider="gemini",
+                model=self.model,
+                observations=[],
+                raw_text="Empty input provided",
+            )
+
         system_instruction = (
             "You are a Senior Code Auditor specialized in identifying 'AI Slop' (generic, low-quality AI generated code).\n"
             "Analyze the code and return a JSON list of observations.\n"
@@ -71,5 +87,6 @@ class GeminiProvider:
                         confidence=1.0
                     )
                 ],
-                raw_text=getattr(response, 'text', str(e)),
+                raw_text=str(e),
             )
+        
