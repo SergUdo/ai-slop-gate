@@ -1,24 +1,21 @@
-# policy.yml
 version: "v1"
 project_name: "ai_slop_gate"
 
 # Global enforcement level: never | advisory | blocking
 enforcement: advisory
 
-provider: gemini
-model: gemini-2.5-flash
-mode: advisory
-
-# --- AI Provider configuration for Slop Analysis ---
+# --- AI Provider configuration ---
+# unified into a single block to avoid conflicts between Gemini and Llama
 ai_provider:
-  name: llama
-  model: Llama-3.3
-  temperature: 0.0
+  name: gemini # Change to 'llama' if needed
+  model: gemini-2.5-flash # or 'Llama-3.3'
+  temperature: 0.1
+  mode: advisory
 
-# --- Compliance Module (Feature Toggled) ---
-# Set enabled: true for EU/Industrial markets (GPL checks, GDPR)
+# --- Compliance Module (Sidecar) ---
+# For License and Secret audits via Supply Chain Provider
 compliance:
-  enabled: false 
+  enabled: false # Overridden by --compliance flag in CLI
   license_audit:
     enabled: true
     forbidden_licenses: ["GPL-2.0", "GPL-3.0", "AGPL-3.0"]
@@ -28,12 +25,11 @@ compliance:
     enforce_data_residency: "EU"
 
 # --- AI Slop Detection Logic ---
+# AI-driven checks for code quality and hallucinations
 ai_slop:
   max_redundancy: 3
   max_length: 50
-  detect_todo: true
-  detect_fixme: true
-
+  
   detect_llm_quality:
     enabled: true
     prompt_template: |
@@ -70,21 +66,26 @@ ai_slop:
       {code_snippet}
       ```
 
-# --- Static Analysis & Quality ---
+# --- Static Analysis & Rules ---
+# Fixed: Moved quality flags from AI section to static analysis
 code_quality:
   detect_todo: true
   detect_fixme: true
   max_function_length: 50
 
-dockerfile:
-  check_user: true
-  check_sensitive_env: true
-
-security:
-  check_root_user: true
-  check_sensitive_env: true
+# Security scans for manifests
+infrastructure_security:
+  dockerfile:
+    check_user: true
+    check_sensitive_env: true
+  kubernetes:
+    check_root_user: true
+    check_privileged: true
+  terraform:
+    check_public_access: true
 
 # --- Rules Engine ---
+# Evaluates observations from all providers
 rules:
   # Base Security
   - id: hardcoded-secret
@@ -103,7 +104,7 @@ rules:
       signal: INSECURE_CONFIG
       min_confidence: 0.95
     then:
-      action: BLOCKING
+      action: blocking
       message: "Terraform plan exposes resource to public access (0.0.0.0/0)"
 
   - id: TF_MISSING_TAGS
@@ -111,7 +112,7 @@ rules:
       category: TERRAFORM
       signal: MISSING_TAGS
     then:
-      action: ADVISORY
+      action: advisory
       message: "Terraform resource is missing mandatory tags"
 
   # Cloud Native (Kubernetes)
@@ -130,4 +131,4 @@ rules:
       signal: negative
     then:
       action: advisory
-      message: "Remove TODOs before merge"
+      message: "Remove TODOs and FIXMEs before merging to main"
