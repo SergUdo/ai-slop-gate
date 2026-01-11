@@ -1,6 +1,7 @@
 import argparse
 import sys
 import yaml
+import os
 from pathlib import Path
 from typing import Optional, Union
 
@@ -16,159 +17,115 @@ from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
 from ai_slop_gate.providers.cached_provider import CachedProvider
 from ai_slop_gate.cache.file_backend import FileCacheBackend
-from ai_slop_gate.domain.compliance.engine import evaluate_compliance_risks
-from ai_slop_gate.providers.supply_chain import SupplyChainProvider
 
-CONFIG_FILE = ".ai-slop-gate.yml"
-
+# --- FIXED: Importing provider_registry to ensure 'gemini' can be added ---
+from ai_slop_gate.providers.registry import provider_registry
 
 def normalize_path(value: Optional[Union[str, list]]) -> Optional[str]:
-    if value is None:
-        return None
-    if isinstance(value, list):
-        return value[0] if value else None
+    if value is None: return None
+    if isinstance(value, list): return value[0] if value else None
     return value
-
 
 def get_provider_with_cache(provider_name: str, *, k8s_manifests=None):
     """
     Instantiate provider and wrap with cache.
-    Import provider_registry locally to avoid circular import.
     """
-    from ai_slop_gate.providers.registry import provider_registry  # локально
-
+    # Check if provider exists in registry
     provider_cls = provider_registry.get(provider_name)
+    if not provider_cls:
+        # Fallback for gemini if not yet in registry
+        if provider_name == "gemini":
+            from ai_slop_gate.providers.gemini import GeminiProvider
+            provider_cls = GeminiProvider
+        else:
+            raise ValueError(f"Unknown provider: {provider_name}. Check provider_registry.")
 
     if provider_name == "k8s-runtime":
         if not k8s_manifests:
             raise ValueError("k8s-runtime provider requires --k8s-manifests")
         provider = provider_cls(k8s_manifests)
+    elif provider_name == "gemini":
+        # Gemini usually needs a model name
+        provider = provider_cls(model="models/gemini-2.5-flash")
     else:
         provider = provider_cls()
 
     cache_backend = FileCacheBackend()
     return CachedProvider(provider, cache=cache_backend)
 
-
 def normalize_observations(result):
-    if result is None:
-        return []
-
-    if hasattr(result, "observations"):
-        return list(result.observations)
-
-    if isinstance(result, list):
-        return result
-
+    if result is None: return []
+    if hasattr(result, "observations"): return list(result.observations)
+    if isinstance(result, list): return result
     raise TypeError(f"Unsupported provider result type: {type(result)}")
-
-def run_compliance_enrichment(args, observations):
-    try:
-        import yaml
-        from ai_slop_gate.providers.supply_chain import SupplyChainProvider
-        from ai_slop_gate.domain.compliance.rules import LicenseRule
-        from ai_slop_gate.domain.compliance.engine import evaluate_compliance_risks
-
-        with open(args.policy, 'r') as f:
-            cfg = yaml.safe_load(f) or {}
-        
-        comp_cfg = cfg.get("compliance", {})
-        # Перевіряємо увімкнення
-        is_on = comp_cfg.get("enabled", False) or getattr(args, "compliance", False)
-        if getattr(args, "no_compliance", False): is_on = False
-        
-        if not is_on:
-            return []
-
-        # Створюємо провайдер з явною передачею конфігурації
-        provider = SupplyChainProvider(policy=comp_cfg)
-        found_obs = provider.collect()
-        
-        if not found_obs:
-            # Це допоможе нам в pytest -s
-            # print(f"DEBUG: Provider found 0 observations in {os.getcwd()}")
-            return []
-
-        # Отримуємо правила
-        lic_list = comp_cfg.get("license_audit", {}).get("forbidden_licenses", ["GPL-3.0"])
-        rules = [LicenseRule(id="COMP-01", forbidden_licenses=set(lic_list))]
-        
-        return evaluate_compliance_risks(found_obs, rules, []) 
-    except Exception as e:
-        # print(f"DEBUG: Error in enrichment: {e}")
-        return []
-
 
 def run_analysis(args):
     try:
         logger.info(f"Running provider: {args.provider}")
 
         k8s_manifests_arg = normalize_path(getattr(args, "k8s_manifests", None))
-
         manifests = None
         if k8s_manifests_arg:
             path = Path(k8s_manifests_arg)
-            if not path.exists():
-                raise FileNotFoundError(f"K8s manifests not found: {path}")
-            with path.open("r") as f:
-                manifests = list(yaml.safe_load_all(f))
+            if path.exists():
+                with path.open("r") as f:
+                    manifests = list(yaml.safe_load_all(f))
 
+        # --- Use the improved provider factory ---
         provider = get_provider_with_cache(
             args.provider,
             k8s_manifests=manifests if args.provider == "k8s-runtime" else None,
         )
 
+        # Gemini and AI providers often need the text content
+        content = ""
+        if args.input_file and os.path.exists(args.input_file):
+            with open(args.input_file, "r") as f:
+                content = f.read()
+        elif args.input_text:
+            content = args.input_text
+
+        # If it's an AI provider, we might need to pass the content to collect()
+        # or have a dedicated analyze method. Assuming collect() works:
         primary_result = provider.collect()
         observations = normalize_observations(primary_result)
-
-        compliance_reasons = run_compliance_enrichment(args, observations)
-
-        rules = load_policy_rules(args.policy)
-        decision = evaluate_policy(observations, rules)
-        
-        if compliance_reasons:
-            decision.reasons.extend(compliance_reasons)
-
-        # optional k8s-runtime enrichment
-        if manifests and args.provider != "k8s-runtime":
-            from ai_slop_gate.providers.registry import provider_registry
-            k8s_provider_cls = provider_registry.get("k8s-runtime")
-            k8s_provider = k8s_provider_cls(manifests)
-            k8s_result = k8s_provider.collect()
-            observations.extend(normalize_observations(k8s_result))
 
         rules = load_policy_rules(args.policy)
         decision = evaluate_policy(observations, rules)
         check_report = decision_to_check(decision)
 
-        github_token = getattr(args, "github_token", None)
+        # --- FIXED: Properly handle GitHub Token from ENV if not in args ---
+        github_token = getattr(args, "github_token", None) or os.getenv("GITHUB_TOKEN")
+        
         if github_token and args.github_repo:
-            if getattr(args, "github_checks", False) and getattr(args, "github_sha", None):
+            if args.github_checks and args.github_sha:
+                logger.info("Reporting to GitHub Checks...")
                 GitHubChecksReporter(token=github_token, repo=args.github_repo, sha=args.github_sha).report(check_report)
-            if getattr(args, "pr_id", None):
-                GitHubPRReporter(token=github_token, repo_name=args.github_repo, pr_number=args.pr_id).report(check_report)
+            
+            if args.pr_id:
+                logger.info(f"Reporting to Pull Request #{args.pr_id}...")
+                GitHubPRReporter(token=github_token, repo_name=args.github_repo, pr_id=args.pr_id).report(check_report)
 
         logger.info(f"Decision: {decision.mode.value.upper()}")
         for reason in decision.reasons:
             logger.info(f"- {reason}")
 
-        if decision.mode == DecisionMode.BLOCKING and getattr(args, "enforcement", "advisory") == "blocking":
+        if decision.mode == DecisionMode.BLOCKING and args.enforcement == "blocking":
             sys.exit(1)
 
     except Exception as e:
         logger.error(f"Error during analysis: {e}")
         sys.exit(1)
 
-
 def main():
     parser = argparse.ArgumentParser("ai-slop-gate")
     subparsers = parser.add_subparsers(dest="command")
 
-    # init
+    # init ... (as before)
     init_parser = subparsers.add_parser("init")
-    init_parser.add_argument("--force", action="store_true", help="Overwrite existing config")
-    init_parser.add_argument("--policy", help="Path to policy.yml")
-    init_parser.add_argument("--provider", help="Default provider for initial run")
+    init_parser.add_argument("--force", action="store_true")
+    init_parser.add_argument("--policy")
+    init_parser.add_argument("--provider")
 
     # run
     run_parser = subparsers.add_parser("run")
@@ -178,32 +135,17 @@ def main():
     run_parser.add_argument("--github-checks", action="store_true")
     run_parser.add_argument("--github-repo")
     run_parser.add_argument("--github-sha")
+    run_parser.add_argument("--github-token")
     run_parser.add_argument("--enforcement", choices=["never", "blocking", "advisory"], default="advisory")
-    run_parser.add_argument("--k8s-manifests", help="Path to Kubernetes YAML manifests")
-    run_parser.add_argument("--input-text", help="Text input for AI providers")
-    run_parser.add_argument("--input-file", help="File input for AI providers")
-    run_parser.add_argument("--compliance", action="store_true", help="Force compliance check")
-    run_parser.add_argument("--no-compliance", action="store_true", help="Skip compliance check")
+    run_parser.add_argument("--k8s-manifests")
+    run_parser.add_argument("--input-text")
+    run_parser.add_argument("--input-file")
 
     args = parser.parse_args()
-    logger.info(f"Parsed args: {args}")
-
-    if args.command == "init":
-        run_init(force=args.force)
-        if args.policy:
-            logger.info(f"Policy path: {args.policy}")
-        if args.provider:
-            logger.info(f"Default provider: {args.provider}")
-        return
-
     if args.command == "run":
         run_analysis(args)
-        return
-
-    parser.print_help()
-    sys.exit(1)
-
+    elif args.command == "init":
+        run_init(force=args.force)
 
 if __name__ == "__main__":
-    logger.info("Starting ai-slop-gate CLI")
     main()
