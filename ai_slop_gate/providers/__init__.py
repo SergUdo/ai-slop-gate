@@ -1,8 +1,14 @@
-from .registry import ProviderRegistry
-from .eslint import ESLintProvider
+# ai_slop_gate/providers/__init__.py
+
+from .registry import provider_registry, ProviderRegistry
+from .gemini import GeminiProvider
 from .static_pipeline import StaticPipelineProvider
 from .k8s_runtime import K8sRuntimeProvider
-from .terraform_plan import TerraformPlanProvider
 
-provider_registry = ProviderRegistry()
-provider_registry.register_defaults()
+__all__ = [
+    "provider_registry", 
+    "ProviderRegistry", 
+    "GeminiProvider", 
+    "StaticPipelineProvider", 
+    "K8sRuntimeProvider"
+]

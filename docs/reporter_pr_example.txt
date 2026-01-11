@@ -1,0 +1,14 @@
+========================================
+      DRY RUN: PR COMMENT PREVIEW
+========================================
+TITLE:   AI Slop Gate Analysis Results
+STATUS:  fail
+SUMMARY: Automated review identified security risks and AI-generated patterns.
+----------------------------------------
+1. [FAILURE] config.js:12
+   Message: Hardcoded API key found in config.js:12
+2. [WARNING] app.js:45
+   Message: Generic function name 'foo' detected in app.js:45
+
+🚀 Posting to GitHub...
+INFO:ai_slop_gate.reporters.github_pr:Successfully posted PR comment to SergUdo/ai-slop-gate#1
