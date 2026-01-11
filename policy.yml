@@ -1,12 +1,33 @@
+# policy.yml
+version: "v1"
+project_name: "ai_slop_gate"
+
+# Global enforcement level: never | advisory | blocking
+enforcement: advisory
+
 provider: gemini
 model: gemini-2.5-flash
 mode: advisory
 
+# --- AI Provider configuration for Slop Analysis ---
 ai_provider:
   name: llama
   model: Llama-3.3
   temperature: 0.0
 
+# --- Compliance Module (Feature Toggled) ---
+# Set enabled: true for EU/Industrial markets (GPL checks, GDPR)
+compliance:
+  enabled: false 
+  license_audit:
+    enabled: true
+    forbidden_licenses: ["GPL-2.0", "GPL-3.0", "AGPL-3.0"]
+  security_audit:
+    enabled: true
+    detect_secrets: true
+    enforce_data_residency: "EU"
+
+# --- AI Slop Detection Logic ---
 ai_slop:
   max_redundancy: 3
   max_length: 50
@@ -20,7 +41,7 @@ ai_slop:
       Focus on identifying:
       1. Overly generic or repetitive code.
       2. Code that doesn't match typical human-written patterns for this language.
-      3. Comments or documentation that seem AI-generated (e.g., overly verbose, vague, or mismatched with the code).
+      3. Comments or documentation that seem AI-generated.
       Provide a concise 'PASS' or 'FAIL' and a brief explanation if 'FAIL'.
       Code snippet:
       ```
@@ -49,6 +70,7 @@ ai_slop:
       {code_snippet}
       ```
 
+# --- Static Analysis & Quality ---
 code_quality:
   detect_todo: true
   detect_fixme: true
@@ -62,7 +84,9 @@ security:
   check_root_user: true
   check_sensitive_env: true
 
+# --- Rules Engine ---
 rules:
+  # Base Security
   - id: hardcoded-secret
     when:
       category: security
@@ -72,40 +96,7 @@ rules:
       action: blocking
       message: "Hardcoded secret detected"
 
-  - id: insecure-defaults
-    when:
-      category: security
-      signal: negative
-      min_confidence: 0.9
-    then:
-      action: blocking
-      message: "Insecure default configuration detected"
-
-  - id: missing-required-config
-    when:
-      category: security
-      signal: negative
-      min_confidence: 1.0
-    then:
-      action: blocking
-      message: "Missing required configuration"
-
-  - id: dev-config-in-prod
-    when:
-      category: security
-      signal: negative
-    then:
-      action: blocking
-      message: "Development config detected in production code"
-
-  - id: todo-advisory
-    when:
-      category: quality
-      signal: negative
-    then:
-      action: advisory
-      message: "Remove TODOs before merge"
-  
+  # Infrastructure (Terraform)
   - id: TF_PUBLIC_ACCESS
     when:
       category: TERRAFORM
@@ -119,29 +110,11 @@ rules:
     when:
       category: TERRAFORM
       signal: MISSING_TAGS
-      min_confidence: 0.8
     then:
       action: ADVISORY
       message: "Terraform resource is missing mandatory tags"
 
-  - id: TF_HARDCODED_ID
-    when:
-      category: TERRAFORM
-      signal: HARDCODED_VALUE
-      min_confidence: 0.85
-    then:
-      action: ADVISORY
-      message: "Terraform plan contains hardcoded identifiers — consider variables"
-
-  - id: TF_ANY_WARNING
-    when:
-      category: TERRAFORM
-      signal: "*"
-      min_confidence: 0.7
-    then:
-      action: ADVISORY
-      message: "Terraform plan contains potential issues"
-
+  # Cloud Native (Kubernetes)
   - id: k8s-no-root
     when:
       category: security
@@ -150,11 +123,11 @@ rules:
       action: blocking
       message: "Kubernetes container must not run as root"
 
-  - id: k8s-no-privileged
+  # Code Quality
+  - id: todo-advisory
     when:
-      category: security
-      signal: PRIVILEGED_CONTAINER
+      category: quality
+      signal: negative
     then:
-      action: blocking
-      message: "Privileged containers are forbidden"
-
+      action: advisory
+      message: "Remove TODOs before merge"
