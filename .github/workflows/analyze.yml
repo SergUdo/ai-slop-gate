@@ -34,9 +34,10 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          # Встановлюємо пакет і всі залежності (включаючи PyGithub)
           pip install -e .
-          pip install PyGithub 
+          pip install PyGithub
+          pip install google-generativeai
+          
 
       # --- Run ai-slop-gate analysis ---
       - name: Run Static Analysis
