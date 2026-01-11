@@ -7,6 +7,7 @@ from .eslint import ESLintProvider
 from .static_pipeline import StaticPipelineProvider
 from .k8s_runtime import K8sRuntimeProvider
 from .supply_chain import SupplyChainProvider
+from .gemini import GeminiProvider
 
 class ProviderRegistry:
     def __init__(self):
@@ -16,9 +17,7 @@ class ProviderRegistry:
         self._providers[name] = provider_cls
 
     def get(self, name: str):
-        if name not in self._providers:
-            raise ValueError(f"Unknown provider: {name}")
-        return self._providers[name]
+        return self._providers.get(name)
 
     def register_defaults(self):
         """Register all default providers."""
@@ -29,7 +28,7 @@ class ProviderRegistry:
         self.register("terraform-static", TerraformStaticProvider)
         self.register("k8s-static", KubernetesStaticProvider)
         self.register("supply-chain", SupplyChainProvider)
+        self.register("gemini", GeminiProvider)
 
-# --- Singleton instance ---
 provider_registry = ProviderRegistry()
 provider_registry.register_defaults()
