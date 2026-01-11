@@ -1,10 +1,10 @@
 import os
+import json
 import google.generativeai as genai
 from typing import List
 
 from ai_slop_gate.providers.base import ProviderObservation
 from ai_slop_gate.domain.observation_factory import make_observation
-
 
 class GeminiProvider:
     def __init__(self, model: str, api_key: str | None = None):
@@ -18,62 +18,58 @@ class GeminiProvider:
         self._model = genai.GenerativeModel(self.model)
 
     def analyze(self, code: str) -> ProviderObservation:
-        observations = []
-
-        if "TODO" in code:
-            observations.append(
-                make_observation(
-                    provider="gemini",
-                    category="quality",
-                    signal="todo",
-                    confidence=0.8,
-                    message="Code contains TODO comments",
-                )
-            )
-
-        if "FIXME" in code:
-            observations.append(
-                make_observation(
-                    provider="gemini",
-                    category="quality",
-                    signal="fixme",
-                    confidence=0.8,
-                    message="Code contains FIXME comments",
-                )
-            )
-
-        prompt = (
-            "Analyze the following code and point out potential AI-generated issues.\n\n"
-            f"{code}"
+        system_instruction = (
+            "You are a Senior Code Auditor specialized in identifying 'AI Slop' (generic, low-quality AI generated code).\n"
+            "Analyze the code and return a JSON list of observations.\n"
+            "Each observation must have: 'category' (quality/hallucination/security), 'signal', 'confidence' (0.0-1.0), "
+            "'severity' (low/medium/high), and 'message'.\n"
+            "Return ONLY valid JSON."
         )
 
-        response = self._model.generate_content(prompt)
-        raw_text = response.text or ""
+        prompt = f"{system_instruction}\n\nCode to analyze:\n{code}"
+        
+        try:
+            response = self._model.generate_content(prompt)
+            raw_text = response.text or ""
+            
+            clean_json = raw_text.strip()
+            if "```" in clean_json:
+                clean_json = clean_json.split("```")[1].replace("json", "").strip()
 
-        if any(word in raw_text.lower() for word in ["hallucination", "incorrect", "nonsensical"]):
-            observations.append(
-                make_observation(
-                    provider="gemini",
-                    category="hallucination",
-                    signal="llm_warning",
-                    confidence=0.6,
-                    message=raw_text.strip(),
+            observations_data = json.loads(clean_json)
+            
+            final_observations = []
+            for obs in observations_data:
+                final_observations.append(
+                    make_observation(
+                        provider="gemini",
+                        category=obs.get("category", "quality"),
+                        signal=obs.get("signal", "ai_indicator"),
+                        confidence=float(obs.get("confidence", 0.7)),
+                        severity=obs.get("severity", "medium"),
+                        message=obs.get("message", "No description provided"),
+                    )
                 )
-            )
-        else:
-            observations.append(
-                make_observation(
-                    provider="gemini",
-                    category="quality",
-                    signal="neutral",
-                    confidence=0.4,
-                    message=raw_text.strip(),
-                )
+
+            return ProviderObservation(
+                provider="gemini",
+                model=self.model,
+                observations=final_observations,
+                raw_text=raw_text,
             )
 
-        return ProviderObservation(
-            provider="gemini",
-            model=self.model,
-            observations=observations,
-            raw_text=raw_text,
-        )
+        except Exception as e:
+            return ProviderObservation(
+                provider="gemini",
+                model=self.model,
+                observations=[
+                    make_observation(
+                        provider="gemini",
+                        category="error",
+                        signal="provider_failure",
+                        message=f"Failed to parse Gemini response: {str(e)}",
+                        confidence=1.0
+                    )
+                ],
+                raw_text=getattr(response, 'text', str(e)),
+            )
