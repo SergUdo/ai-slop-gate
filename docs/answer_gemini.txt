@@ -1,0 +1,34 @@
+python -m scripts.test_gemini_provider
+Provider: gemini
+Model: models/gemini-2.5-flash
+Raw text:
+```json
+[
+  {
+    "category": "quality",
+    "signal": "Generic function name and placeholder return value",
+    "confidence": 0.8,
+    "severity": "low",
+    "message": "The function name 'foo' combined with the iconic placeholder return value '42' is a very common pattern for minimal examples or stubs. This often indicates a lack of specific intent, characteristic of AI-generated code when precise requirements are not provided."
+  },
+  {
+    "category": "quality",
+    "signal": "Vague TODO comment",
+    "confidence": 0.9,
+    "severity": "low",
+    "message": "The comment '# TODO: refactor this' is extremely generic and lacks any specific context or reasoning for why a refactor is needed or what it should entail. This is a common characteristic of AI slop, where the model includes a 'future work' marker without deeper understanding or specific instructions."
+  },
+  {
+    "category": "quality",
+    "signal": "Absence of specific business logic or purpose",
+    "confidence": 0.9,
+    "severity": "medium",
+    "message": "The function performs no actual business logic, computation, or interaction; it merely returns a hardcoded constant. This extreme lack of specificity and functional purpose is a strong indicator of AI-generated 'slop', as the model produced the simplest possible valid output without specific guidance."
+  }
+]
+```
+
+Observations:
+- Observation(rule_id='gemini.quality.Generic function name and placeholder return value', category='quality', signal='Generic function name and placeholder return value', message="The function name 'foo' combined with the iconic placeholder return value '42' is a very common pattern for minimal examples or stubs. This often indicates a lack of specific intent, characteristic of AI-generated code when precise requirements are not provided.", severity='low', confidence=0.8, location=None)
+- Observation(rule_id='gemini.quality.Vague TODO comment', category='quality', signal='Vague TODO comment', message="The comment '# TODO: refactor this' is extremely generic and lacks any specific context or reasoning for why a refactor is needed or what it should entail. This is a common characteristic of AI slop, where the model includes a 'future work' marker without deeper understanding or specific instructions.", severity='low', confidence=0.9, location=None)
+- Observation(rule_id='gemini.quality.Absence of specific business logic or purpose', category='quality', signal='Absence of specific business logic or purpose', message="The function performs no actual business logic, computation, or interaction; it merely returns a hardcoded constant. This extreme lack of specificity and functional purpose is a strong indicator of AI-generated 'slop', as the model produced the simplest possible valid output without specific guidance.", severity='medium', confidence=0.9, location=None)

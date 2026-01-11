@@ -17,7 +17,7 @@ dist/
 *.egg
 
 # Local cache for ai-slop-gate
-tmp-cache/
+.tmp-cache/
 .ai-slop-cache/
 
 # IDE

@@ -16,6 +16,8 @@ from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
 from ai_slop_gate.providers.cached_provider import CachedProvider
 from ai_slop_gate.cache.file_backend import FileCacheBackend
+from ai_slop_gate.domain.compliance.engine import evaluate_compliance_risks
+from ai_slop_gate.providers.supply_chain import SupplyChainProvider
 
 CONFIG_FILE = ".ai-slop-gate.yml"
 
@@ -60,6 +62,42 @@ def normalize_observations(result):
 
     raise TypeError(f"Unsupported provider result type: {type(result)}")
 
+def run_compliance_enrichment(args, observations):
+    try:
+        import yaml
+        from ai_slop_gate.providers.supply_chain import SupplyChainProvider
+        from ai_slop_gate.domain.compliance.rules import LicenseRule
+        from ai_slop_gate.domain.compliance.engine import evaluate_compliance_risks
+
+        with open(args.policy, 'r') as f:
+            cfg = yaml.safe_load(f) or {}
+        
+        comp_cfg = cfg.get("compliance", {})
+        # Перевіряємо увімкнення
+        is_on = comp_cfg.get("enabled", False) or getattr(args, "compliance", False)
+        if getattr(args, "no_compliance", False): is_on = False
+        
+        if not is_on:
+            return []
+
+        # Створюємо провайдер з явною передачею конфігурації
+        provider = SupplyChainProvider(policy=comp_cfg)
+        found_obs = provider.collect()
+        
+        if not found_obs:
+            # Це допоможе нам в pytest -s
+            # print(f"DEBUG: Provider found 0 observations in {os.getcwd()}")
+            return []
+
+        # Отримуємо правила
+        lic_list = comp_cfg.get("license_audit", {}).get("forbidden_licenses", ["GPL-3.0"])
+        rules = [LicenseRule(id="COMP-01", forbidden_licenses=set(lic_list))]
+        
+        return evaluate_compliance_risks(found_obs, rules, []) 
+    except Exception as e:
+        # print(f"DEBUG: Error in enrichment: {e}")
+        return []
+
 
 def run_analysis(args):
     try:
@@ -82,6 +120,14 @@ def run_analysis(args):
 
         primary_result = provider.collect()
         observations = normalize_observations(primary_result)
+
+        compliance_reasons = run_compliance_enrichment(args, observations)
+
+        rules = load_policy_rules(args.policy)
+        decision = evaluate_policy(observations, rules)
+        
+        if compliance_reasons:
+            decision.reasons.extend(compliance_reasons)
 
         # optional k8s-runtime enrichment
         if manifests and args.provider != "k8s-runtime":
@@ -136,6 +182,8 @@ def main():
     run_parser.add_argument("--k8s-manifests", help="Path to Kubernetes YAML manifests")
     run_parser.add_argument("--input-text", help="Text input for AI providers")
     run_parser.add_argument("--input-file", help="File input for AI providers")
+    run_parser.add_argument("--compliance", action="store_true", help="Force compliance check")
+    run_parser.add_argument("--no-compliance", action="store_true", help="Skip compliance check")
 
     args = parser.parse_args()
     logger.info(f"Parsed args: {args}")

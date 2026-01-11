@@ -18,6 +18,9 @@ class GroqProvider:
         prompt = f"""
         Analyze the following code for 'AI slop' (low-quality AI-generated patterns,
         excessive TODOs, or poor justifications).
+        "Focus on specific architectural flaws. Instead of 'Lack of input validation',
+        focus on the actual problem, and point out what exactly can crash. If you find AI slop,
+        explain why it looks like slop (e.g., 'over-commenting obvious logic'
 
         Return the results ONLY as a valid JSON list of objects with these fields:
         - category: (e.g., "code_quality", "technical_debt")
@@ -55,24 +58,34 @@ class GroqProvider:
 
             raw_content = result['choices'][0]['message']['content'].strip()
 
-            if raw_content.startswith("```json"):
-                raw_content = raw_content.replace("```json", "").replace("```", "").strip()
+            # Очищення від Markdown code blocks
+            if raw_content.startswith("```"):
+                raw_content = raw_content.strip("`").replace("json", "", 1).strip()
 
             observations_data = json.loads(raw_content)
 
-            return [
-                Observation(
-                    rule_id=f"groq_{i}",
-                    category=obs.get('category', 'unknown'),
-                    signal=obs.get('signal', 'unknown'),
-                    confidence=obs.get('confidence', 0.9),
-                    severity=obs.get('severity', 'medium'),
-                    message=obs.get('message', 'No message provided'),
-                    location=obs.get('location', 'unknown'),
-                    evidence=obs.get('evidence', None)
+            observations = []
+            for i, obs in enumerate(observations_data):
+                # Якщо AI надав evidence, додаємо його до повідомлення, 
+                # бо в самому об'єкті Observation такого поля немає.
+                main_message = obs.get('message', 'No message provided')
+                evidence = obs.get('evidence')
+                full_message = f"{main_message} | Evidence: {evidence}" if evidence else main_message
+
+                observations.append(
+                    Observation(
+                        rule_id=f"groq_{i}",
+                        category=obs.get('category', 'unknown'),
+                        signal=obs.get('signal', 'unknown'),
+                        confidence=float(obs.get('confidence', 0.9)),
+                        severity=obs.get('severity', 'medium'),
+                        message=full_message,
+                        location=obs.get('location', 'unknown')
+                        # 'evidence' видалено, бо він викликав TypeError
+                    )
                 )
-                for i, obs in enumerate(observations_data)
-            ]
+            return observations
+
         except Exception as e:
             print(f"Groq API Error: {e}")
             return []
