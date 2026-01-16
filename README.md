@@ -5,8 +5,27 @@
 *ai-slop-gate is under active development. APIs, behavior, and policies may change without notice. Do NOT rely on this tool for production security decisions yet.*
 
 ---
+**ai-slop-gate** — Open-source CI/CD tool combining static analysis and multi-LLM (Groq, Gemini, GitHub Copilot, OpenRouter) code review to detect low-intent AI-generated code.  
+Implements deterministic normalization of LLM outputs (severity, confidence, signals) for audit-friendly automated quality gates.
 
-**ai-slop-gate** is an open-source tool designed for automatic analysis of PRs/MRs to detect low-quality AI-generated code ("AI slop"), security vulnerabilities, and logic issues. It provides a vendor-agnostic way to maintain code quality in the age of AI-assisted development.
+### ✨ Key Features for Enterprise & EU-Regulated Teams
+
+#### 🔐 Supply Chain Security  
+- Detects forbidden licenses (GPL, AGPL)  
+- Identifies AI-hallucinated or suspicious package names  
+- Supports NIS2 and EU Cyber Resilience Act readiness  
+
+#### 🇪🇺 GDPR/DSGVO Compliance  
+- Enforces EU-only data residency for AI processing  
+- Prevents non-compliant LLM routing  
+- Produces audit-ready compliance reports  
+
+#### 📝 Enterprise Policy-as-Code  
+- Centralized `policy.yml` defining risk appetite  
+- Deterministic evaluation for CI/CD  
+- Consistent governance across teams and repositories  
+
+
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
@@ -42,20 +61,32 @@ The goal is **early signal, not absolute truth**.
 - 📝 **Enterprise Policy-as-Code:** Define your organization's risk appetite in a single `policy.yml`.
 
 
-## ⚖️ Enterprise Compliance & Security
+## ⚖️ Enterprise Compliance & Security (Deep Dive)
 
-AI-Slop-Gate is designed with industrial standards in mind, specifically for the European market (GDPR/DSGVO). 
+AI‑Slop‑Gate is designed with industrial standards in mind, with a strong focus on European regulatory requirements (GDPR/DSGVO, NIS2, CRA). 
 
 ### License Intelligence
-The tool automatically scans code diffs for high-risk open-source licenses that could compromise commercial IP:
+Automatically analyzes code diffs and dependency metadata to detect high‑risk open‑source licenses that may introduce legal or IP contamination risks:
 * **Forbidden:** GPL-2.0, GPL-3.0, AGPL-3.0.
-* **Alerting:** Notifies legal teams when "copy-left" patterns are detected in AI-generated snippets.
+* **Copy‑left Pattern Alerts**: Flags AI‑generated snippets that resemble GPL‑licensed code
+* **Audit‑Ready Output**: Helps legal and compliance teams validate code provenance
 
 ### AI Hallucination Protection
-Detects "Package Hallucinations" where LLMs suggest non-existent or malicious dependency names, preventing Supply Chain attacks.
+Prevents supply‑chain attacks caused by LLM‑generated dependency names.
+* Detects non‑existent, typosquatted, or malicious package names
 
-### Data Residency (GDPR)
-Ensures that your automated audits respect European data laws by validating AI provider endpoints against allowed geographic regions.
+* Warns when AI suggests dependencies outside your organization’s approved registry list
+
+* Reduces risk of dependency spoofing in CI/CD pipelines
+
+### GDPR/DSGVO Data Residency
+Ensures that automated AI‑assisted code reviews comply with European data‑protection laws.
+
+* Validates AI provider endpoints against EU‑only or EU‑approved regions
+
+* Prevents accidental routing of code or metadata to non‑compliant LLM providers
+
+* Produces compliance‑friendly logs suitable for internal audits
 
 ## 🛠️ Supported Languages & Infrastructure
 * ✅ **Python** (Full support)

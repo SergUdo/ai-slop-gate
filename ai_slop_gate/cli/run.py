@@ -1,80 +1,65 @@
 import os
-import yaml
 import sys
+from pathlib import Path
 
-from ai_slop_gate.providers import provider_registry
-from ai_slop_gate.providers.k8s_runtime import K8sRuntimeProvider
-from ai_slop_gate.domain.decision import DecisionMode
+from ai_slop_gate.cli.logger import logger
+from ai_slop_gate.cli.context import RuntimeContext
+from ai_slop_gate.cli.utils import load_policy_rules
+
+from ai_slop_gate.providers.cached_provider import CachedProvider
+from ai_slop_gate.cache.file_backend import FileCacheBackend
+
+from ai_slop_gate.domain.policy_engine import evaluate_policy
 from ai_slop_gate.domain.check_mapper import decision_to_check
+from ai_slop_gate.domain.decision import DecisionMode
+
 from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
-from ai_slop_gate.cli.utils import load_policy_rules
-from ai_slop_gate.domain.policy_engine import evaluate_policy
 
-def run_analysis(
-    policy_path: str,
-    provider_name: str = "static",
-    k8s_manifests: str = None,
-    pr_id: int = None,
-    github_checks: bool = False,
-    github_repo: str = None,
-    github_sha: str = None,
-    enforcement: str = "advisory",
-):
-    # --- Resolve provider
-    try:
-        provider_cls = provider_registry.get(provider_name)
-    except KeyError:
-        print(f"Unknown provider: {provider_name}")
-        sys.exit(1)
 
-    provider = provider_cls() if isinstance(provider_cls, type) else provider_cls
-    provider_observation = provider.collect()
-    observations = (
-        provider_observation.observations
-        if hasattr(provider_observation, "observations")
-        else provider_observation
-    )
+def run_analysis(ctx: RuntimeContext) -> None:
+    from ai_slop_gate.providers.registry import provider_registry
+    logger.info(f"Provider: {ctx.provider}")
 
-    # K8s optional
-    if k8s_manifests and provider_name != "k8s-runtime":
-        with open(k8s_manifests, "r") as f:
-            manifests = list(yaml.safe_load_all(f))
-        k8s_provider = provider_registry.get("k8s-runtime")(manifests)
-        k8s_result = k8s_provider.collect()
-        observations.extend(k8s_result.observations)
+    provider_cls = provider_registry.get(ctx.provider)
+    if not provider_cls:
+        raise SystemExit(f"Unknown provider: {ctx.provider}")
 
-    # --- Policy evaluation
-    rules = load_policy_rules(policy_path)
+    provider = provider_cls()
+    provider = CachedProvider(provider, cache=FileCacheBackend())
+
+    content = None
+    if ctx.input_file:
+        content = Path(ctx.input_file).read_text()
+    elif ctx.input_text:
+        content = ctx.input_text
+
+    result = provider.collect(content)
+    observations = getattr(result, "observations", result)
+
+    rules = load_policy_rules(ctx.policy_path)
     decision = evaluate_policy(observations, rules)
+    check = decision_to_check(decision)
 
-    # --- Domain Mapping
-    check_report = decision_to_check(decision)
-
-    # --- GitHub reporting
-    github_token = os.getenv("GITHUB_TOKEN")
-    if github_token and github_repo:
-        if github_checks and github_sha:
+    token = ctx.github_token or os.getenv("GITHUB_TOKEN")
+    if token and ctx.github_repo:
+        if ctx.github_checks and ctx.github_sha:
             GitHubChecksReporter(
-                token=github_token,
-                repo=github_repo,
-                sha=github_sha,
-            ).report(check_report)
+                token=token,
+                repo=ctx.github_repo,
+                sha=ctx.github_sha,
+            ).report(check)
 
-        if pr_id:
+        if ctx.pr_id:
             GitHubPRReporter(
-                token=github_token,
-                repo_name=github_repo,
-                pr_number=pr_id,
-            ).report(check_report)
+                token=token,
+                repo_name=ctx.github_repo,
+                pr_id=ctx.pr_id,
+            ).report(check)
 
-    # --- Console output
-    print(f"\nDecision: {decision.mode.value.upper()}")
-    for reason in decision.reasons:
-        print(f"- {reason}")
+    logger.info(f"Decision: {decision.mode.value.upper()}")
+    for r in decision.reasons:
+        logger.info(f"- {r}")
 
-    # --- Enforcement
-    if decision.mode == DecisionMode.BLOCKING and enforcement == "blocking":
+    if decision.mode == DecisionMode.BLOCKING and ctx.enforcement == "blocking":
         sys.exit(1)
-
-    sys.exit(0)

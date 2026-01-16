@@ -14,5 +14,4 @@ def setup_logger(name: str = "ai-slop-gate", level=logging.INFO):
         logger.setLevel(level)
     return logger
 
-
 logger = setup_logger()

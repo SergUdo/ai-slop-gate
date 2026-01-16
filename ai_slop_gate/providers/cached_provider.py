@@ -2,7 +2,6 @@ import json
 import hashlib
 import inspect
 from typing import Any
-from ai_slop_gate.providers.base import ProviderObservation
 
 
 class CachedProvider:
@@ -33,47 +32,58 @@ class CachedProvider:
         return obj
 
     def _wrap_result(self, payload):
-        """
-        Wrap deserialized cache back into objects if needed
-        """
-        return payload  # keep simple, returning list/dict is fine for tests
+        """Wrap deserialized cache back into objects if needed"""
+        return payload  # simple: list/dict is fine for tests
 
-    def collect(self):
-        """Collect observations and cache them"""
-        raw_key = getattr(self.provider, "cache_key", lambda: None)()
+    def collect(self, *args, **kwargs):
+        """
+        Collect observations with caching.
+        Passes arguments to provider.collect only if provider supports them.
+        """
+        raw_key_func = getattr(self.provider, "cache_key", None)
+        raw_key = raw_key_func(*args, **kwargs) if raw_key_func else None
         key = self._normalize_key(raw_key) if raw_key else None
 
+        # check cache
         if key:
             cached = self.cache.get(key)
             if cached is not None:
                 return self._wrap_result(cached)
 
-        result = self.provider.collect()
+        # check if provider.collect supports args/kwargs
+        sig = inspect.signature(self.provider.collect)
+        if len(sig.parameters) > 1:  # self + others
+            result = self.provider.collect(*args, **kwargs)
+        else:
+            result = self.provider.collect()
 
+        # save to cache
         if key:
             self.cache.set(key, self._serialize(result))
 
         return result
 
-    def analyze(self, input_text, policy=None):
-        """Cache AI model analysis responses"""
+    def analyze(self, *args, **kwargs):
+        """
+        Cache AI model analysis responses.
+        Passes all arguments to the wrapped provider if supported.
+        """
         if not hasattr(self.provider, "analyze"):
-            # fallback: use collect
-            return self.collect()
+            return self.collect(*args, **kwargs)
 
-        raw_key = {"input_text": input_text, "policy": policy}
+        raw_key = {"args": args, "kwargs": kwargs}
         key = self._normalize_key(raw_key)
 
         cached = self.cache.get(key)
         if cached is not None:
             return self._wrap_result(cached)
 
-        # Handle providers with/without `policy` argument
         sig = inspect.signature(self.provider.analyze)
         if "policy" in sig.parameters:
-            result = self.provider.analyze(input_text, policy)
+            result = self.provider.analyze(*args, **kwargs)
         else:
-            result = self.provider.analyze(input_text)
+            kwargs_no_policy = {k: v for k, v in kwargs.items() if k != "policy"}
+            result = self.provider.analyze(*args, **kwargs_no_policy)
 
         self.cache.set(key, self._serialize(result))
         return result

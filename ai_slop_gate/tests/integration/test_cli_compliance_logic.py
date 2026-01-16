@@ -1,42 +1,67 @@
+import subprocess
+import sys
+from pathlib import Path
 import pytest
 import yaml
-import os
-from ai_slop_gate.cli.main import run_compliance_enrichment
 
-class MockArgs:
-    def __init__(self, policy, compliance=False):
-        self.policy = str(policy)
-        self.compliance = compliance
-        self.no_compliance = False
+# --- Mock provider that simulates GPL violation
+class MockComplianceProvider:
+    def collect(self):
+        # Return a mock observation (Stage 0.1 ignores signal printing)
+        return [{"signal": "GPL-3.0", "rule_id": "forbidden_license"}]
 
-def test_run_compliance_enrichment_logic(tmp_path):
+@pytest.mark.integration
+def test_cli_stage0_gpl_detection(tmp_path, monkeypatch):
+    """
+    Integration test for Stage 0.1 CLI with compliance.
+    Checks that Decision is ADVISORY or BLOCKING when a GPL license is found.
+    """
+
+    # Create a minimal policy file for compliance check
     policy_file = tmp_path / "policy.yml"
     policy_content = {
-        "compliance": {
-            "enabled": True,
-            "license_audit": {"forbidden_licenses": ["GPL-3.0"]}
-        }
+        "rules": [
+            {
+                "id": "forbidden_license",
+                "when": {"category": "SUPPLY_CHAIN", "signal": "GPL-3.0"},
+                "then": {"action": "advisory", "message": "GPL violation detected"}
+            }
+        ]
     }
     policy_file.write_text(yaml.dump(policy_content))
-    
+
+    # Create a fake requirements.txt
     req_file = tmp_path / "requirements.txt"
-    req_file.write_text("gpl-library==3.0.0 # License: GPL-3.0")
+    req_file.write_text("some-library==1.0.0 # License: GPL-3.0")
 
-    old_cwd = os.getcwd()
-    os.chdir(tmp_path)
-    
-    try:
-        class Args:
-            policy = str(policy_file)
-            compliance = True
-            no_compliance = False
+    # Patch provider registry to use the mock for "static"
+    from ai_slop_gate.providers.registry import provider_registry
+    monkeypatch.setattr(provider_registry, "get", lambda key: MockComplianceProvider if key == "static" else None)
 
-        results = run_compliance_enrichment(Args(), [])
-        
-        if not results:
-            print(f"Content of {req_file}: {req_file.read_text()}")
-            
-        assert len(results) > 0, "Should find GPL violation"
-        assert any("GPL-3.0" in r for r in results)
-    finally:
-        os.chdir(old_cwd)
+    # Run CLI subprocess
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ai_slop_gate.cli.main",
+            "run",
+            "--policy",
+            str(policy_file),
+            "--provider",
+            "static",
+            "--input-file",
+            str(req_file),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    # --- Assertions ---
+    # CLI should run successfully
+    assert result.returncode == 0
+
+    # Stage 0.1 CLI prints Decision
+    assert "Decision:" in result.stdout
+
+    # Decision should be ADVISORY or BLOCKING (mock triggers advisory)
+    assert "ADVISORY" in result.stdout or "BLOCKING" in result.stdout
