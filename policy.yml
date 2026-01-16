@@ -132,3 +132,19 @@ rules:
     then:
       action: advisory
       message: "Remove TODOs and FIXMEs before merging to main"
+
+  - id: forbid-gpl
+    when:
+      source: compliance
+      license: GPL-3.0
+    then:
+      decision: block
+      reason: "GPL-3.0 is not allowed for EU distribution"
+
+  - id: eu-gpl-block
+    when:
+      source: compliance
+      license: GPL-3.0
+    then:
+      decision: block
+      reason: "GPL forbidden under EU profile"
