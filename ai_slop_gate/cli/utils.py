@@ -2,6 +2,7 @@ from pathlib import Path
 import yaml
 from ai_slop_gate.domain.policy_engine import PolicyRule
 
+
 def load_policy_rules(path: str) -> list[PolicyRule]:
     with open(path, "r") as f:
         raw = yaml.safe_load(f)

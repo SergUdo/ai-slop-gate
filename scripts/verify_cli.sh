@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 # chmod +x scripts/verify_cli.sh
 # ./scripts/verify_cli.sh
-#!/bin/bash
-echo "▶️ Verify CLI basic commands"
+#!/usr/bin/env bash
+set -e
 
-# init
-python -m ai_slop_gate.cli.main init --force --policy policy.yml --provider static
+echo "🔍 Stage 0 smoke test"
 
-# run with static
+echo "▶ init"
+python -m ai_slop_gate.cli.main init --force
+test -f .ai-slop-gate.yml && echo "✔ config created"
+
+echo "▶ run (static)"
 python -m ai_slop_gate.cli.main run \
   --policy policy.yml \
   --provider static \
-  --input-text "test input for static provider"
+  --input-text "test"
+
+echo "✔ Stage 0 OK"
 
 

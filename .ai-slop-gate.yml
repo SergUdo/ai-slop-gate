@@ -2,8 +2,9 @@ version: 1
 mode: advisory
 providers:
 - static
-- llm
-reporters:
-- stdout
+compliance:
+  enabled: false
+  regions: []
+  license_policy: default
 policy:
   ruleset: default

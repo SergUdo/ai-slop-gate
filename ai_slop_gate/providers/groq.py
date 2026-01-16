@@ -58,7 +58,6 @@ class GroqProvider:
 
             raw_content = result['choices'][0]['message']['content'].strip()
 
-            # Очищення від Markdown code blocks
             if raw_content.startswith("```"):
                 raw_content = raw_content.strip("`").replace("json", "", 1).strip()
 
@@ -66,8 +65,6 @@ class GroqProvider:
 
             observations = []
             for i, obs in enumerate(observations_data):
-                # Якщо AI надав evidence, додаємо його до повідомлення, 
-                # бо в самому об'єкті Observation такого поля немає.
                 main_message = obs.get('message', 'No message provided')
                 evidence = obs.get('evidence')
                 full_message = f"{main_message} | Evidence: {evidence}" if evidence else main_message
@@ -81,7 +78,6 @@ class GroqProvider:
                         severity=obs.get('severity', 'medium'),
                         message=full_message,
                         location=obs.get('location', 'unknown')
-                        # 'evidence' видалено, бо він викликав TypeError
                     )
                 )
             return observations

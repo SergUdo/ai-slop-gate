@@ -1,0 +1,8 @@
+rules:
+  - id: todo
+    when:
+      category: CODE_QUALITY
+      signal: TODO
+    then:
+      action: advisory
+      message: Remove TODO
