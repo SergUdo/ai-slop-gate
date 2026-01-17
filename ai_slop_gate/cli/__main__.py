@@ -1,3 +1,5 @@
-from ai_slop_gate.cli.main import main
+from .main import main
+import sys
 
-main()
+if __name__ == "__main__":
+    sys.exit(main())

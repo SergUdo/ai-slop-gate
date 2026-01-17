@@ -1,65 +1,55 @@
-from dataclasses import dataclass
-from typing import List, Optional
-
-from .decision import Decision, DecisionMode, Annotation
-from .observation import Observation
+from ai_slop_gate.domain.decision import Decision, DecisionMode
+from ai_slop_gate.domain.contracts import PolicyRule
+from ai_slop_gate.domain.observation import Observation
 
 
-@dataclass(frozen=True)
-class PolicyRule:
-    id: str
-    category: str
-    signal: str
-    min_confidence: float
-    action: str          # "advisory" | "blocking"
-    message: str
-
-
-def evaluate_policy(
-    observations: List[Observation],
-    rules: List[PolicyRule],
-) -> Decision:
+class PolicyEngine:
     """
-    Evaluates a set of observations against a list of policy rules
-    and returns a Decision object.
-
-    - observations: list of Observation objects from providers
-    - rules: list of PolicyRule objects defining checks
+    Stage 0.7 policy evaluator.
+    Uses the new PolicyRule contract:
+    - rule.when: {category, signal, min_confidence}
+    - rule.then: {action, message}
     """
-    # --- Initialize variables to avoid UnboundLocalError
-    reasons_set = set()
-    annotations: list[Annotation] = []
-    mode = DecisionMode.ADVISORY
 
-    for obs in observations:
-        for rule in rules:
-            # --- Check if observation matches the rule criteria
-            if (
-                obs.category == rule.category
-                and obs.signal == rule.signal
-                and obs.confidence >= rule.min_confidence
-            ):
-                # Add the rule message to reasons
-                reasons_set.add(rule.message)
+    def __init__(self, rules):
+        self.rules = rules or []
 
-                # --- Optionally create an annotation if evidence is provided
-                if hasattr(obs, 'evidence') and obs.evidence and "file" in obs.evidence:
-                    annotations.append(
-                        Annotation(
-                            file=obs.evidence["file"],
-                            line=obs.evidence.get("line", 1),
-                            message=rule.message,
-                            level="error" if rule.action == "blocking" else "warning"
-                        )
-                    )
+    def evaluate(self, observations):
+        # No rules → ALLOW
+        if not self.rules:
+            return Decision(
+                mode=DecisionMode.ALLOW,
+                reasons=[],
+                annotations=[]
+            )
 
-                # --- Escalate decision mode if any blocking rule is triggered
-                if rule.action == "blocking":
-                    mode = DecisionMode.BLOCKING
+        reasons = []
+        annotations = []
+        mode = DecisionMode.ALLOW
 
-    # --- Return the final Decision object
-    return Decision(
-        mode=mode,
-        reasons=sorted(reasons_set),
-        annotations=annotations
-    )
+        for obs in observations:
+            for rule in self.rules:
+                when = rule.when
+                then = rule.then
+
+                if (
+                    obs.category == when.get("category")
+                    and obs.signal == when.get("signal")
+                    and obs.confidence >= when.get("min_confidence", 0.0)
+                ):
+                    # Add reason
+                    reasons.append(then.get("message"))
+
+                    # Blocking rule overrides everything
+                    if then.get("action") == "blocking":
+                        mode = DecisionMode.BLOCKING
+                    else:
+                        # advisory rule only applies if no blocking rule triggered
+                        if mode != DecisionMode.BLOCKING:
+                            mode = DecisionMode.ADVISORY
+
+        return Decision(
+            mode=mode,
+            reasons=reasons,
+            annotations=annotations,
+        )

@@ -1,65 +1,81 @@
-import os
-import sys
-from pathlib import Path
-
-from ai_slop_gate.cli.logger import logger
-from ai_slop_gate.cli.context import RuntimeContext
-from ai_slop_gate.cli.utils import load_policy_rules
-
-from ai_slop_gate.providers.cached_provider import CachedProvider
-from ai_slop_gate.cache.file_backend import FileCacheBackend
-
-from ai_slop_gate.domain.policy_engine import evaluate_policy
-from ai_slop_gate.domain.check_mapper import decision_to_check
+from ai_slop_gate.cli.utils import load_policy
+from ai_slop_gate.domain.compliance.gateway import ComplianceGateway
+from ai_slop_gate.domain.policy_engine import PolicyEngine
 from ai_slop_gate.domain.decision import DecisionMode
 
-from ai_slop_gate.reporters.github_pr import GitHubPRReporter
-from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
 
+def run_cli(ctx):
+    # --- Load policy ---
+    policy_config, rules = load_policy(ctx.policy)
 
-def run_analysis(ctx: RuntimeContext) -> None:
-    from ai_slop_gate.providers.registry import provider_registry
-    logger.info(f"Provider: {ctx.provider}")
+    observations = []
 
-    provider_cls = provider_registry.get(ctx.provider)
-    if not provider_cls:
-        raise SystemExit(f"Unknown provider: {ctx.provider}")
+    # --- Compliance stage (stage-0.7 invariant) ---
+    if ctx.compliance and policy_config.compliance and policy_config.compliance.enabled:
+        gateway = ComplianceGateway(policy_config.compliance)
+        observations.extend(
+            gateway.analyze(ctx.input_file or ".")
+        )
 
-    provider = provider_cls()
-    provider = CachedProvider(provider, cache=FileCacheBackend())
+    # --- Policy evaluation ---
+    engine = PolicyEngine(rules)
+    decision = engine.evaluate(observations)
 
-    content = None
-    if ctx.input_file:
-        content = Path(ctx.input_file).read_text()
-    elif ctx.input_text:
-        content = ctx.input_text
+    # --- Minimal mode (used by tests) ---
+    if not ctx.verbose:
+        print(f"Decision: {decision.mode.name}")
+        return 1 if decision.mode == DecisionMode.BLOCKING else 0
 
-    result = provider.collect(content)
-    observations = getattr(result, "observations", result)
+    # --- Verbose mode ---
+    print("=== AI Slop Gate Compliance Report ===\n")
 
-    rules = load_policy_rules(ctx.policy_path)
-    decision = evaluate_policy(observations, rules)
-    check = decision_to_check(decision)
+    # Active profile
+    if policy_config.compliance and policy_config.compliance.profiles:
+        print(f"Active profile: {policy_config.compliance.profiles[0]}")
+    else:
+        print("Active profile: none")
 
-    token = ctx.github_token or os.getenv("GITHUB_TOKEN")
-    if token and ctx.github_repo:
-        if ctx.github_checks and ctx.github_sha:
-            GitHubChecksReporter(
-                token=token,
-                repo=ctx.github_repo,
-                sha=ctx.github_sha,
-            ).report(check)
+    # Compliance settings
+    if policy_config.compliance:
+        print(f"Forbidden licenses: {policy_config.compliance.forbid_licenses or []}")
+        print(f"Allowed licenses: {policy_config.compliance.allow_licenses or []}")
+    else:
+        print("Compliance: disabled")
 
-        if ctx.pr_id:
-            GitHubPRReporter(
-                token=token,
-                repo_name=ctx.github_repo,
-                pr_id=ctx.pr_id,
-            ).report(check)
+    print(f"\nRules loaded: {len(rules)}\n")
 
-    logger.info(f"Decision: {decision.mode.value.upper()}")
-    for r in decision.reasons:
-        logger.info(f"- {r}")
+    # Observations
+    print("Observations:")
+    if not observations:
+        print("  (none)")
+    else:
+        for obs in observations:
+            loc = ""
+            if obs.evidence and "file" in obs.evidence:
+                loc = f"{obs.evidence['file']}:{obs.evidence.get('line', 1)}"
 
-    if decision.mode == DecisionMode.BLOCKING and ctx.enforcement == "blocking":
-        sys.exit(1)
+            license_info = ""
+            if obs.evidence and "license" in obs.evidence:
+                license_info = f"[{obs.evidence['license']}]"
+
+            print(f"  - {obs.category}/{obs.signal} {license_info} {loc}")
+
+    # Reasons
+    print("\nReasons:")
+    if not decision.reasons:
+        print("  (none)")
+    else:
+        for r in decision.reasons:
+            print(f"  - {r}")
+
+    # Annotations
+    print("\nAnnotations:")
+    if not decision.annotations:
+        print("  (none)")
+    else:
+        for a in decision.annotations:
+            print(f"  - {a.file}:{a.line} → {a.message}")
+
+    print(f"\nDecision: {decision.mode.name}")
+
+    return 1 if decision.mode == DecisionMode.BLOCKING else 0

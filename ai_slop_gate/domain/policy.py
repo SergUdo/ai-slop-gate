@@ -1,14 +1,19 @@
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, Any
 
 
 @dataclass(frozen=True)
 class PolicyRule:
     """
-    Declarative rule parsed from policy.yml
+    Stage 0.7 declarative policy rule.
+
+    Structure:
+    - id: rule identifier
+    - when: matching conditions (category, signal, min_confidence)
+    - then: action block (action, message)
     """
 
     id: str
-    match: List[str]          # observation codes
-    decision: str             # "advisory" | "blocking"
-    message: str
+    when: Dict[str, Any]
+    then: Dict[str, Any]
+

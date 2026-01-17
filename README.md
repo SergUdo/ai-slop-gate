@@ -202,27 +202,65 @@ python -m ai_slop_gate.cli init
 if you have `.ai-slop-gate.yml`  Use `--force` to overwrite
 
 ### 3. Local Usage
-To run the analysis manually from your terminal, use the following command:
 
-```
-python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
-```
+To run the analysis manually from your terminal:
 
-Optional arguments:
+    python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
 
- - `k8s-manifests <path>` – path to Kubernetes YAML manifests
+#### Optional arguments
 
- - `github-checks` – report results as GitHub Checks
+- `--input-file <path>`  
+  Path to the input file for the selected provider (e.g. requirements.txt).
 
- - `github-repo <repo>` – repository name for GitHub reporting
+- `--k8s-manifests <path>`  
+  Path to Kubernetes YAML manifests.
 
- - `github-sha <sha>` – commit SHA for GitHub Checks
+- `--github-checks`  
+  Report results as GitHub Checks.
 
- - `pr-id <number>` – GitHub PR number to comment results
+- `--github-repo <repo>`  
+  Repository name for GitHub reporting.
 
- - `enforcement <never|blocking|advisory>` – enforcement level (default: advisory)
+- `--github-sha <sha>`  
+  Commit SHA for GitHub Checks.
 
- - `compliance` – Force run compliance audit (License check & Secret scanning).
+- `--pr-id <number>`  
+  GitHub PR number to comment results.
+
+- `--enforcement <never|blocking|advisory>`  
+  Override enforcement level (default: advisory).
+
+- `--compliance`  
+  Force run compliance audit (license checks, secret scanning, residency checks).
+
+- `--profile <name>`  
+  Override active compliance profile defined in policy.yml.
+
+- `--verbose`  
+  Enable full verbose mode, including:
+  - `active profile`
+  - `merged compliance settings`
+  - `loaded rules`
+  - `observations with evidence`
+  - `policy reasons`
+  - `annotations`
+  - `final decision summary`
+
+
+#### Examples
+
+Run static analysis with default settings:
+
+    python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
+
+Run with verbose output:
+
+    python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --verbose
+
+Run with a specific compliance profile:
+
+    python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --profile eu-strict
+
 
 ### Run
 
