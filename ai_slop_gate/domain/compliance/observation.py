@@ -1,12 +1,19 @@
-from dataclasses import dataclass
-from ai_slop_gate.domain.decision import DecisionMode
+from typing import Optional
 
-@dataclass(frozen=True)
+from ai_slop_gate.domain.compliance.config import ComplianceConfig, PolicyConfig
+
+
 class ComplianceObservation:
-    license: str
-    severity: str
-    message: str
+    """
+    Runtime observation result of compliance checks.
+    """
 
-    def suggested_decision(self) -> DecisionMode:
-        from ai_slop_gate.domain.compliance.enforcement import decision_for_severity
-        return decision_for_severity(self.severity)
+    def __init__(
+        self,
+        config: ComplianceConfig,
+        violated: bool,
+        reason: Optional[str] = None,
+    ):
+        self.config = config
+        self.violated = violated
+        self.reason = reason

@@ -1,79 +1,50 @@
 version: "v1"
 project_name: "ai_slop_gate"
 
-# Global enforcement level: never | advisory | blocking
 enforcement: advisory
 
 # --- AI Provider configuration ---
-# unified into a single block to avoid conflicts between Gemini and Llama
 ai_provider:
-  name: gemini # Change to 'llama' if needed
-  model: gemini-2.5-flash # or 'Llama-3.3'
+  name: gemini
+  model: gemini-2.5-flash
   temperature: 0.1
   mode: advisory
 
-# --- Compliance Module (Sidecar) ---
-# For License and Secret audits via Supply Chain Provider
+# --- Compliance Module (Stage 0.6 canonical) ---
 compliance:
-  enabled: false # Overridden by --compliance flag in CLI
-  license_audit:
-    enabled: true
-    forbidden_licenses: ["GPL-2.0", "GPL-3.0", "AGPL-3.0"]
-  security_audit:
-    enabled: true
-    detect_secrets: true
-    enforce_data_residency: "EU"
+  enabled: false          # overridden by --compliance
+  profiles: []
+  license:
+    forbid: []
+    allow: []
+  enforcement: advisory
 
 # --- AI Slop Detection Logic ---
-# AI-driven checks for code quality and hallucinations
 ai_slop:
   max_redundancy: 3
   max_length: 50
-  
+
   detect_llm_quality:
     enabled: true
     prompt_template: |
-      Analyze the following code snippet for potential AI slop, unidiomatic patterns, or inefficiency.
-      Focus on identifying:
-      1. Overly generic or repetitive code.
-      2. Code that doesn't match typical human-written patterns for this language.
-      3. Comments or documentation that seem AI-generated.
-      Provide a concise 'PASS' or 'FAIL' and a brief explanation if 'FAIL'.
-      Code snippet:
-      ```
-      {code_snippet}
-      ```
+      Analyze the following code snippet for potential AI slop...
 
   detect_style_violations:
     enabled: true
     prompt_template: |
-      Does the following code adhere to best practices and common idioms for its language?
-      Identify any areas that feel 'off' or generic, potentially indicating AI generation.
-      Code snippet:
-      ```
-      {code_snippet}
-      ```
+      Does the following code adhere to best practices...
 
   detect_hallucinations:
     enabled: true
     prompt_template: |
-      Check the following code and comments for potential hallucinations or inaccuracies.
-      Focus on:
-      1. Comments that don't match the code.
-      2. Incorrect assumptions or outdated practices.
-      Code snippet:
-      ```
-      {code_snippet}
-      ```
+      Check the following code and comments for potential hallucinations...
 
-# --- Static Analysis & Rules ---
-# Fixed: Moved quality flags from AI section to static analysis
+# --- Static Analysis ---
 code_quality:
   detect_todo: true
   detect_fixme: true
   max_function_length: 50
 
-# Security scans for manifests
 infrastructure_security:
   dockerfile:
     check_user: true
@@ -85,66 +56,45 @@ infrastructure_security:
     check_public_access: true
 
 # --- Rules Engine ---
-# Evaluates observations from all providers
 rules:
-  # Base Security
   - id: hardcoded-secret
     when:
       category: security
       signal: negative
       min_confidence: 0.9
     then:
-      action: blocking
-      message: "Hardcoded secret detected"
+      decision: block
+      reason: "Hardcoded secret detected"
 
-  # Infrastructure (Terraform)
   - id: TF_PUBLIC_ACCESS
     when:
       category: TERRAFORM
       signal: INSECURE_CONFIG
       min_confidence: 0.95
     then:
-      action: blocking
-      message: "Terraform plan exposes resource to public access (0.0.0.0/0)"
+      decision: block
+      reason: "Terraform plan exposes resource to public access (0.0.0.0/0)"
 
   - id: TF_MISSING_TAGS
     when:
       category: TERRAFORM
       signal: MISSING_TAGS
     then:
-      action: advisory
-      message: "Terraform resource is missing mandatory tags"
+      decision: advisory
+      reason: "Terraform resource is missing mandatory tags"
 
-  # Cloud Native (Kubernetes)
   - id: k8s-no-root
     when:
       category: security
       signal: RUN_AS_ROOT
     then:
-      action: blocking
-      message: "Kubernetes container must not run as root"
+      decision: block
+      reason: "Kubernetes container must not run as root"
 
-  # Code Quality
   - id: todo-advisory
     when:
       category: quality
       signal: negative
     then:
-      action: advisory
-      message: "Remove TODOs and FIXMEs before merging to main"
-
-  - id: forbid-gpl
-    when:
-      source: compliance
-      license: GPL-3.0
-    then:
-      decision: block
-      reason: "GPL-3.0 is not allowed for EU distribution"
-
-  - id: eu-gpl-block
-    when:
-      source: compliance
-      license: GPL-3.0
-    then:
-      decision: block
-      reason: "GPL forbidden under EU profile"
+      decision: advisory
+      reason: "Remove TODOs and FIXMEs before merging to main"

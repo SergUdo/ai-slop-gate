@@ -2,7 +2,9 @@ import sys
 from ai_slop_gate.cli.args import build_parser
 from ai_slop_gate.cli.context import RuntimeContext
 from ai_slop_gate.cli.init_cmd import run_init
-from ai_slop_gate.cli.run import run_analysis
+from ai_slop_gate.cli.run import run_cli
+from ai_slop_gate.cli.utils import load_policy
+from ai_slop_gate.domain.compliance.gateway import ComplianceGateway
 
 
 def main():
@@ -14,6 +16,7 @@ def main():
         return
 
     if args.command == "run":
+        # Create runtime context from CLI args
         ctx = RuntimeContext(
             input_text=args.input_text,
             input_file=args.input_file,
@@ -30,10 +33,10 @@ def main():
             github_checks=args.github_checks,
             github_token=args.github_token,
         )
-        run_analysis(ctx)
-        return
 
-    sys.exit(1)
+        # --- Directly call run_cli ---
+        exit_code = run_cli(ctx)
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":

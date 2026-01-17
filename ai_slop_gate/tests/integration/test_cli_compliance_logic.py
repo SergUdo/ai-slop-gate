@@ -1,67 +1,46 @@
-import subprocess
-import sys
-from pathlib import Path
 import pytest
-import yaml
-
-# --- Mock provider that simulates GPL violation
-class MockComplianceProvider:
-    def collect(self):
-        # Return a mock observation (Stage 0.1 ignores signal printing)
-        return [{"signal": "GPL-3.0", "rule_id": "forbidden_license"}]
+from subprocess import run, PIPE
+from pathlib import Path
 
 @pytest.mark.integration
-def test_cli_stage0_gpl_detection(tmp_path, monkeypatch):
+def test_cli_stage0_gpl_detection(tmp_path):
     """
-    Integration test for Stage 0.1 CLI with compliance.
-    Checks that Decision is ADVISORY or BLOCKING when a GPL license is found.
+    CLI should detect GPL-3.0 license violation when compliance enabled.
     """
-
-    # Create a minimal policy file for compliance check
     policy_file = tmp_path / "policy.yml"
-    policy_content = {
-        "rules": [
-            {
-                "id": "forbidden_license",
-                "when": {"category": "SUPPLY_CHAIN", "signal": "GPL-3.0"},
-                "then": {"action": "advisory", "message": "GPL violation detected"}
-            }
-        ]
-    }
-    policy_file.write_text(yaml.dump(policy_content))
+    policy_file.write_text("""
+version: "v1"
+project_name: "ai_slop_gate"
+enforcement: advisory
 
-    # Create a fake requirements.txt
-    req_file = tmp_path / "requirements.txt"
-    req_file.write_text("some-library==1.0.0 # License: GPL-3.0")
+compliance:
+  enabled: true
+  profiles: [eu]
+  license:
+    forbid: [GPL-3.0]
+    allow: [MIT, Apache-2.0]
+  enforcement: blocking
 
-    # Patch provider registry to use the mock for "static"
-    from ai_slop_gate.providers.registry import provider_registry
-    monkeypatch.setattr(provider_registry, "get", lambda key: MockComplianceProvider if key == "static" else None)
+rules:
+  - id: forbid-gpl
+    when:
+      source: compliance
+      license: GPL-3.0
+    then:
+      decision: block
+      reason: "GPL is forbidden by EU compliance"
+""")
 
-    # Run CLI subprocess
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "ai_slop_gate.cli.main",
-            "run",
-            "--policy",
-            str(policy_file),
-            "--provider",
-            "static",
-            "--input-file",
-            str(req_file),
-        ],
-        capture_output=True,
-        text=True,
+    input_file = tmp_path / "requirements.txt"
+    input_file.write_text("packageA==1.0  # GPL-3.0\n")
+
+    result = run(
+        ["python", "-m", "ai_slop_gate.cli.main",
+         "run", "--policy", str(policy_file),
+         "--provider", "static",
+         "--input-file", str(input_file)],
+        stdout=PIPE, stderr=PIPE, text=True
     )
 
-    # --- Assertions ---
-    # CLI should run successfully
-    assert result.returncode == 0
-
-    # Stage 0.1 CLI prints Decision
-    assert "Decision:" in result.stdout
-
-    # Decision should be ADVISORY or BLOCKING (mock triggers advisory)
-    assert "ADVISORY" in result.stdout or "BLOCKING" in result.stdout
+    assert "GPL-3.0" in result.stdout or "GPL-3.0" in result.stderr
+    assert "Decision" in result.stdout

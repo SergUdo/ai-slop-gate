@@ -1,8 +1,8 @@
-from ai_slop_gate.domain.policy_config import ComplianceConfig
+from ai_slop_gate.domain.compliance.config import PolicyConfig, ComplianceConfig
 from ai_slop_gate.domain.compliance.gateway import ComplianceGateway
 
 def test_eu_strict_blocks_gpl():
-    config = ComplianceConfig(enabled=True, profiles=["eu-strict"])
+    config = PolicyConfig(enabled=True, profiles=["eu-strict"])
     gateway = ComplianceGateway(config)
 
     obs = gateway.analyze(".")
