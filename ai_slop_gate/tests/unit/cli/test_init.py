@@ -33,4 +33,5 @@ def test_init_force_overwrites(tmp_path, monkeypatch):
     run_init(force=True)
 
     data = yaml.safe_load(Path(".ai-slop-gate.yml").read_text())
+    print(data)
     assert "providers" in data

@@ -1,5 +1,2 @@
-# CLI package marker
-
-from .main import main
-
-__all__ = ["main"]
+# Keep CLI namespace clean
+__all__ = []

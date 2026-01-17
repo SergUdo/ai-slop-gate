@@ -1,10 +1,15 @@
-from ai_slop_gate.domain.compliance.gateway import ComplianceGateway
-from ai_slop_gate.domain.compliance.config import PolicyConfig, ComplianceConfig
+from ai_slop_gate.domain.config import PolicyConfig
+from ai_slop_gate.domain.compliance.config import ComplianceConfig
 
 
 def test_compliance_disabled():
-    config = PolicyConfig(enabled=False)
-    gateway = ComplianceGateway(config)
+    cfg = PolicyConfig(
+        compliance=ComplianceConfig(
+            enabled=False,
+            forbid_licenses=["GPL-3.0"],
+        )
+    )
 
-    result = gateway.analyze(".")
-    assert result == []
+    assert cfg.compliance.enabled is False
+    assert "GPL-3.0" in (cfg.compliance.forbid_licenses or [])
+

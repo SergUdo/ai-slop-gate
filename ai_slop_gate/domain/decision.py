@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Optional
 
 class DecisionMode(str, Enum):
+    ALLOW = "allow"
     ADVISORY = "advisory"
     BLOCKING = "blocking"
 

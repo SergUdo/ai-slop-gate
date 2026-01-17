@@ -1,29 +1,40 @@
-from ai_slop_gate.domain.policy_engine import evaluate_policy
-from ai_slop_gate.domain.compliance.observation import ComplianceObservation
+from ai_slop_gate.domain.observation import Observation, Severity
+from ai_slop_gate.domain.policy_engine import PolicyRule, PolicyEngine
+from ai_slop_gate.domain.decision import DecisionMode
+
 
 def test_policy_blocks_on_compliance_observation():
-    observations = [
-        ComplianceObservation(
-            license="GPL-3.0",
-            severity="high",
-            message="GPL detected",
+    # Stage 0.7: PolicyRule uses when/then contract
+    rules = [
+        PolicyRule(
+            id="forbidden-license",
+            when={
+                "category": "COMPLIANCE",
+                "signal": "FORBIDDEN_LICENSE",
+                "min_confidence": 0.5,
+            },
+            then={
+                "action": "blocking",
+                "message": "Forbidden license detected",
+            },
         )
     ]
 
-    rules = [
-        {
-            "id": "forbid-gpl",
-            "when": {
-                "source": "compliance",
-                "license": "GPL-3.0",
-            },
-            "then": {
-                "decision": "block",
-                "reason": "GPL not allowed",
-            },
-        }
+    # Stage 0.7: Observation uses new contract
+    obs = [
+        Observation(
+            category="COMPLIANCE",
+            signal="FORBIDDEN_LICENSE",
+            confidence=1.0,
+            message="License GPL-3.0 is forbidden by compliance policy",
+            severity=Severity.HIGH,
+            evidence={"license": "GPL-3.0"},
+            rule_id="L-SCAN",
+        )
     ]
 
-    decision = evaluate_policy(observations, rules)
+    engine = PolicyEngine(rules)
+    decision = engine.evaluate(obs)
 
-    assert decision.mode.value == "blocking"
+    assert decision.mode == DecisionMode.BLOCKING
+    assert "Forbidden license detected" in decision.reasons

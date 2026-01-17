@@ -1,8 +1,3 @@
-from .config import ComplianceConfig, PolicyConfig
-from .observation import ComplianceObservation
+from .config import ComplianceConfig
 
-__all__ = [
-    "ComplianceConfig",
-    "PolicyConfig",
-    "ComplianceObservation",
-]
+__all__ = ["ComplianceConfig"]

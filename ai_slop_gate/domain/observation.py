@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 class Severity(str, Enum):
@@ -17,10 +17,22 @@ class Location:
 
 @dataclass(frozen=True)
 class Observation:
-    rule_id: str
+    """
+    Stage 0.7 observation contract.
+
+    Supports:
+    - New format: category, signal, confidence, message, severity, evidence, rule_id
+    - Legacy field: location (used by older providers/tests)
+    """
+
     category: str
     signal: str
-    message: str
-    severity: Severity
     confidence: float
+    message: str
+
+    severity: Optional[Severity] = None
+    evidence: Optional[Dict[str, Any]] = None
+    rule_id: Optional[str] = None
+
+    # Legacy compatibility
     location: Optional[Location] = None

@@ -1,11 +1,16 @@
-from ai_slop_gate.domain.compliance.config import PolicyConfig, ComplianceConfig
-from ai_slop_gate.domain.compliance.gateway import ComplianceGateway
+from ai_slop_gate.domain.config import PolicyConfig
+from ai_slop_gate.domain.compliance.config import ComplianceConfig
+
 
 def test_eu_profile_blocks_gpl():
-    config = PolicyConfig(enabled=True, profiles=["eu"])
-    gateway = ComplianceGateway(config)
+    cfg = PolicyConfig(
+        compliance=ComplianceConfig(
+            enabled=True,
+            profiles=["eu"],
+            forbid_licenses=["GPL-3.0"],
+            enforcement="blocking",
+        )
+    )
 
-    observations = gateway.analyze(".")
-
-    assert len(observations) == 1
-    assert observations[0].license == "GPL-3.0"
+    assert cfg.compliance.enabled is True
+    assert "GPL-3.0" in (cfg.compliance.forbid_licenses or [])

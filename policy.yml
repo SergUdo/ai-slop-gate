@@ -1,100 +1,161 @@
 version: "v1"
 project_name: "ai_slop_gate"
-
+ 
+# Global enforcement level: never | advisory | blocking
 enforcement: advisory
-
+ 
 # --- AI Provider configuration ---
 ai_provider:
-  name: gemini
+  name: gemini                # gemini | llama | openrouter | copilot
   model: gemini-2.5-flash
   temperature: 0.1
   mode: advisory
-
-# --- Compliance Module (Stage 0.6 canonical) ---
+  explain: false              # LLM should NOT generate long explanations unless enabled
+ 
+# --- Compliance Module (Deterministic Sidecar) ---
 compliance:
-  enabled: false          # overridden by --compliance
-  profiles: []
-  license:
-    forbid: []
-    allow: []
-  enforcement: advisory
-
+  enabled: false              # Overridden by --compliance flag
+ 
+  license_audit:
+    enabled: true
+    forbidden_licenses:
+      - GPL-2.0
+      - GPL-3.0
+      - AGPL-3.0
+    severity: high
+    tags: [license, supply-chain, legal]
+ 
+  security_audit:
+    enabled: true
+    detect_secrets: true
+    enforce_data_residency: EU
+    severity: critical
+    tags: [security, gdpr, residency]
+ 
 # --- AI Slop Detection Logic ---
 ai_slop:
   max_redundancy: 3
   max_length: 50
-
+ 
   detect_llm_quality:
     enabled: true
+    explain: true
+    severity: medium
+    tags: [ai, quality]
     prompt_template: |
-      Analyze the following code snippet for potential AI slop...
-
+      Analyze the following code snippet for potential AI slop, unidiomatic patterns, or inefficiency.
+      Focus on identifying:
+      1. Overly generic or repetitive code.
+      2. Code that doesn't match typical human-written patterns.
+      3. Comments or documentation that seem AI-generated.
+      Provide a concise PASS or FAIL and a brief explanation if FAIL.
+      Code snippet:
+      {code_snippet}
+ 
   detect_style_violations:
     enabled: true
+    severity: low
+    tags: [style, quality]
     prompt_template: |
-      Does the following code adhere to best practices...
-
+      Does the following code adhere to best practices and common idioms for its language?
+      Identify any areas that feel 'off' or generic, potentially indicating AI generation.
+      Code snippet:
+      {code_snippet}
+ 
   detect_hallucinations:
     enabled: true
+    severity: high
+    tags: [ai, hallucination]
     prompt_template: |
-      Check the following code and comments for potential hallucinations...
-
-# --- Static Analysis ---
+      Check the following code and comments for potential hallucinations or inaccuracies.
+      Focus on:
+      1. Comments that don't match the code.
+      2. Incorrect assumptions or outdated practices.
+      Code snippet:
+      {code_snippet}
+ 
+# --- Static Code Quality ---
 code_quality:
   detect_todo: true
   detect_fixme: true
   max_function_length: 50
-
+  severity: low
+  tags: [quality, maintainability]
+ 
+# --- Infrastructure Security ---
 infrastructure_security:
   dockerfile:
     check_user: true
     check_sensitive_env: true
+    severity: high
+    tags: [docker, security]
+ 
   kubernetes:
     check_root_user: true
     check_privileged: true
+    severity: critical
+    tags: [k8s, security]
+ 
   terraform:
     check_public_access: true
-
+    severity: high
+    tags: [terraform, cloud, security]
+ 
 # --- Rules Engine ---
 rules:
+ 
+  # Secrets
   - id: hardcoded-secret
     when:
       category: security
       signal: negative
       min_confidence: 0.9
     then:
-      decision: block
-      reason: "Hardcoded secret detected"
-
+      action: blocking
+      severity: critical
+      tags: [security, secrets]
+      message: "Hardcoded secret detected"
+ 
+  # Terraform
   - id: TF_PUBLIC_ACCESS
     when:
       category: TERRAFORM
       signal: INSECURE_CONFIG
       min_confidence: 0.95
     then:
-      decision: block
-      reason: "Terraform plan exposes resource to public access (0.0.0.0/0)"
-
+      action: blocking
+      severity: high
+      tags: [terraform, cloud, security]
+      message: "Terraform plan exposes resource to public access (0.0.0.0/0)"
+ 
   - id: TF_MISSING_TAGS
     when:
       category: TERRAFORM
       signal: MISSING_TAGS
     then:
-      decision: advisory
-      reason: "Terraform resource is missing mandatory tags"
-
+      action: advisory
+      severity: low
+      tags: [terraform, governance]
+      message: "Terraform resource is missing mandatory tags"
+ 
+  # Kubernetes
   - id: k8s-no-root
     when:
       category: security
       signal: RUN_AS_ROOT
     then:
-      decision: block
-      reason: "Kubernetes container must not run as root"
-
+      action: blocking
+      severity: critical
+      tags: [k8s, security]
+      message: "Kubernetes container must not run as root"
+ 
+  # Code Quality
   - id: todo-advisory
     when:
       category: quality
       signal: negative
     then:
-      decision: advisory
-      reason: "Remove TODOs and FIXMEs before merging to main"
+      action: advisory
+      severity: low
+      tags: [quality, maintainability]
+      message: "Remove TODOs and FIXMEs before merging to main"

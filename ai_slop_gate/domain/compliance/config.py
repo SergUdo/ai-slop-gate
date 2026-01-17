@@ -14,8 +14,3 @@ class ComplianceConfig:
     forbid_licenses: Optional[List[str]] = None
     allow_licenses: Optional[List[str]] = None
     enforcement: str = "advisory"
-
-
-@dataclass(frozen=True)
-class PolicyConfig:
-    compliance: Optional[ComplianceConfig] = None

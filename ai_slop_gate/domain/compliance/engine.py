@@ -3,21 +3,11 @@ from typing import List
 from typing import Any, Optional
 from ..observation import Observation
 
-def evaluate_compliance_risks(
-    observations: List[Observation],
-    license_rules: List[Any],
-    secret_rules: List[Any]
-) -> List[str]:
-    detected_risks = []
-    
+def evaluate_compliance_risks(observations, license_rules, secret_rules):
+    risks = []
     for obs in observations:
-        if obs.signal == "license_violation":
-            for rule in license_rules:
-                for forbidden in rule.forbidden_licenses:
-                    if forbidden in obs.message:
-                        detected_risks.append(f"{rule.id}: {rule.message} ({forbidden})")
-
-        if obs.signal == "secret_exposed":
-            detected_risks.append(f"SECURITY-RISK: {obs.message}")
-                
-    return sorted(list(set(detected_risks)))
+        if obs.signal == "FORBIDDEN_LICENSE":
+            risks.append(f"License risk: {obs.evidence['license']}")
+        elif obs.signal == "SECRET_EXPOSED":
+            risks.append("security-risk: secret exposed")
+    return risks
