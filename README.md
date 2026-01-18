@@ -200,7 +200,7 @@ pip install -e .
 
 Create your `.ai-slop-gate.yml` in seconds:
 
-```
+```bash
 python -m ai_slop_gate.cli init
 ```
 if you have `.ai-slop-gate.yml`  Use `--force` to overwrite
@@ -209,7 +209,7 @@ if you have `.ai-slop-gate.yml`  Use `--force` to overwrite
 
 To run the analysis manually from your terminal:
 
-    python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
+  `python -m ai_slop_gate.cli.main run --provider static --policy policy.yml`
 
 #### Optional arguments
 
@@ -255,24 +255,24 @@ To run the analysis manually from your terminal:
 
 Run static analysis with default settings:
 
-    python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
+  `python -m ai_slop_gate.cli.main run --provider static --policy policy.yml`
 
 Run with verbose output:
 
-    python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --verbose
+  `python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --verbose`
 
 Run with a specific compliance profile:
 
-    python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --profile eu-strict
+  `python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --profile eu-strict`
 
 
 ### Run
 
-```
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-python src/cli.py --policy policy.yaml --mode advisory
+```bash
+  python -m venv .venv
+  source .venv/bin/activate
+  pip install -e .
+  python src/cli.py --policy policy.yaml --mode advisory
 ```
 
 #### Options Breakdown
@@ -305,7 +305,8 @@ python -m pytest ai_slop_gate/tests -v
 A pre-built Docker image is available:
 
 ```bash
-  docker pull sergiudo/ai-slop-gate:latest
+  docker pull ghcr.io/sergudo/ai-slop-gate\:latest
+  docker run -v \$(pwd):/app ghcr.io/sergudo/ai-slop-gate\:latest --policy /app/policy.yml --provider static
 ```
 
 or
