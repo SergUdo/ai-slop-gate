@@ -1,6 +1,8 @@
 name: Analyze PR with ESLint and ai-slop-gate
 
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 

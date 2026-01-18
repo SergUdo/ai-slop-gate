@@ -1,0 +1,8 @@
+services:
+  ai-slop-gate:
+    image: ai_slop_gate:latest
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    entrypoint: ["tail", "-f", "/dev/null"]
