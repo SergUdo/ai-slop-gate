@@ -27,13 +27,18 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Convert username to lowercase
+        id: username
+        run: |
+          echo "lowercase_username=$(echo ${{ github.actor }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/ai-slop-gate
+          images: ghcr.io/${{ steps.username.outputs.lowercase_username }}/ai-slop-gate
           tags: |
             type=ref,event=branch
             type=ref,event=tag
