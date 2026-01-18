@@ -305,8 +305,8 @@ python -m pytest ai_slop_gate/tests -v
 A pre-built Docker image is available:
 
 ```bash
-  docker pull ghcr.io/sergudo/ai-slop-gate\:latest
-  docker run -v \$(pwd):/app ghcr.io/sergudo/ai-slop-gate\:latest --policy /app/policy.yml --provider static
+  docker pull ghcr.io/sergudo/ai-slop-gate:latest
+  docker run -v $(pwd):/app ghcr.io/sergudo/ai-slop-gate:latest run --policy /app/policy.yml --provider static
 ```
 
 or
