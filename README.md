@@ -2,6 +2,8 @@
 
 ⚠️ **Status: Pre-Alpha / Experimental**
 
+`docker push ghcr.io/sergudo/ai-slop-gate:latest`
+
 *ai-slop-gate is under active development. APIs, behavior, and policies may change without notice. Do NOT rely on this tool for production security decisions yet.*
 
 ---
