@@ -1,38 +1,35 @@
-from typing import List, Optional
-
-from ai_slop_gate.domain.compliance.config import ComplianceConfig
-from ai_slop_gate.domain.compliance.observation import ComplianceObservation
+from typing import List
 from pathlib import Path
 
+from ai_slop_gate.domain.observation import Observation
+from ai_slop_gate.domain.compliance.config import ComplianceConfig
 
 class ComplianceGateway:
-    """
-    Deterministic compliance gateway.
-    """
+    def __init__(self, config: ComplianceConfig):
+        self.config = config
 
-    def __init__(self, config: Optional[ComplianceConfig] = None):
-        self.config = config or ComplianceConfig()
-
-    def analyze(self, artifacts_path: str) -> List[ComplianceObservation]:
+    def analyze(self, artifacts_path: str) -> List[Observation]:
         if not self.config.enabled:
             return []
 
-        observations = []
+        observations: List[Observation] = []
         artifacts_path = Path(artifacts_path)
 
-        req_path = artifacts_path / "requirements.txt"
-        if req_path.exists():
-            with open(req_path, "r") as f:
-                for line_number, line in enumerate(f, 1):
-                    if "# GPL-3.0" in line:
-                        observations.append(
-                            ComplianceObservation(
-                                license="GPL-3.0",
-                                severity="high",
-                                message="License GPL-3.0 is forbidden by compliance policy",
-                                evidence={"file": "requirements.txt", "line": line_number},
-                            )
+        req = artifacts_path / "requirements.txt"
+        if not req.exists():
+            return observations
+
+        for line_no, line in enumerate(req.read_text().splitlines(), 1):
+            for lic in self.config.forbid_licenses or []:
+                if lic in line:
+                    observations.append(
+                        Observation(
+                            category="COMPLIANCE",
+                            signal="FORBIDDEN_LICENSE",
+                            confidence=1.0,
+                            message=f"Forbidden license {lic}",
+                            evidence={"file": "requirements.txt", "line": line_no},
                         )
+                    )
 
         return observations
-
