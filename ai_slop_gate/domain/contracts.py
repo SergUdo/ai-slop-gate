@@ -1,10 +1,11 @@
 from typing import List
-from .observation import Observation
-from .decision import Decision, DecisionMode
-from .policy import PolicyRule
+
+from ai_slop_gate.domain.observation import Observation
+from ai_slop_gate.domain.decision import Decision, DecisionMode
+from ai_slop_gate.domain.policy import PolicyRule
 
 
-class Stage1ContractError(RuntimeError):
+class PolicyContractError(RuntimeError):
     pass
 
 
@@ -13,32 +14,41 @@ def evaluate_policy(
     rules: List[PolicyRule],
 ) -> Decision:
     """
-    Canonical Stage 1 policy evaluation.
+    Canonical policy evaluation.
 
     GUARANTEES:
-    - No provider logic
-    - No LLM calls
-    - Deterministic output
+    - Deterministic
+    - No IO
+    - No providers
     """
 
     reasons: List[str] = []
-    mode = DecisionMode.ADVISORY
+    mode = DecisionMode.ALLOW
 
     for rule in rules:
         for obs in observations:
-            if obs.code in rule.match:
-                reasons.append(rule.message)
+            if _matches(rule, obs):
+                reasons.append(rule.then["message"])
 
-                if rule.decision == "blocking":
+                if rule.then.get("decision") == "blocking":
                     mode = DecisionMode.BLOCKING
+                elif mode != DecisionMode.BLOCKING:
+                    mode = DecisionMode.ADVISORY
 
-    # HARD SAFETY: advisory-only repositories
     if mode == DecisionMode.BLOCKING and not reasons:
-        raise Stage1ContractError(
-            "Blocking decision without reasons is forbidden"
-        )
+        raise PolicyContractError("Blocking decision without reasons")
 
     return Decision(
         mode=mode,
         reasons=reasons,
+    )
+
+
+def _matches(rule: PolicyRule, obs: Observation) -> bool:
+    when = rule.when
+
+    return (
+        obs.category == when.get("category")
+        and obs.signal == when.get("signal")
+        and obs.confidence >= when.get("min_confidence", 0.0)
     )

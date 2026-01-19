@@ -5,56 +5,40 @@ from ai_slop_gate.domain.checks import (
     CheckAnnotation,
 )
 
+
 def decision_to_check(decision: Decision) -> CheckReport:
-    """
-    Maps a Policy Decision to a GitHub-compatible CheckReport.
-    Handles potential None values for annotations safely.
-    """
     if decision.mode == DecisionMode.BLOCKING:
         status = CheckStatus.FAIL
-        summary_prefix = "🚨 Blocking"
+        prefix = "🚨 Blocking"
     elif decision.reasons:
         status = CheckStatus.ADVISORY
-        summary_prefix = "⚠️ Advisory"
+        prefix = "⚠️ Advisory"
     else:
         status = CheckStatus.PASS
-        summary_prefix = "✅ Clean"
+        prefix = "✅ Clean"
 
-    summary_text = (
-        f"{summary_prefix}: {len(decision.reasons)} issue(s) detected.\n\n"
-        + "\n".join([f"- {reason}" for reason in decision.reasons])
+    summary = (
+        f"{prefix}: {len(decision.reasons)} issue(s) detected.\n\n"
+        + "\n".join(f"- {r}" for r in decision.reasons)
         if decision.reasons
-        else "No AI slop or quality issues detected. Code is clean."
+        else "No compliance or quality issues detected."
     )
 
-    annotations = []
-    # FIX: Explicitly check if annotations is not None before iterating
-    decision_annotations = getattr(decision, "annotations", [])
-    
-    # If the attribute exists but is None, reset it to an empty list
-    if decision_annotations is None:
-        decision_annotations = []
-    
-    for a in decision_annotations:
-        msg = a.message
-        
-        # Safely check for suggested_code
-        suggested_code = getattr(a, "suggested_code", None)
-        if suggested_code:
-            msg += f"\n\n```suggestion\n{suggested_code}\n```"
-
-        annotations.append(
+    annotations = None
+    if decision.annotations:
+        annotations = [
             CheckAnnotation(
                 file=a.file,
                 line=a.line,
-                message=msg,
-                level="failure" if getattr(a, "level", "warning") == "error" else "warning",
+                message=a.message,
+                level="failure" if a.level == "error" else "warning",
             )
-        )
+            for a in decision.annotations
+        ]
 
     return CheckReport(
         title="AI Slop Gate Analysis",
-        summary=summary_text,
+        summary=summary,
         status=status,
-        annotations=annotations if annotations else None,
+        annotations=annotations,
     )
