@@ -1,4 +1,4 @@
-version: "v1"
+version: "v1.2"
 project_name: "ai_slop_gate"
  
 # Global enforcement level: never | advisory | blocking
@@ -11,6 +11,11 @@ ai_provider:
   temperature: 0.1
   mode: advisory
   explain: false              # LLM should NOT generate long explanations unless enabled
+ 
+  # --- LLM Cache ---
+  # true  -> always cache LLM responses (default, recommended)
+  # false -> disable cache (always spend tokens)
+  cache: true
  
 # --- Compliance Module (Deterministic Sidecar) ---
 compliance:
