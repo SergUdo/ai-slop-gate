@@ -7,6 +7,7 @@ from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.domain.checks import CheckReport, CheckAnnotation
 
 def run_cli(ctx):
+    print("=== AI Slop Gate Compliance Report ===")
     policy_config, rules = load_policy(ctx.policy_path)
     observations = []
 

@@ -20,7 +20,7 @@ class ComplianceGateway:
 
         observations: List[Observation] = []
 
-        # License audit (ONLY what реально есть в policy.yml)
+        # License audit
         if self.config.forbid_licenses:
             detector = ComplianceDetector(self.config.forbid_licenses)
 
