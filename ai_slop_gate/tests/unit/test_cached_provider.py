@@ -1,17 +1,17 @@
-from ai_slop_gate.cli.run import run_cli
-from unittest.mock import patch, MagicMock
-import argparse
+def test_llm_tokens_not_spent_twice(tmp_path, mocker):
+    from ai_slop_gate.providers.cached_provider import CachedProvider
+    from ai_slop_gate.cache.file_backend import FileCacheBackend
 
-def test_cli_run_static(capsys):
-    args = argparse.Namespace(
-        command="run",
-        policy="policy.yml",
-        provider="static",
-        compliance=False,
-        verbose=False,
-    )
+    provider = mocker.Mock()
+    provider.model = "models/gemini-2.5-flash"
+    provider.collect.return_value = {"result": "OK"}
 
-    with patch("ai_slop_gate.domain.compliance.gateway.ComplianceGateway.analyze", return_value=[]):
-        exit_code = run_cli(args)
-        captured = capsys.readouterr()
-        assert "Decision: ALLOW" in captured.out
+    cache = FileCacheBackend(root=tmp_path)
+    cached = CachedProvider(provider, cache)
+
+    policy = {"ai_slop": {"detect_llm_quality": {"enabled": True}}}
+
+    cached.collect("code", policy)
+    cached.collect("code", policy)
+
+    assert provider.collect.call_count == 1

@@ -8,6 +8,9 @@ from .static_pipeline import StaticPipelineProvider
 from .k8s_runtime import K8sRuntimeProvider
 from .supply_chain import SupplyChainProvider
 from .gemini import GeminiProvider
+from .static_ts_js import StaticTSJSProvider
+from .static_python import StaticPythonProvider
+from .static_docker import StaticDockerProvider
 
 class ProviderRegistry:
     def __init__(self):
@@ -23,6 +26,9 @@ class ProviderRegistry:
         """Register all default providers."""
         self.register("static", StaticPipelineProvider)
         self.register("eslint", ESLintProvider)
+        self.register("static-ts-js", StaticTSJSProvider)
+        self.register("static-python", StaticPythonProvider)
+        self.register("static-docker", StaticDockerProvider)
         self.register("terraform-plan", TerraformPlanProvider)
         self.register("k8s-runtime", K8sRuntimeProvider)
         self.register("terraform-static", TerraformStaticProvider)

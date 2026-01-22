@@ -1,46 +1,44 @@
+# ai_slop_gate/providers/static_pipeline.py
 from typing import List
+from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
+from ai_slop_gate.providers.static import StaticProvider
+from ai_slop_gate.providers.static_js import StaticJSProvider
+from ai_slop_gate.providers.eslint import ESLintProvider
+from ai_slop_gate.providers.static_ts_js import StaticTSJSProvider
+from ai_slop_gate.providers.static_python import StaticPythonProvider
+from ai_slop_gate.providers.static_docker import StaticDockerProvider
 
-from ai_slop_gate.providers.base import ProviderObservation
-from ai_slop_gate.domain.observation_factory import make_observation
+class StaticPipelineProvider(BaseProvider):
+    def __init__(self, model: str = "static-pipeline-v1"):
+        self.name = "static-pipeline"
+        self.kind = "scm"
+        self.model = model
 
+    def analyze(self, input_data: str = "") -> ProviderObservation:
+        observations: List = []
 
-class StaticProvider:
-    def __init__(self, findings: list[str] | None = None):
-        self.findings = findings or []
-
-    def observe(self) -> ProviderObservation:
-        observations = [
-            make_observation(
-                provider="static",
-                category="quality",
-                signal="negative",
-                confidence=0.9,
-                message=msg,
-                evidence={},
-            )
-            for msg in self.findings
+        providers = [
+            StaticProvider(),
+            StaticJSProvider(),
+            ESLintProvider(),
+            StaticTSJSProvider(),
+            StaticPythonProvider(),
+            StaticDockerProvider(),
         ]
 
+        for provider in providers:
+            try:
+                result = provider.collect()
+                observations.extend(result.observations)
+            except Exception as e:
+                print(f"Error running {provider.name}: {e}")
+
         return ProviderObservation(
-            provider="static",
-            model="static",
+            provider=self.name,
+            model=self.model,
             observations=observations,
             raw_text="",
         )
 
     def collect(self) -> ProviderObservation:
-        return ProviderObservation(
-            provider="static",
-            model="static-fixture",
-            raw_text="static test data",
-            observations=[
-                make_observation(
-                    provider="static",
-                    category="quality",
-                    signal="negative",
-                    confidence=0.9,
-                    message="TODO found",
-                    evidence={"file": "example.js", "line": 1},
-                )
-            ],
-        )
+        return self.analyze()

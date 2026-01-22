@@ -86,25 +86,38 @@ code_quality:
   max_function_length: 50
   severity: low
   tags: [quality, maintainability]
- 
-# --- Infrastructure Security ---
+
+  javascript:
+    detect_todo: true
+    detect_fixme: true
+    max_function_length: 50
+    severity: low
+    tags: [javascript, quality]
+
+  python:
+    max_function_length: 50
+    detect_todo: true
+    severity: low
+    tags: [python, quality]
+
 infrastructure_security:
   dockerfile:
     check_user: true
     check_sensitive_env: true
     severity: high
     tags: [docker, security]
- 
+
   kubernetes:
     check_root_user: true
     check_privileged: true
     severity: critical
     tags: [k8s, security]
- 
+
   terraform:
     check_public_access: true
     severity: high
     tags: [terraform, cloud, security]
+
  
 # --- Rules Engine ---
 rules:

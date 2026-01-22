@@ -1,20 +1,22 @@
+# ai_slop_gate/providers/eslint.py
 import json
 import subprocess
 from pathlib import Path
 from typing import List
-
-from ai_slop_gate.providers.base import Provider, ProviderObservation
+from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
 from ai_slop_gate.domain.observation_factory import make_observation
 
+class ESLintProvider(BaseProvider):
+    def __init__(self, model: str = "eslint-v1"):
+        self.name = "eslint"
+        self.kind = "scm"
+        self.model = model
 
-class ESLintProvider(Provider):
-    name = "eslint"
-
-    def collect(self) -> ProviderObservation:
+    def analyze(self, input_data: str = "") -> ProviderObservation:
         observations = self.run(Path.cwd())
         return ProviderObservation(
             provider=self.name,
-            model="eslint-v1",
+            model=self.model,
             observations=observations,
             raw_text="",
         )
@@ -43,7 +45,7 @@ class ESLintProvider(Provider):
             for msg in file_report.get("messages", []):
                 observations.append(
                     make_observation(
-                        provider="eslint",
+                        provider=self.name,
                         category=self._map_category(msg.get("ruleId")),
                         signal="eslint_violation",
                         confidence=0.9 if msg.get("severity") == 2 else 0.6,
@@ -71,3 +73,6 @@ class ESLintProvider(Provider):
         if rule_id == "no-undef":
             return "missing_required"
         return "code_quality"
+
+    def collect(self) -> ProviderObservation:
+        return self.analyze()

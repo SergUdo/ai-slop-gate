@@ -1,26 +1,28 @@
 {
-  "snapshot_version": "7.1",
+  "snapshot_version": "7.2",
   "project": {
     "name": "ai-slop-gate",
     "stage": "Stage 1",
     "status": "canonical",
     "purpose": "Policy-driven AI, supply-chain and compliance gate for code and infrastructure"
   },
-
+ 
   "principles": {
     "no_hidden_logic": true,
     "policy_is_source_of_truth": true,
     "compliance_is_sidecar": true,
     "engine_is_pure": true,
     "cli_is_thin": true,
-    "tests_lock_contracts_not_behavior": true
+    "tests_lock_contracts_not_behavior": true,
+    "cache_is_cost_control_not_performance": true
   },
-
+ 
   "execution_model": {
     "flow": [
       "CLI parses flags",
       "Policy is loaded and resolved",
-      "Providers collect observations",
+      "Providers collect or analyze inputs",
+      "LLM providers are optionally wrapped by CachedProvider",
       "Compliance sidecar optionally runs",
       "Policy engine evaluates observations",
       "Decision is produced",
@@ -28,10 +30,11 @@
       "Exit code is derived from decision"
     ]
   },
-
+ 
   "cli": {
     "entrypoint": "python -m ai_slop_gate.cli.main",
     "commands": ["init", "run"],
+    "responsibility": "argument parsing and wiring only",
     "flags": {
       "--policy": "Path to policy.yml (required for run)",
       "--provider": "Provider name (static, k8s-runtime, supply-chain, llm)",
@@ -47,7 +50,7 @@
       "--pr-id": "Pull Request ID"
     }
   },
-
+ 
   "engine": {
     "type": "function-based",
     "entry": "run_analysis(args) -> Decision",
@@ -65,7 +68,7 @@
       "no exit calls"
     ]
   },
-
+ 
   "policy": {
     "format": "policy.yml",
     "versioned": true,
@@ -81,7 +84,63 @@
       "outputs": "Decision(mode, reasons)"
     }
   },
-
+ 
+  "providers": {
+    "contract": {
+      "static": "collect(input) -> list[Observation]",
+      "llm": "analyze(inputs) -> list[Observation]"
+    },
+    "builtins": [
+      "static",
+      "k8s-runtime",
+      "supply-chain",
+      "llm"
+    ],
+    "design_rules": [
+      "providers must be side-effect free",
+      "providers must not read policy directly",
+      "providers must not perform IO formatting"
+    ]
+  },
+ 
+  "cache": {
+    "purpose": "Prevent repeated LLM token spending",
+    "scope": "LLM providers only",
+    "integration": "via CachedProvider wrapper",
+    "non_goals": [
+      "performance optimization",
+      "caching static providers",
+      "cross-provider result sharing"
+    ],
+    "cache_key": {
+      "version": "v1",
+      "components": [
+        "provider_id",
+        "model",
+        "profile",
+        "policy_hash",
+        "normalized_input_fingerprint"
+      ],
+      "guarantee": "same key MUST NOT trigger LLM call twice"
+    },
+    "backends": {
+      "file": {
+        "usage": "default runtime cache",
+        "location": ".ai-slop-cache/",
+        "tracked_in_git": false
+      },
+      "memory": {
+        "usage": "tests only"
+      }
+    },
+    "invalidations": [
+      "input content change",
+      "policy change",
+      "profile change",
+      "model change"
+    ]
+  },
+ 
   "compliance": {
     "role": "sidecar",
     "enabled_by": ["policy.compliance.enabled", "--compliance flag"],
@@ -96,18 +155,7 @@
       "eu-strict": "blocking enforcement"
     }
   },
-
-  "providers": {
-    "contract": "collect(input) -> list[Observation]",
-    "builtins": [
-      "static",
-      "k8s-runtime",
-      "supply-chain",
-      "llm"
-    ],
-    "cache": "optional via CachedProvider"
-  },
-
+ 
   "observations": {
     "immutable": true,
     "fields": [
@@ -118,7 +166,7 @@
       "source"
     ]
   },
-
+ 
   "decision": {
     "modes": ["allow", "advisory", "blocking"],
     "exit_code_mapping": {
@@ -127,17 +175,27 @@
       "blocking": 1
     }
   },
-
+ 
   "reporters": {
     "stdout": "human-readable",
     "github_pr": "PR comment",
     "github_checks": "check-run annotations"
   },
-
+ 
+  "tests": {
+    "philosophy": "lock architectural contracts, not implementation",
+    "critical_invariants": [
+      "LLM token is not spent twice for same cache key",
+      "cache key changes on input or policy change",
+      "static providers are never cached"
+    ]
+  },
+ 
   "non_goals": [
     "automatic fixing",
     "code rewriting",
     "business logic inside CLI",
-    "provider-specific policy logic"
+    "provider-specific policy logic",
+    "caching for non-LLM providers"
   ]
 }
