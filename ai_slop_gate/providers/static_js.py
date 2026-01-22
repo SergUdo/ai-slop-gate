@@ -1,36 +1,33 @@
+# ai_slop_gate/providers/static_js.py
 import re
 from pathlib import Path
 from typing import List
-
-from ai_slop_gate.providers.base import ProviderObservation
+from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
 from ai_slop_gate.domain.observation_factory import make_observation
 
+class StaticJSProvider(BaseProvider):
+    JS_EXTENSIONS = {".js", ".ts", ".jsx", ".tsx"}
+    IGNORE_DIRS = {"node_modules", "dist", "build"}
 
-JS_EXTENSIONS = {".js", ".ts", ".jsx", ".tsx"}
-IGNORE_DIRS = {"node_modules", "dist", "build"}
+    SECRET_RE = re.compile(
+        r"(API_KEY|SECRET|TOKEN|PASSWORD|JWT|PRIVATE_KEY)\s*[:=]\s*['\"`][^'\"`]{6,}['\"`]",
+        re.IGNORECASE,
+    )
 
-SECRET_RE = re.compile(
-    r"(API_KEY|SECRET|TOKEN|PASSWORD|JWT|PRIVATE_KEY)\s*[:=]\s*['\"`][^'\"`]{6,}['\"`]",
-    re.IGNORECASE,
-)
+    INSECURE_DEFAULTS_RE = re.compile(
+        r"(debug\s*[:=]\s*true|"
+        r"sslVerify\s*[:=]\s*false|"
+        r"rejectUnauthorized\s*[:=]\s*false|"
+        r"allowOrigin\s*[:=]\s*['\"]\*['\"])",
+        re.IGNORECASE,
+    )
 
-INSECURE_DEFAULTS_RE = re.compile(
-    r"(debug\s*[:=]\s*true|"
-    r"sslVerify\s*[:=]\s*false|"
-    r"rejectUnauthorized\s*[:=]\s*false|"
-    r"allowOrigin\s*[:=]\s*['\"]\*['\"])",
-    re.IGNORECASE,
-)
+    def __init__(self, model: str = "static-js-v1"):
+        self.name = "static-js"
+        self.kind = "scm"
+        self.model = model
 
-REQUIRED_ENV = [
-    "process.env.NODE_ENV",
-    "process.env.DATABASE_URL",
-    "process.env.JWT_SECRET",
-]
-
-
-class StaticJSProvider:
-    def collect(self) -> ProviderObservation:
+    def analyze(self, input_data: str = "") -> ProviderObservation:
         observations = []
         all_text = ""
 
@@ -41,10 +38,10 @@ class StaticJSProvider:
             all_text += text + "\n"
 
             for i, line in enumerate(text.splitlines(), start=1):
-                if SECRET_RE.search(line):
+                if self.SECRET_RE.search(line):
                     observations.append(
                         make_observation(
-                            provider="static-js",
+                            provider=self.name,
                             category="security",
                             signal="hardcoded_secret",
                             confidence=0.95,
@@ -53,10 +50,10 @@ class StaticJSProvider:
                         )
                     )
 
-                if INSECURE_DEFAULTS_RE.search(line):
+                if self.INSECURE_DEFAULTS_RE.search(line):
                     observations.append(
                         make_observation(
-                            provider="static-js",
+                            provider=self.name,
                             category="security",
                             signal="insecure_default",
                             confidence=0.9,
@@ -65,11 +62,11 @@ class StaticJSProvider:
                         )
                     )
 
-        for env in REQUIRED_ENV:
+        for env in ["process.env.NODE_ENV", "process.env.DATABASE_URL", "process.env.JWT_SECRET"]:
             if env not in all_text:
                 observations.append(
                     make_observation(
-                        provider="static-js",
+                        provider=self.name,
                         category="security",
                         signal="missing_required",
                         confidence=1.0,
@@ -82,7 +79,7 @@ class StaticJSProvider:
             if "debug" in all_text or "console.log" in all_text:
                 observations.append(
                     make_observation(
-                        provider="static-js",
+                        provider=self.name,
                         category="security",
                         signal="dev_in_prod",
                         confidence=1.0,
@@ -92,8 +89,8 @@ class StaticJSProvider:
                 )
 
         return ProviderObservation(
-            provider="static-js",
-            model="regex-v1",
+            provider=self.name,
+            model=self.model,
             observations=observations,
             raw_text="",
         )
@@ -101,7 +98,10 @@ class StaticJSProvider:
     def _collect_js_files(self) -> List[Path]:
         files = []
         for path in Path(".").rglob("*"):
-            if path.is_file() and path.suffix in JS_EXTENSIONS:
-                if not any(p in IGNORE_DIRS for p in path.parts):
+            if path.is_file() and path.suffix in self.JS_EXTENSIONS:
+                if not any(p in self.IGNORE_DIRS for p in path.parts):
                     files.append(path)
         return files
+
+    def collect(self) -> ProviderObservation:
+        return self.analyze()

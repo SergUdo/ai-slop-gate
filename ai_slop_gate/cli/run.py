@@ -4,17 +4,23 @@ from ai_slop_gate.domain.policy_engine import PolicyEngine
 from ai_slop_gate.domain.decision import DecisionMode
 from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
+from ai_slop_gate.providers.gemini import GeminiProvider
 from ai_slop_gate.domain.checks import CheckReport, CheckAnnotation
 
 def run_cli(ctx):
-    print("=== AI Slop Gate Compliance Report ===")
     policy_config, rules = load_policy(ctx.policy_path)
     observations = []
 
+    # Використовуємо StaticPipelineProvider для статичного аналізу
     if ctx.provider == "static":
         provider = StaticPipelineProvider()
         result = provider.collect()
         observations.extend(result.observations)
+
+    if ctx.provider == "gemini":
+        gemini_provider = GeminiProvider(model="models/gemini-2.5-flash")
+        gemini_result = gemini_provider.analyze(ctx.input_text)
+        observations.extend(gemini_result.observations)
 
     if ctx.compliance_enabled and policy_config.compliance and policy_config.compliance.enabled:
         gateway = ComplianceGateway(policy_config.compliance)

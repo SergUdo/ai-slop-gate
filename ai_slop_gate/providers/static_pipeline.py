@@ -1,4 +1,3 @@
-# ai_slop_gate/providers/static_pipeline.py
 from typing import List
 from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
 from ai_slop_gate.providers.static import StaticProvider
@@ -28,10 +27,19 @@ class StaticPipelineProvider(BaseProvider):
 
         for provider in providers:
             try:
-                result = provider.collect()
+                if hasattr(provider, 'name'):
+                    provider_name = provider.name
+                else:
+                    provider_name = provider.__class__.__name__
+
+                if hasattr(provider, 'analyze'):
+                    result = provider.analyze(input_data)
+                else:
+                    result = provider.collect()
+
                 observations.extend(result.observations)
             except Exception as e:
-                print(f"Error running {provider.name}: {e}")
+                print(f"Error running {provider_name}: {e}")
 
         return ProviderObservation(
             provider=self.name,

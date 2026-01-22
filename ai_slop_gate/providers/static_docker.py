@@ -1,4 +1,3 @@
-# ai_slop_gate/providers/static_docker.py
 import re
 from pathlib import Path
 from typing import List
@@ -28,48 +27,78 @@ class StaticDockerProvider(BaseProvider):
 
             entrypoints = self.MULTIPLE_ENTRYPOINT_RE.findall(text)
             if len(entrypoints) > 1:
-                observations.append(make_observation(
-                    self.name, "quality", "redundant_entrypoint", 1.0, "high",
-                    "Multiple ENTRYPOINT instructions detected. Only the last one will take effect.",
-                    {"file": str(file_path)}
-                ))
+                observations.append(
+                    make_observation(
+                        provider=self.name,
+                        category="quality",
+                        signal="redundant_entrypoint",
+                        confidence=1.0,
+                        message="Multiple ENTRYPOINT instructions detected. Only the last one will take effect.",
+                        evidence={"file": str(file_path)},
+                    )
+                )
 
             for i, line in enumerate(lines, start=1):
                 if self.CHMOD_777_RE.search(line):
-                    observations.append(make_observation(
-                        self.name, "security", "extreme_privilege", 1.0, "critical",
-                        "Recursive chmod 777 on root or app detected. High security risk.",
-                        {"file": str(file_path), "line": i}
-                    ))
+                    observations.append(
+                        make_observation(
+                            provider=self.name,
+                            category="security",
+                            signal="extreme_privilege",
+                            confidence=1.0,
+                            message="Recursive chmod 777 on root or app detected. High security risk.",
+                            evidence={"file": str(file_path), "line": i},
+                        )
+                    )
 
                 found_pkgs = [p for p in self.SUSPICIOUS_PKGS if p in line.lower()]
                 if "apt-get install" in line and found_pkgs:
-                    observations.append(make_observation(
-                        self.name, "quality", "package_bloat", 0.8, "medium",
-                        f"Suspicious or redundant packages found: {', '.join(found_pkgs)}.",
-                        {"file": str(file_path), "line": i}
-                    ))
+                    observations.append(
+                        make_observation(
+                            provider=self.name,
+                            category="quality",
+                            signal="package_bloat",
+                            confidence=0.8,
+                            message=f"Suspicious or redundant packages found: {', '.join(found_pkgs)}.",
+                            evidence={"file": str(file_path), "line": i},
+                        )
+                    )
 
                 if self.COPY_SYSTEM_DIRS_RE.search(line):
-                    observations.append(make_observation(
-                        self.name, "quality", "system_dir_copy", 0.9, "high",
-                        "Copying system directories (/etc, /usr, /bin) into the image is a bad practice.",
-                        {"file": str(file_path), "line": i}
-                    ))
+                    observations.append(
+                        make_observation(
+                            provider=self.name,
+                            category="quality",
+                            signal="system_dir_copy",
+                            confidence=0.9,
+                            message="Copying system directories (/etc, /usr, /bin) into the image is a bad practice.",
+                            evidence={"file": str(file_path), "line": i},
+                        )
+                    )
 
                 if self.EXPOSE_DANGEROUS_RE.search(line):
-                    observations.append(make_observation(
-                        self.name, "security", "dangerous_port_exposed", 0.9, "high",
-                        f"Potentially dangerous or sensitive port exposed: {line.strip()}",
-                        {"file": str(file_path), "line": i}
-                    ))
+                    observations.append(
+                        make_observation(
+                            provider=self.name,
+                            category="security",
+                            signal="dangerous_port_exposed",
+                            confidence=0.9,
+                            message=f"Potentially dangerous or sensitive port exposed: {line.strip()}",
+                            evidence={"file": str(file_path), "line": i},
+                        )
+                    )
 
                 if self.SUDOERS_RE.search(line):
-                    observations.append(make_observation(
-                        self.name, "security", "sudoers_exploit", 1.0, "high",
-                        "Insecure sudoers configuration (NOPASSWD:ALL) detected.",
-                        {"file": str(file_path), "line": i}
-                    ))
+                    observations.append(
+                        make_observation(
+                            provider=self.name,
+                            category="security",
+                            signal="sudoers_exploit",
+                            confidence=1.0,
+                            message="Insecure sudoers configuration (NOPASSWD:ALL) detected.",
+                            evidence={"file": str(file_path), "line": i},
+                        )
+                    )
 
         return ProviderObservation(
             self.name, self.model, observations, f"Analyzed {len(files)} Docker files."

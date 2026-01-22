@@ -40,12 +40,7 @@ class StaticTSJSProvider(BaseProvider):
         else:
             observations.extend(self._scan_text(input_data, "inline_content"))
 
-        return ProviderObservation(
-            provider=self.name, 
-            model=self.model, 
-            observations=observations, 
-            raw_text="TS/JS Scan Complete"
-        )
+        return ProviderObservation(self.name, self.model, observations, "TS/JS Scan Complete")
 
     def _collect_js_files(self) -> List[Path]:
         files = []
@@ -60,77 +55,77 @@ class StaticTSJSProvider(BaseProvider):
         lines = text.splitlines()
 
         for i, line in enumerate(lines, start=1):
-            # 1. Eval (Security)
             if self.DANGEROUS_EVAL_RE.search(line):
-                obs.append(make_observation(
-                    provider=self.name,
-                    category="security",
-                    signal="dangerous_eval",
-                    confidence=1.0,
-                    severity="critical",
-                    message="Use of eval() detected. This is a major AI Slop indicator and security risk.",
-                    evidence={"file": filename, "line": i}
-                ))
+                obs.append(
+                    make_observation(
+                        provider=self.name,
+                        category="security",
+                        signal="dangerous_eval",
+                        confidence=1.0,
+                        message="Use of eval() detected. This is a major AI Slop indicator and security risk.",
+                        evidence={"file": filename, "line": i},
+                    )
+                )
 
-            # 2. Hardcoded Secrets
             if self.SECRET_RE.search(line):
-                obs.append(make_observation(
-                    provider=self.name,
-                    category="security",
-                    signal="hardcoded_secret",
-                    confidence=0.95,
-                    severity="high",
-                    message="Hardcoded credential or sensitive URL found in source code.",
-                    evidence={"file": filename, "line": i}
-                ))
+                obs.append(
+                    make_observation(
+                        provider=self.name,
+                        category="security",
+                        signal="hardcoded_secret",
+                        confidence=0.95,
+                        message="Hardcoded credential or sensitive URL found in source code.",
+                        evidence={"file": filename, "line": i},
+                    )
+                )
 
-            # 3. TypeScript "any" abuse (Quality)
             if "any" in line and ("type" in line or ":" in line):
-                obs.append(make_observation(
-                    provider=self.name,
-                    category="quality",
-                    signal="any_type_abuse",
-                    confidence=0.7,
-                    severity="low",
-                    message="Excessive use of 'any' type. AI often uses this to bypass type checking.",
-                    evidence={"file": filename, "line": i}
-                ))
+                obs.append(
+                    make_observation(
+                        provider=self.name,
+                        category="quality",
+                        signal="any_type_abuse",
+                        confidence=0.7,
+                        message="Excessive use of 'any' type. AI often uses this to bypass type checking.",
+                        evidence={"file": filename, "line": i},
+                    )
+                )
 
-            # 4. Silent Catch (Reliability)
             if "catch" in line and ("console.log" in line or "console.error" in line or "{}") and not "throw" in line:
-                obs.append(make_observation(
-                    provider=self.name,
-                    category="quality",
-                    signal="silent_catch",
-                    confidence=0.8,
-                    severity="medium",
-                    message="Empty or console-only catch block. Errors are swallowed without proper handling.",
-                    evidence={"file": filename, "line": i}
-                ))
+                obs.append(
+                    make_observation(
+                        provider=self.name,
+                        category="quality",
+                        signal="silent_catch",
+                        confidence=0.8,
+                        message="Empty or console-only catch block. Errors are swallowed without proper handling.",
+                        evidence={"file": filename, "line": i},
+                    )
+                )
 
-            # 5. Sensitive Data in LocalStorage
             if self.LOCAL_STORAGE_SECRET_RE.search(line):
-                obs.append(make_observation(
-                    provider=self.name,
-                    category="security",
-                    signal="localstorage_vulnerability",
-                    confidence=0.8,
-                    severity="high",
-                    message="Storing sensitive tokens or keys in localStorage is insecure.",
-                    evidence={"file": filename, "line": i}
-                ))
+                obs.append(
+                    make_observation(
+                        provider=self.name,
+                        category="security",
+                        signal="localstorage_vulnerability",
+                        confidence=0.8,
+                        message="Storing sensitive tokens or keys in localStorage is insecure.",
+                        evidence={"file": filename, "line": i},
+                    )
+                )
 
-            # 6. Insecure Defaults
             if self.INSECURE_DEFAULTS_RE.search(line):
-                obs.append(make_observation(
-                    provider=self.name,
-                    category="security",
-                    signal="insecure_default",
-                    confidence=0.9,
-                    severity="high",
-                    message="Insecure default configuration detected.",
-                    evidence={"file": filename, "line": i}
-                ))
+                obs.append(
+                    make_observation(
+                        provider=self.name,
+                        category="security",
+                        signal="insecure_default",
+                        confidence=0.9,
+                        message="Insecure default configuration detected.",
+                        evidence={"file": filename, "line": i},
+                    )
+                )
 
         return obs
 
