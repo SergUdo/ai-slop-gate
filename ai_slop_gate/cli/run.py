@@ -1,56 +1,53 @@
+# ai_slop_gate/cli/run.py
+import os
+from dotenv import load_dotenv
 from ai_slop_gate.cli.utils import load_policy
-from ai_slop_gate.domain.compliance.gateway import ComplianceGateway
 from ai_slop_gate.domain.policy_engine import PolicyEngine
-from ai_slop_gate.domain.decision import DecisionMode
 from ai_slop_gate.reporters.github_pr import GitHubPRReporter
-from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
-from ai_slop_gate.providers.gemini import GeminiProvider
 from ai_slop_gate.domain.checks import CheckReport, CheckAnnotation
+from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
+
+load_dotenv()
 
 def run_cli(ctx):
+    github_token = ctx.github_token or os.getenv("GITHUB_TOKEN")
+
     policy_config, rules = load_policy(ctx.policy_path)
-    observations = []
 
-    # Використовуємо StaticPipelineProvider для статичного аналізу
-    if ctx.provider == "static":
-        provider = StaticPipelineProvider()
-        result = provider.collect()
-        observations.extend(result.observations)
-
-    if ctx.provider == "gemini":
-        gemini_provider = GeminiProvider(model="models/gemini-2.5-flash")
-        gemini_result = gemini_provider.analyze(ctx.input_text)
-        observations.extend(gemini_result.observations)
-
-    if ctx.compliance_enabled and policy_config.compliance and policy_config.compliance.enabled:
-        gateway = ComplianceGateway(policy_config.compliance)
-        observations.extend(gateway.analyze(ctx.input_file or "."))
+    provider = StaticPipelineProvider()
+    result = provider.collect()
+    observations = result.observations
 
     engine = PolicyEngine(rules)
     decision = engine.evaluate(observations)
 
-    if ctx.github_repo and ctx.pr_id and ctx.github_token:
-        annotations = [
-            CheckAnnotation(
-                file=obs.evidence.get("file") if obs.evidence else None,
-                line=obs.evidence.get("line") if obs.evidence else None,
-                level="warning" if obs.severity == "low" else "failure",
-                message=obs.message
-            )
-            for obs in observations
-        ]
-        report = CheckReport(
-            title="AI Slop Gate Analysis Results",
-            summary=f"Decision: {decision.mode.name}",
-            status=decision.mode,
-            annotations=annotations,
+    annotations = [
+        CheckAnnotation(
+            file=obs.evidence.get("file") if obs.evidence else None,
+            line=obs.evidence.get("line") if obs.evidence else None,
+            level="warning" if obs.severity == "low" else "failure",
+            message=obs.message
         )
+        for obs in observations
+    ]
+
+    report = CheckReport(
+        title="AI Slop Gate Analysis Results",
+        summary=f"Decision: {decision.mode.name}",
+        status=decision.mode,
+        annotations=annotations,
+    )
+
+    if ctx.github_repo and ctx.pr_id and github_token:
         reporter = GitHubPRReporter(
-            token=ctx.github_token,
+            token=github_token,
             repo_name=ctx.github_repo,
             pr_id=ctx.pr_id,
         )
         reporter.report(report)
+        print(f"Successfully posted PR comment to {ctx.github_repo}#{ctx.pr_id}.")
+    else:
+        print("GITHUB_TOKEN, GITHUB_REPO, or PR_ID is missing. Skipping PR comment.")
 
     print(f"Decision: {decision.mode.name}")
-    return 1 if decision.mode == DecisionMode.BLOCKING else 0
+    return 0

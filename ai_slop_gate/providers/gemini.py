@@ -86,7 +86,7 @@ class GeminiProvider(BaseProvider):
 
         for attempt in range(max_retries):
             try:
-                response = self._model.generate_content(prompt, request_options={"timeout": 120})
+                response = self._model.generate_content(prompt,generation_config={"max_output_tokens": 2048} )
                 raw_text = response.text or ""
 
                 clean_json = raw_text.strip()
