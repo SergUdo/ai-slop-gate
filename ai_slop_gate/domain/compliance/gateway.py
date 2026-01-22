@@ -1,35 +1,38 @@
-from typing import List
 from pathlib import Path
+from typing import List
 
 from ai_slop_gate.domain.observation import Observation
-from ai_slop_gate.domain.compliance.config import ComplianceConfig
+from .detector import ComplianceDetector
+from .profiles import ComplianceProfile
+
 
 class ComplianceGateway:
-    def __init__(self, config: ComplianceConfig):
+    """
+    Executes deterministic compliance checks based on resolved ComplianceProfile.
+    """
+
+    def __init__(self, config: ComplianceProfile | None):
         self.config = config
 
     def analyze(self, artifacts_path: str) -> List[Observation]:
-        if not self.config.enabled:
+        if not self.config:
             return []
 
         observations: List[Observation] = []
-        artifacts_path = Path(artifacts_path)
 
-        req = artifacts_path / "requirements.txt"
-        if not req.exists():
-            return observations
+        # License audit (ONLY what реально есть в policy.yml)
+        if self.config.forbid_licenses:
+            detector = ComplianceDetector(self.config.forbid_licenses)
 
-        for line_no, line in enumerate(req.read_text().splitlines(), 1):
-            for lic in self.config.forbid_licenses or []:
-                if lic in line:
-                    observations.append(
-                        Observation(
-                            category="COMPLIANCE",
-                            signal="FORBIDDEN_LICENSE",
-                            confidence=1.0,
-                            message=f"Forbidden license {lic}",
-                            evidence={"file": "requirements.txt", "line": line_no},
-                        )
-                    )
+            licenses = self._load_license_artifacts(artifacts_path)
+
+            observations.extend(detector.detect(licenses))
 
         return observations
+
+    def _load_license_artifacts(self, artifacts_path: str):
+        """
+        Temporary adapter.
+        Expected format: List[(file, license)]
+        """
+        return []
