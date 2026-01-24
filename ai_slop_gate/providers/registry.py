@@ -11,6 +11,10 @@ from .gemini import GeminiProvider
 from .static_ts_js import StaticTSJSProvider
 from .static_python import StaticPythonProvider
 from .static_docker import StaticDockerProvider
+from .groq import GroqProvider
+from .cached_provider import CachedProvider
+
+
 
 class ProviderRegistry:
     def __init__(self):
@@ -35,6 +39,8 @@ class ProviderRegistry:
         self.register("k8s-static", KubernetesStaticProvider)
         self.register("supply-chain", SupplyChainProvider)
         self.register("gemini", GeminiProvider)
+        self.register("groq", GroqProvider)
+        self.register("cached", CachedProvider)
 
 provider_registry = ProviderRegistry()
 provider_registry.register_defaults()
