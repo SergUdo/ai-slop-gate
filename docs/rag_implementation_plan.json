@@ -1,0 +1,193 @@
+{
+  "plan_name": "RAG_Implementation_for_ai_slop_gate",
+  "version": "0.1",
+  "purpose": "Define a minimal, strict-mode RAG layer for ai-slop-gate so that an LLM (or developer) can understand the context and implement it safely.",
+ 
+  "goals": {
+    "primary": [
+      "Use Retrieval-Augmented Generation (RAG) to ground LLM decisions in the actual repository contents (code, manifests, docs).",
+      "Reduce hallucinations by forcing the model to rely on retrieved context and strict output formats.",
+      "Keep RAG as an internal detail of the LLM provider, without leaking complexity into the engine or policy layer."
+    ],
+    "non_goals": [
+      "No separate microservice for RAG; everything stays in-process.",
+      "No full-text search engine integration at this stage (e.g. Elasticsearch, Opensearch).",
+      "No fine-tuning or training of models; only retrieval + prompting.",
+      "No automatic code modifications or auto-fix functionality."
+    ]
+  },
+ 
+  "high_level_concept": {
+    "description": "The LLM provider is extended with a RAG layer that retrieves the most relevant code and documentation chunks for a given analysis (e.g. PR diff, k8s manifests) and injects them into the prompt. The engine and policy remain unaware of RAG internals and treat the provider as a black box.",
+    "data_flow": [
+      "Engine passes an analysis request to the LLM provider (e.g. diff + active rules).",
+      "LLM provider builds a retrieval query (based on diff, file paths, rule description).",
+      "Codebase index retrieves top-k relevant chunks from the repository index.",
+      "LLM provider constructs a strict prompt: instructions + retrieved context + user input + strict output contract.",
+      "Model generates a response, which is validated against expected format and constraints.",
+      "Engine consumes the validated response as usual (Decision, observations, etc.)."
+    ]
+  },
+ 
+  "core_components": {
+    "codebase_index": {
+      "role": "Maintain a vector index of repository content (code, manifests, docs) and provide semantic retrieval.",
+      "constraints": [
+        "Stateless from the perspective of policy; only offers `index` and `query` primitives.",
+        "Does not call any LLM directly.",
+        "Does not implement policy or enforcement logic."
+      ],
+      "operations": {
+        "build_index": "Scan configured paths, chunk files, generate embeddings, persist index.",
+        "update_index": "Rebuild or incrementally update index when repository changes (can be tied to git SHA later).",
+        "query": "Given a text query, return top_k most relevant chunks with metadata (file path, line range, score)."
+      }
+    },
+    "chunking": {
+      "role": "Split files into manageable pieces with overlap to preserve local context.",
+      "parameters": {
+        "chunk_size_chars": 800,
+        "overlap_chars": 200
+      },
+      "rules": [
+        "Preserve file path and approximate line ranges for each chunk.",
+        "Avoid splitting inside extremely small blocks if possible (e.g. keep function definitions intact when reasonable)."
+      ]
+    },
+    "embeddings": {
+      "role": "Convert text chunks and queries into vectors for similarity search.",
+      "options": [
+        "Local / open-source embedding model (e.g. sentence-transformers).",
+        "Remote embedding API from the same vendor as the LLM (if available)."
+      ],
+      "constraints": [
+        "Embedding choice and settings should be configured, not hardcoded.",
+        "Deterministic behavior for the same input (idempotent)."
+      ]
+    },
+    "retrieval": {
+      "role": "Given a query, find most relevant chunks to serve as context.",
+      "parameters": {
+        "top_k": 5,
+        "min_score_threshold": 0.0
+      },
+      "behavior": [
+        "Prefer fewer, highly relevant chunks over many noisy ones.",
+        "Always return chunk metadata (path, line range) alongside the text."
+      ]
+    },
+    "llm_provider_rag": {
+      "role": "A wrapper around the base LLM provider that adds retrieval and strict prompting.",
+      "responsibilities": [
+        "Construct retrieval queries using diff, rule description, and optional extra hints from policy.",
+        "Call codebase_index.query() and collect top_k chunks.",
+        "Assemble a strict prompt with clear instructions and delimited context sections.",
+        "Apply strict sampling parameters to reduce hallucinations.",
+        "Validate model output against a schema/contract; reject or flag invalid responses."
+      ],
+      "constraints": [
+        "Does not embed business logic of policy decisions (that stays in the engine).",
+        "Does not silently ignore validation errors; must surface them to the engine.",
+        "Does not mutate repository state."
+      ]
+    }
+  },
+ 
+  "minimal_policy_snippet_example": {
+    "description": "This JSON fragment shows how a policy (or global config) can enable RAG and configure its parameters.",
+    "policy": {
+      "rag": {
+        "enabled": true,
+        "index": {
+          "paths": ["src/", "infra/", "k8s/"],
+          "chunk_size_chars": 800,
+          "overlap_chars": 200,
+          "embedding_model": "all-MiniLM-L6-v2"
+        },
+        "retrieval": {
+          "top_k": 5
+        },
+        "generation": {
+          "temperature": 0.1,
+          "top_p": 0.8,
+          "max_tokens": 512
+        },
+        "strict_mode": {
+          "enabled": true,
+          "output_format": "json",
+          "schema_name": "RagAnalysisResult",
+          "reject_on_invalid_json": true,
+          "reject_on_missing_required_fields": true
+        }
+      }
+    }
+  },
+ 
+  "strict_mode_behavior": {
+    "intent": "Ensure that the model outputs only well-structured, grounded responses and reduce hallucinations.",
+    "mechanisms": [
+      "Low temperature (e.g. 0.0–0.2) and moderate top_p (e.g. 0.7–0.9).",
+      "Explicit instruction to only use provided CONTEXT and DIFF, not external knowledge.",
+      "JSON-only outputs with a predefined schema (e.g. decision, reasons, references to files/lines).",
+      "Validation step that parses JSON, checks required fields, and rejects malformed responses.",
+      "Optional self-check: re-run the same prompt and compare critical fields for stability."
+    ],
+    "example_output_schema": {
+      "name": "RagAnalysisResult",
+      "required_fields": [
+        "decision",
+        "summary",
+        "findings",
+        "references"
+      ],
+      "fields": {
+        "decision": "string enum: ['pass', 'fail', 'needs_review']",
+        "summary": "short text summary of the analysis",
+        "findings": "list of issues or notes, each with severity, message, file, line_range",
+        "references": "list of context chunks used (file path + line range)"
+      }
+    }
+  },
+ 
+  "implementation_steps": {
+    "phase_1": {
+      "name": "Index and retrieval scaffolding",
+      "steps": [
+        "Create modules: `indexing/chunker`, `indexing/embedder`, `indexing/store`, `providers/codebase_index`.",
+        "Implement basic chunking with `chunk_size_chars` and `overlap_chars` and metadata (path, line range).",
+        "Integrate an embedding backend (local or remote) and define a stable embedding interface.",
+        "Implement a simple index store (in-memory or SQLite + similarity search).",
+        "Expose `build_index(repo_root, config)` and `query(text, top_k)` functions."
+      ]
+    },
+    "phase_2": {
+      "name": "RAG-enabled LLM provider",
+      "steps": [
+        "Create `llm_rag_provider` that wraps the base LLM provider.",
+        "Define a strict prompt template with sections: ROLE, POLICY_RULE, CONTEXT, INPUT (DIFF), OUTPUT_CONTRACT.",
+        "Wire retrieval: for each analysis request, build a query from rule + diff, call `codebase_index.query()`, and inject results into CONTEXT.",
+        "Apply strict sampling parameters from policy (temperature, top_p, max_tokens).",
+        "Implement JSON validation against `RagAnalysisResult` (or similar) and propagate validation errors."
+      ]
+    },
+    "phase_3": {
+      "name": "Engine integration and safety",
+      "steps": [
+        "Allow policy/config to enable or disable RAG globally and/or per rule.",
+        "Update engine to choose between base LLM provider and RAG-enabled provider based on config.",
+        "Add tests that lock contracts: same input + same index state => same retrieval + stable structured output.",
+        "Add tests to ensure that invalid JSON or missing fields cause controlled failures, not silent acceptance."
+      ]
+    }
+  },
+ 
+  "key_entities_and_terms": {
+    "Chunk": "A piece of file content with associated metadata (file path, start/end line or char positions).",
+    "Embedding": "Numeric vector representation of text used for similarity search.",
+    "Index": "Data structure storing embeddings and metadata, allowing nearest-neighbor queries.",
+    "RAG": "Retrieval-Augmented Generation: augmenting LLM prompts with retrieved, relevant context.",
+    "Strict mode": "Configuration where sampling is conservative and outputs must follow a strict schema.",
+    "RagAnalysisResult": "Canonical structured output type for RAG-based analyses in ai-slop-gate."
+  }
+}
+

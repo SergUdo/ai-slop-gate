@@ -1,0 +1,342 @@
+{
+  "version": "3.0",
+  "strict_mode": true,
+  "purpose": "This file provides a complete architectural context for Copilot integration inside the ai-slop-gate project. It exists because conversational context is not persistent. When debugging in VS Code, this file allows Copilot to understand the architecture, responsibilities, data flow, constraints, and future plans without hallucinating or inventing missing components.",
+  "rules_for_copilot": {
+    "strict_mode": true,
+    "no_hallucinations": [
+      "Do not invent SDK methods.",
+      "Do not invent fields in JSON.",
+      "Do not invent file paths.",
+      "Do not invent diff formats.",
+      "Do not assume behavior not explicitly defined here.",
+      "Do not create new providers unless explicitly requested.",
+      "Do not modify architecture unless explicitly requested.",
+      "Do not assume caching behavior until implemented.",
+      "Do not assume GitHub API fields beyond documented ones.",
+      "Do not assume Copilot SDK exists until explicitly integrated.",
+      "Do not generate code for components not described here."
+    ],
+    "allowed_assumptions": [
+      "CopilotClient.run(task) returns a raw JSON string.",
+      "DiffMapper receives valid unified diff.",
+      "PolicyEngine and reporters behave as documented.",
+      "ProviderResult always contains observations[].",
+      "RuntimeContext contains validated CLI parameters."
+    ],
+    "interaction_rules": [
+      "Always follow the architecture described in this file.",
+      "Never override contracts unless explicitly instructed.",
+      "Never simplify or remove validation logic.",
+      "Never assume the existence of external services.",
+      "Never assume the existence of real Copilot SDK until implemented.",
+      "Never modify retry logic unless explicitly requested."
+    ]
+  },
+  "project": {
+    "name": "ai-slop-gate",
+    "goal": "AI-driven PR gate with Copilot-based diff analysis, strict JSON validation, evidence mapping, and policy enforcement.",
+    "architecture_style": "modular, provider-based, strict contracts, deterministic behavior",
+    "directory_structure": {
+      "ai_slop_gate/": {
+        "cli/": [
+          "run.py",
+          "context.py",
+          "policy_loader.py"
+        ],
+        "providers/": [
+          "copilot.py",
+          "copilot_agent.py",
+          "registry.py"
+        ],
+        "github/": [
+          "diff_loader.py",
+          "diff_mapper.py",
+          "pr_reporter.py",
+          "checks_reporter.py"
+        ],
+        "domain/": [
+          "observation.py",
+          "checks.py",
+          "policy_engine.py",
+          "decision.py"
+        ]
+      },
+      "tests/": "pytest-based test suite"
+    }
+  },
+  "core_components": {
+    "CopilotProvider": {
+      "file": "ai_slop_gate/providers/copilot.py",
+      "type": "provider",
+      "responsibilities": [
+        "Receive unified diff text.",
+        "Parse diff using DiffMapper.",
+        "Build task for CopilotAgent.",
+        "Call agent with retry logic.",
+        "Validate and normalize issues.",
+        "Convert issues into Observations.",
+        "Map diff-line to real file-line.",
+        "Return ProviderResult."
+      ],
+      "inputs": [
+        "Unified diff text",
+        "Policy configuration"
+      ],
+      "outputs": [
+        "ProviderResult { observations: Observation[] }"
+      ],
+      "retry_logic": {
+        "max_attempts": 2,
+        "trigger": "InvalidAgentResponse",
+        "modification": "force_strict_json = true"
+      },
+      "evidence_mapping": {
+        "source": "issue.file + issue.line (diff-line)",
+        "mapper": "DiffMapper",
+        "output": "real file line number"
+      }
+    },
+    "CopilotAgent": {
+      "file": "ai_slop_gate/providers/copilot_agent.py",
+      "type": "agent",
+      "strict_mode": true,
+      "responsibilities": [
+        "Build diff-aware instructions.",
+        "Build task for Copilot client.",
+        "Call abstract CopilotClient.run(task).",
+        "Parse raw JSON string.",
+        "Validate JSON structure.",
+        "Normalize issue fields.",
+        "Reject invalid JSON via InvalidAgentResponse."
+      ],
+      "inputs": [
+        "Task object containing diff text and metadata"
+      ],
+      "outputs": [
+        "List of validated issue dictionaries"
+      ],
+      "issue_contract": {
+        "category": "string (security|quality|style|performance|correctness|other)",
+        "message": "string (non-empty)",
+        "severity": "string (low|medium|high)",
+        "confidence": "float (0.0–1.0)",
+        "file": "string (path)",
+        "line": "integer (>0, diff-line)"
+      },
+      "instruction_rules": {
+        "diff_rules": [
+          "Analyze ONLY new lines starting with '+'.",
+          "Context lines ' ' may be relevant.",
+          "Ignore removed lines '-'.",
+          "Never report issues outside diff."
+        ],
+        "json_rules": [
+          "Return a single JSON object.",
+          "Top-level key must be 'issues'.",
+          "No text before or after JSON.",
+          "No markdown.",
+          "No code snippets.",
+          "No ranges."
+        ],
+        "retry_rules": [
+          "If previous response invalid, enforce strict JSON mode."
+        ]
+      }
+    },
+    "CopilotClient": {
+      "type": "abstract",
+      "file": "ai_slop_gate/providers/copilot_agent.py",
+      "method_contract": {
+        "run(task)": "returns raw JSON string"
+      },
+      "note": "Real SDK integration will be implemented later. For now, FakeClient or StubCopilotClient is used."
+    },
+    "DiffMapper": {
+      "file": "ai_slop_gate/github/diff_mapper.py",
+      "type": "utility",
+      "responsibilities": [
+        "Parse unified diff into DiffFile and DiffHunk structures.",
+        "Build mapping diff-line → real file-line.",
+        "Support GitHub-style diff headers."
+      ],
+      "inputs": [
+        "Unified diff text"
+      ],
+      "outputs": [
+        "Real file line number or null"
+      ],
+      "mapping_rules": {
+        "plus_line": "increments new_line",
+        "space_line": "increments new_line",
+        "minus_line": "does not increment new_line"
+      }
+    },
+    "DiffLoader": {
+      "file": "ai_slop_gate/github/diff_loader.py",
+      "type": "github_integration",
+      "responsibilities": [
+        "Load PR diff from GitHub API.",
+        "Wrap GitHub patch into full unified diff headers.",
+        "Return unified diff string."
+      ],
+      "github_api_fields_used": [
+        "filename",
+        "patch"
+      ],
+      "note": "Used only when running against real GitHub PRs."
+    },
+    "run_cli": {
+      "file": "ai_slop_gate/cli/run.py",
+      "type": "entrypoint",
+      "responsibilities": [
+        "Load policy.",
+        "Select provider.",
+        "Load diff (GitHub or local).",
+        "Run provider.",
+        "Evaluate observations via PolicyEngine.",
+        "Build CheckReport.",
+        "Send PR comment (optional).",
+        "Send GitHub Check Run (optional).",
+        "Return exit code."
+      ],
+      "exit_codes": {
+        "0": "success or advisory",
+        "1": "blocking decision",
+        "2": "runtime error (invalid input, missing diff, etc.)"
+      }
+    },
+    "PolicyEngine": {
+      "file": "ai_slop_gate/domain/policy_engine.py",
+      "type": "core_logic",
+      "responsibilities": [
+        "Evaluate observations against rules.",
+        "Return decision object.",
+        "Support block/advisory/pass modes."
+      ]
+    },
+    "Reporters": {
+      "GitHubPRReporter": {
+        "file": "ai_slop_gate/github/pr_reporter.py",
+        "responsibilities": [
+          "Post PR comment summarizing results."
+        ]
+      },
+      "GitHubChecksReporter": {
+        "file": "ai_slop_gate/github/checks_reporter.py",
+        "responsibilities": [
+          "Create GitHub Check Run with annotations."
+        ]
+      }
+    }
+  },
+  "domain_models": {
+    "Observation": {
+      "fields": {
+        "category": "string",
+        "message": "string",
+        "severity": "low|medium|high",
+        "confidence": "float",
+        "evidence": {
+          "file": "string or null",
+          "line": "integer or null"
+        }
+      }
+    },
+    "ProviderResult": {
+      "fields": {
+        "observations": "array of Observation"
+      }
+    },
+    "Decision": {
+      "fields": {
+        "mode": "pass|advisory|block",
+        "reason": "string"
+      }
+    },
+    "CheckReport": {
+      "fields": {
+        "observations": "array of Observation",
+        "decision": "Decision"
+      }
+    }
+  },
+  "data_flow": {
+    "steps": [
+      "1. run_cli loads policy.",
+      "2. run_cli loads diff (GitHub or local).",
+      "3. CopilotProvider receives diff.",
+      "4. DiffMapper parses diff and builds mapping.",
+      "5. CopilotProvider builds task for agent.",
+      "6. CopilotAgent builds instructions.",
+      "7. CopilotAgent calls CopilotClient.run(task).",
+      "8. CopilotAgent parses and validates JSON.",
+      "9. CopilotProvider maps diff-line to real-line.",
+      "10. ProviderResult returned.",
+      "11. PolicyEngine evaluates observations.",
+      "12. Reporters publish results."
+    ]
+  },
+  "multi_provider_pipeline": {
+    "description": "All providers return ProviderResult, enabling composition.",
+    "rules": [
+      "ProviderResult must contain observations[].",
+      "Observations must follow Observation contract.",
+      "RulesEngine must not depend on provider type.",
+      "Reporters must not depend on provider type."
+    ]
+  },
+  "caching": {
+    "status": "not implemented",
+    "rules": [
+      "Cache must be global.",
+      "Cache must be provider-agnostic.",
+      "Cache must not break strict mode.",
+      "Cache must not store invalid JSON.",
+      "Cache must be explicitly requested before implementation."
+    ]
+  },
+  "testing_strategy": {
+    "framework": "pytest",
+    "coverage_targets": [
+      "DiffMapper",
+      "CopilotAgent JSON validation",
+      "CopilotProvider evidence mapping",
+      "ProviderResult",
+      "run_cli integration-light"
+    ],
+    "smoke_tests": [
+      "Local diff ingestion",
+      "FakeClient JSON injection",
+      "Retry logic",
+      "Strict JSON mode",
+      "Evidence mapping"
+    ]
+  },
+  "ci_cd": {
+    "recommended": [
+      "GitHub Actions",
+      "Run pytest",
+      "Run flake8 or ruff",
+      "Run mypy",
+      "Run ai-slop-gate on PR diff"
+    ],
+    "rules": [
+      "CI must fail on blocking decision.",
+      "CI must pass on advisory decision."
+    ]
+  },
+  "style_guide": {
+    "language": "Python 3.10+",
+    "formatting": "PEP8",
+    "imports": "absolute",
+    "comments": "English only",
+    "docstrings": "Google-style or minimal"
+  },
+  "future_extensions": {
+    "copilot_sdk_integration": "Will be implemented later by replacing StubCopilotClient with a real client.",
+    "global_cache": "Will be added later and must be shared across all providers.",
+    "performance_optimizations": "Optional future step.",
+    "safety_extensions": "Optional future step."
+  }
+}
