@@ -7,7 +7,7 @@ from ai_slop_gate.domain.observation_factory import make_observation
 
 class StaticJSProvider(BaseProvider):
     JS_EXTENSIONS = {".js", ".ts", ".jsx", ".tsx"}
-    IGNORE_DIRS = {"node_modules", "dist", "build"}
+    IGNORE_DIRS = {"node_modules", "dist", "build", "htmlcov", ".venv"}
 
     SECRET_RE = re.compile(
         r"(API_KEY|SECRET|TOKEN|PASSWORD|JWT|PRIVATE_KEY)\s*[:=]\s*['\"`][^'\"`]{6,}['\"`]",

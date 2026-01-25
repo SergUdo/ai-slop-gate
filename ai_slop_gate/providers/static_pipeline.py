@@ -1,52 +1,89 @@
+import logging
+from collections import defaultdict
 from typing import List
+from dataclasses import replace
 from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
-from ai_slop_gate.providers.static import StaticProvider
-from ai_slop_gate.providers.static_js import StaticJSProvider
-from ai_slop_gate.providers.eslint import ESLintProvider
-from ai_slop_gate.providers.static_ts_js import StaticTSJSProvider
-from ai_slop_gate.providers.static_python import StaticPythonProvider
-from ai_slop_gate.providers.static_docker import StaticDockerProvider
+
+# Імпорт під-провайдерів
+from .static import StaticProvider
+from .eslint import ESLintProvider
+from .static_python import StaticPythonProvider
+from .static_ts_js import StaticTSJSProvider
+from .static_docker import StaticDockerProvider
+from .supply_chain import SupplyChainProvider
+
+logger = logging.getLogger(__name__)
 
 class StaticPipelineProvider(BaseProvider):
     def __init__(self, model: str = "static-pipeline-v1"):
-        self.name = "static-pipeline"
-        self.kind = "scm"
+        self.name = "static_pipeline"
+        self.kind = "static"
         self.model = model
-
-    def analyze(self, input_data: str = "") -> ProviderObservation:
-        observations: List = []
-
-        providers = [
+        self.pipeline = [
             StaticProvider(),
-            StaticJSProvider(),
             ESLintProvider(),
-            StaticTSJSProvider(),
             StaticPythonProvider(),
+            StaticTSJSProvider(),
             StaticDockerProvider(),
+            SupplyChainProvider()
         ]
 
-        for provider in providers:
+    def collect(self, base_path: str = ".") -> ProviderObservation:
+        all_obs = []
+        for provider in self.pipeline:
             try:
-                if hasattr(provider, 'name'):
-                    provider_name = provider.name
-                else:
-                    provider_name = provider.__class__.__name__
-
-                if hasattr(provider, 'analyze'):
-                    result = provider.analyze(input_data)
-                else:
-                    result = provider.collect()
-
-                observations.extend(result.observations)
+                res = provider.collect(base_path=base_path)
+                if res and res.observations:
+                    all_obs.extend(res.observations)
             except Exception as e:
-                print(f"Error running {provider_name}: {e}")
+                logger.error(f"Failed to run provider {provider.name}: {e}")
 
-        return ProviderObservation(
-            provider=self.name,
-            model=self.model,
-            observations=observations,
-            raw_text="",
-        )
+        return self._smart_aggregate(all_obs)
 
-    def collect(self) -> ProviderObservation:
-        return self.analyze()
+    def _smart_aggregate(self, observations: List) -> ProviderObservation:
+        # 1. Фільтрація сміття (venv, ai_slop_gate і т.д.)
+        BLACKLIST = {".venv", "venv", "node_modules", "ai_slop_gate", "htmlcov"}
+        clean_list = []
+        
+        for obs in observations:
+            # Дістаємо файл з будь-якого доступного поля
+            f = "unknown"
+            if hasattr(obs, 'location') and obs.location:
+                f = getattr(obs.location, 'file', "unknown")
+            elif isinstance(obs.evidence, dict):
+                f = obs.evidence.get("file", "unknown")
+            
+            # Перевірка: чи є в шляху файлу заборонена папка
+            is_bad = False
+            for part in f.replace("\\", "/").split("/"):
+                if part in BLACKLIST:
+                    is_bad = True
+                    break
+            
+            if not is_bad:
+                clean_list.append(obs)
+
+        if not clean_list:
+            return ProviderObservation(self.name, self.model, [], "No issues found")
+
+        # 2. Групування та схлопування
+        grouped = defaultdict(list)
+        for obs in clean_list:
+            f_key = obs.location.file if (hasattr(obs, 'location') and obs.location) else "unknown"
+            grouped[(obs.signal, f_key)].append(obs)
+
+        final_results = []
+        for (sig, f_path), items in grouped.items():
+            if len(items) > 5:
+                final_results.extend(items[:3])
+                summary = replace(items[0], message=f"Found {len(items)} instances of [{sig}] in this file.")
+                if hasattr(summary, 'location') and summary.location:
+                    summary = replace(summary, location=replace(summary.location, line=None))
+                final_results.append(summary)
+            else:
+                final_results.extend(items)
+
+        return ProviderObservation(self.name, self.model, final_results, "Done")
+
+    def analyze(self, code: str, input_file: str = "") -> ProviderObservation:
+        return self.collect()

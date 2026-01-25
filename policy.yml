@@ -1,26 +1,22 @@
-version: "v1.2"
+version: "v1.3"
 project_name: "ai_slop_gate"
- 
+
 # Global enforcement level: never | advisory | blocking
-enforcement: advisory
- 
+# Defines if the gate should fail the CI/CD pipeline
+enforcement: blocking 
+
 # --- AI Provider configuration ---
 ai_provider:
-  name: gemini                # gemini | llama | openrouter | copilot
+  name: gemini                # Options: gemini | openai | groq | copilot
   model: gemini-2.5-flash
   temperature: 0.1
-  mode: advisory
-  explain: false              # LLM should NOT generate long explanations unless enabled
- 
-  # --- LLM Cache ---
-  # true  -> always cache LLM responses (default, recommended)
-  # false -> disable cache (always spend tokens)
-  cache: true
- 
+  mode: blocking              # AI observations can trigger a block
+  explain: false              # Set true for detailed LLM reasoning
+  cache: true                 # Enable to save tokens and improve speed
+
 # --- Compliance Module (Deterministic Sidecar) ---
 compliance:
-  enabled: false              # Overridden by --compliance flag
- 
+  enabled: true               
   license_audit:
     enabled: true
     forbidden_licenses:
@@ -36,8 +32,8 @@ compliance:
     enforce_data_residency: EU
     severity: critical
     tags: [security, gdpr, residency]
- 
-# --- AI Slop Detection Logic ---
+
+# --- AI Slop Detection Logic (LLM Context) ---
 ai_slop:
   max_redundancy: 3
   max_length: 50
@@ -48,38 +44,20 @@ ai_slop:
     severity: medium
     tags: [ai, quality]
     prompt_template: |
-      Analyze the following code snippet for potential AI slop, unidiomatic patterns, or inefficiency.
-      Focus on identifying:
-      1. Overly generic or repetitive code.
-      2. Code that doesn't match typical human-written patterns.
-      3. Comments or documentation that seem AI-generated.
-      Provide a concise PASS or FAIL and a brief explanation if FAIL.
-      Code snippet:
-      {code_snippet}
- 
-  detect_style_violations:
-    enabled: true
-    severity: low
-    tags: [style, quality]
-    prompt_template: |
-      Does the following code adhere to best practices and common idioms for its language?
-      Identify any areas that feel 'off' or generic, potentially indicating AI generation.
-      Code snippet:
-      {code_snippet}
+      Analyze the code for AI slop, unidiomatic patterns, or inefficiency.
+      Focus on identifying repetitive code and generic AI-generated comments.
+      Code: {code_snippet}
  
   detect_hallucinations:
     enabled: true
     severity: high
     tags: [ai, hallucination]
     prompt_template: |
-      Check the following code and comments for potential hallucinations or inaccuracies.
-      Focus on:
-      1. Comments that don't match the code.
-      2. Incorrect assumptions or outdated practices.
-      Code snippet:
-      {code_snippet}
- 
-# --- Static Code Quality ---
+      Check the following code for hallucinations or logic inaccuracies.
+      Verify if comments match the actual implementation.
+      Code: {code_snippet}
+
+# --- Static Code Quality Analysis ---
 code_quality:
   detect_todo: true
   detect_fixme: true
@@ -88,92 +66,111 @@ code_quality:
   tags: [quality, maintainability]
 
   javascript:
-    detect_todo: true
-    detect_fixme: true
     max_function_length: 50
     severity: low
-    tags: [javascript, quality]
 
   python:
     max_function_length: 50
-    detect_todo: true
     severity: low
-    tags: [python, quality]
 
+# --- Infrastructure as Code (IaC) Security ---
 infrastructure_security:
   dockerfile:
-    check_user: true
-    check_sensitive_env: true
+    check_user: true          # Ensure root is not used in Docker
     severity: high
     tags: [docker, security]
 
   kubernetes:
-    check_root_user: true
+    check_root_user: true     # Validate securityContext settings
     check_privileged: true
     severity: critical
     tags: [k8s, security]
 
   terraform:
-    check_public_access: true
+    check_public_access: true # Check for 0.0.0.0/0 in Security Groups
     severity: high
     tags: [terraform, cloud, security]
 
- 
-# --- Rules Engine ---
+# --- Rules Engine Logic ---
 rules:
- 
-  # Secrets
-  - id: hardcoded-secret
+  # 1. Critical Architecture & Security Blockers
+  - id: global-blocking-high-severity
     when:
-      category: security
-      signal: negative
-      min_confidence: 0.9
+      severity: high          # Covers 'high' and 'critical'
+      min_confidence: 0.8
     then:
       action: blocking
-      severity: critical
-      tags: [security, secrets]
-      message: "Hardcoded secret detected"
- 
-  # Terraform
-  - id: TF_PUBLIC_ACCESS
-    when:
-      category: TERRAFORM
-      signal: INSECURE_CONFIG
-      min_confidence: 0.95
-    then:
-      action: blocking
-      severity: high
-      tags: [terraform, cloud, security]
-      message: "Terraform plan exposes resource to public access (0.0.0.0/0)"
- 
-  - id: TF_MISSING_TAGS
-    when:
-      category: TERRAFORM
-      signal: MISSING_TAGS
-    then:
-      action: advisory
-      severity: low
-      tags: [terraform, governance]
-      message: "Terraform resource is missing mandatory tags"
- 
-  # Kubernetes
-  - id: k8s-no-root
-    when:
-      category: security
-      signal: RUN_AS_ROOT
-    then:
-      action: blocking
-      severity: critical
-      tags: [k8s, security]
-      message: "Kubernetes container must not run as root"
- 
-  # Code Quality
-  - id: todo-advisory
+      message: "Blocking: Critical issue detected with high confidence. Manual review required."
+
+  - id: static-security-block
     when:
       category: quality
-      signal: negative
+      signal: no-undef
+    then:
+      action: blocking
+      message: "Undefined variable detected by static analysis. Possible runtime error."
+
+  - id: k8s-infrastructure-mismatch
+    when:
+      category: architecture
+      signal: ".*_mismatch"   # Catch all port, version, or target mismatches
+    then:
+      action: blocking
+      message: "Infrastructure mismatch: Potential service failure in production."
+
+  - id: k8s-port-mismatch
+    when:
+      category: architecture
+      signal: service_targetport_mismatch # Exact string match
+      min_confidence: 0.8
+    then:
+      action: blocking
+      message: "Port mismatch detected."
+
+  - id: k8s-version-mismatch
+    when:
+      category: architecture
+      signal: service_deployment_version_mismatch # Exact string match
+    then:
+      action: blocking
+      message: "Version mismatch detected."
+
+  - id: k8s-namespace-mismatch
+    when:
+      category: architecture
+      signal: ".*_mismatch"   # Catch all port, version, or target mismatches
+    then:
+      action: blocking
+      message: "Namespace mismatch: Potential service failure in production."
+
+  - id: security-policy-violation
+    when:
+      category: security
+    then:
+      action: blocking
+      message: "Security Policy Violation: Merging is prohibited."
+
+  - id: security-violation
+    when:
+      category: security
+    then:
+      action: blocking
+      severity: critical
+      message: "Security Policy Violation: Merging is prohibited."
+
+  # 2. Advisory Rules (Informational)
+  - id: ai-slop-advisory
+    when:
+      category: quality
+      severity: medium
+    then:
+      action: advisory
+      message: "AI Slop detected: Code quality could be improved, but not blocking."
+
+  - id: maintenance-notice
+    when:
+      signal: "negative"      # Matches TODOs/FIXMEs
     then:
       action: advisory
       severity: low
-      tags: [quality, maintainability]
-      message: "Remove TODOs and FIXMEs before merging to main"
+      message: "Technical debt: Please address placeholders before closing this PR."

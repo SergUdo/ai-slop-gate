@@ -1,7 +1,5 @@
 from typing import Any, Dict, Optional
-
 from ai_slop_gate.domain.observation import Observation, Location
-
 
 def make_observation(
     *,
@@ -16,38 +14,28 @@ def make_observation(
 ) -> Observation:
     """
     Canonical Observation factory.
-    Ensures full domain contract and avoids provider-level divergence.
     """
-
     evidence = evidence or {}
 
-    file = evidence.get("file")
-    line = evidence.get("line")
-
-    location = (
-        f"{file}:{line}"
-        if file is not None and line is not None
-        else "unknown"
-    )
+    file_path = evidence.get("file")
+    line_num = evidence.get("line")
 
     rule_id = rule or f"{provider}.{category}.{signal}"
 
-    # severity is a POLICY-LEVEL concept, but providers must emit a baseline
-    resolved_severity = severity or (
-        "high" if confidence >= 0.9 else
-        "medium" if confidence >= 0.6 else
-        "low"
-    )
+    resolved_location = None
+    if file_path:
+        resolved_location = Location(
+            file=str(file_path),
+            line=int(line_num) if line_num is not None else 1
+        )
 
     return Observation(
         rule_id=rule_id,
         category=category,
         signal=signal,
         message=message,
-        severity=severity,
+        severity=severity or "medium",
         confidence=confidence,
-        location=Location(
-            file=evidence.get("file"),
-            line=evidence.get("line"),
-        ) if evidence else None,
+        location=resolved_location,
+        evidence=evidence
     )

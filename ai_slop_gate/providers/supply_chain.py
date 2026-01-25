@@ -1,61 +1,48 @@
 import os
-import re
-from typing import List, Dict, Any
-from .base import BaseProvider
-from ..domain.observation import Observation, Severity, Location
+import logging
+from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
+from ai_slop_gate.domain.observation_factory import make_observation
+
+logger = logging.getLogger(__name__)
 
 class SupplyChainProvider(BaseProvider):
-    def __init__(self, policy: Dict[str, Any]):
-        self.policy = policy
-        self.forbidden_licenses = policy.get("license_audit", {}).get("forbidden_licenses", ["GPL-3.0"])
-        self.enabled = policy.get("enabled", False)
+    def __init__(self, model: str = "manifest-scanner-v1"):
+        self.name = "supply-chain"
+        self.kind = "static"
+        self.model = model
 
-    def collect(self) -> List[Observation]:
-        if not self.enabled: 
-            return []
-        
+    def collect(self, base_path: str = ".") -> ProviderObservation:
         observations = []
-        base_path = os.path.abspath(os.getcwd())
+        target = os.path.abspath(base_path)
         
-        for root, _, files in os.walk(base_path):
-            for file in files:
-                if file in ["requirements.txt", "pyproject.toml", ".env"]:
-                    full_path = os.path.join(root, file)
-                    observations.extend(self._scan_manifest(full_path))
-        return observations
+        manifests = ["requirements.txt", "package.json", "pyproject.toml"]
+        
+        for root, _, files in os.walk(target):
+            if any(x in root for x in [".venv", "node_modules", "htmlcov", ".venv"]): continue
+            
+            for f in files:
+                if f in manifests:
+                    full_path = os.path.join(root, f)
+                    rel_path = os.path.relpath(full_path, target)
+                    
+                    try:
+                        with open(full_path, "r") as content:
+                            text = content.read()
+                            if "GPL" in text.upper():
+                                observations.append(make_observation(
+                                    provider=self.name,
+                                    category="compliance",
+                                    signal="copyleft_license",
+                                    confidence=1.0,
+                                    message=f"GPL-like license detected in {f}",
+                                    severity="high",
+                                    evidence={"file": rel_path, "line": 1}
+                                ))
+                    except Exception as e:
+                        logger.error(f"Error reading {rel_path}: {e}")
+                        
+        return ProviderObservation(self.name, self.model, observations, "Supply Chain Audit Done")
 
-    def _scan_manifest(self, filepath: str) -> List[Observation]:
-        obs_list = []
-        lic_audit = self.policy.get("license_audit", {})
-        forbidden = lic_audit.get("forbidden_licenses", ["GPL-3.0"])
-        
-        try:
-            with open(filepath, "r", errors="ignore") as f:
-                content = f.read()
-                for lic in forbidden:
-                    if lic.lower() in content.lower():
-                        from ..domain.observation import Observation, Severity, Location
-                        obs_list.append(Observation(
-                            rule_id="COMPLIANCE-LIC-01",
-                            category="compliance",
-                            signal="license_violation",
-                            message=f"Forbidden license {lic} found in {filepath}",
-                            severity=Severity.HIGH,
-                            confidence=1.0,
-                            location=Location(file=filepath)
-                        ))
-                
-                if "API_KEY" in content.upper() or "SECRET" in content.upper():
-                    from ..domain.observation import Observation, Severity, Location
-                    obs_list.append(Observation(
-                        rule_id="COMPLIANCE-SEC-01",
-                        category="compliance",
-                        signal="secret_exposed",
-                        message=f"Potential secret found in {filepath}",
-                        severity=Severity.HIGH,
-                        confidence=0.8,
-                        location=Location(file=filepath)
-                    ))
-        except Exception:
-            pass
-        return obs_list
+    def analyze(self, code: str, input_file: str = "") -> ProviderObservation:
+        return ProviderObservation(self.name, self.model, [], "")
+    

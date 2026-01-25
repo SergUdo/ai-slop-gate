@@ -1,16 +1,15 @@
-# ai_slop_gate/providers/gemini.py
 import os
 import json
 import time
+import logging
 import google.generativeai as genai
 from typing import List, Optional
-from pathlib import Path
-from dotenv import load_dotenv
+from github import Github
 
 from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
 from ai_slop_gate.domain.observation_factory import make_observation
 
-load_dotenv()
+logger = logging.getLogger(__name__)
 
 class GeminiProvider(BaseProvider):
     def __init__(self, model: str, api_key: str | None = None):
@@ -20,144 +19,115 @@ class GeminiProvider(BaseProvider):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
 
         if not self.api_key:
-            raise ValueError("GEMINI_API_KEY is missing.")
+            raise ValueError("GEMINI_API_KEY is missing. Please set it in .env or environment variables.")
 
         genai.configure(api_key=self.api_key)
         self._model = genai.GenerativeModel(self.model)
 
-    def collect(self, content: str = "", input_file: str = "") -> ProviderObservation:
-        return self.analyze(content, input_file)
+    def analyze_pr(self, repo: str, pr_id: int, token: str) -> ProviderObservation:
+        """
+        Fetches the PR diff and sends it for analysis.
+        """
+        logger.info(f"GeminiProvider: Analyzing PR {repo}#{pr_id}")
+        
+        try:
+            gh = Github(token)
+            repository = gh.get_repo(repo)
+            pr = repository.get_pull(int(pr_id))
+            
+            diff_parts = []
+            total_chars = 0
+            for file in pr.get_files():
+                if file.patch:
+                    # Ignore excessively large files
+                    if len(file.patch) > 20000:
+                        continue
+                    diff_parts.append(f"--- File: {file.filename} ---\n{file.patch}")
+                    total_chars += len(file.patch)
+                    if total_chars > 30000:
+                        break
+            
+            diff_content = "\n\n".join(diff_parts)
+            if not diff_content:
+                return ProviderObservation(self.name, self.model, [], "No significant changes to analyze.")
+
+            logger.info(f"Sending {len(diff_content)} chars of diff to Gemini...")
+            return self.analyze(diff_content, input_file=f"PR_{pr_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to fetch PR diff: {e}")
+            return ProviderObservation(self.name, self.model, [], str(e))
 
     def analyze(self, code: str, input_file: str = "") -> ProviderObservation:
-        if not code and not input_file:
-            return ProviderObservation(
-                provider=self.name,
-                model=self.model,
-                observations=[],
-                raw_text="Empty input provided",
-            )
-
-        if input_file:
-            try:
-                file_path = Path(input_file)
-                if file_path.is_file():
-                    code = file_path.read_text()
-                elif file_path.is_dir():
-                    code = ""
-                    for py_file in file_path.rglob("*.py"):
-                        code += f"\n\n# File: {py_file}\n\n"
-                        code += py_file.read_text()
-            except Exception as e:
-                return ProviderObservation(
-                    provider=self.name,
-                    model=self.model,
-                    observations=[
-                        make_observation(
-                            provider=self.name,
-                            category="error",
-                            signal="file_read_error",
-                            message=f"Failed to read file: {str(e)}",
-                            confidence=1.0
-                        )
-                    ],
-                    raw_text=str(e),
-                )
-
-        if not code or len(code.strip()) == 0:
-            return ProviderObservation(
-                provider=self.name,
-                model=self.model,
-                observations=[],
-                raw_text="Empty input provided",
-            )
-
+        """
+        Core analysis logic with refined prompting for descriptive signals.
+        """
         system_instruction = (
-            "You are a Senior Code Auditor specialized in identifying 'AI Slop' (generic, low-quality AI generated code).\n"
-            "Analyze the code and return a JSON list of observations.\n"
-            "Each observation must have: 'category' (quality/hallucination/security), 'signal', 'confidence' (0.0-1.0), "
-            "'severity' (low/medium/high), 'message', 'file' (optional), and 'line' (optional).\n"
-            "Return ONLY valid JSON."
+            "You are a Senior Infrastructure Auditor specializing in 'AI Slop' and K8s misconfigurations.\n"
+            "Analyze the provided code diff and return a raw JSON list of objects.\n\n"
+            "SCHEMA REQUIREMENTS:\n"
+            "- 'category': 'quality', 'security', or 'architecture'.\n"
+            "- 'signal': A short, unique slug (e.g., 'port_mismatch', 'resource_limit_mismatch'). NOT just 'ai_slop'.\n"
+            "- 'confidence': 0.0 to 1.0.\n"
+            "- 'severity': 'low', 'medium', 'high', 'critical'.\n"
+            "- 'message': A concise explanation of the issue.\n"
+            "- 'line': The line number in the diff where the issue occurs.\n\n"
+            "IMPORTANT: Respond ONLY with a valid JSON array. No markdown, no conversational text." \
+            "CRITICAL: Use only lowercase for 'category' (e.g., 'architecture', 'security').\n"
+            "The 'signal' must be one of: 'service_targetport_mismatch', 'service_deployment_version_mismatch', etc."
         )
 
-        prompt = f"{system_instruction}\n\nCode to analyze:\n{code}"
+        prompt = f"{system_instruction}\n\nDIFF CONTENT:\n{code}"
 
-        max_retries = 3
-        retry_delay = 30
-
-        for attempt in range(max_retries):
+        for attempt in range(2):
             try:
-                response = self._model.generate_content(prompt,generation_config={"max_output_tokens": 2048} )
-                raw_text = response.text or ""
+                response = self._model.generate_content(prompt)
+                if not response or not response.text:
+                    continue
 
-                clean_json = raw_text.strip()
+                raw_text = response.text.strip()
+                
+                # Cleanup and parse JSON
+                clean_json = raw_text
                 if "```" in clean_json:
-                    clean_json = clean_json.split("```")[1].replace("json", "").strip()
+                    if "```json" in clean_json:
+                        clean_json = clean_json.split("```json")[1].split("```")[0].strip()
+                    else:
+                        clean_json = clean_json.split("```")[1].split("```")[0].strip()
 
-                observations_data = json.loads(clean_json)
+                data = json.loads(clean_json)
+                if not isinstance(data, list):
+                    data = [data]
 
-                final_observations = []
-                for obs in observations_data:
-                    final_observations.append(
-                        make_observation(
-                            provider=self.name,
-                            category=obs.get("category", "quality"),
-                            signal=obs.get("signal", "ai_indicator"),
-                            confidence=float(obs.get("confidence", 0.7)),
-                            severity=obs.get("severity", "medium"),
-                            message=obs.get("message", "No description provided"),
-                            evidence={
-                                "file": obs.get("file"),
-                                "line": obs.get("line")
-                            }
-                        )
-                    )
-
-                return ProviderObservation(
-                    provider=self.name,
-                    model=self.model,
-                    observations=final_observations,
-                    raw_text=raw_text,
-                )
-
-            except Exception as e:
-                error_message = str(e)
-                if "429" in error_message and attempt < max_retries - 1:
-                    print(f"Rate limit exceeded. Retrying in {retry_delay} seconds...")
-                    time.sleep(retry_delay)
-                    retry_delay *= 2
-                    continue
-                elif "504" in error_message and attempt < max_retries - 1:
-                    print(f"Deadline exceeded. Retrying in {retry_delay} seconds...")
-                    time.sleep(retry_delay)
-                    retry_delay *= 2
-                    continue
-                else:
-                    return ProviderObservation(
+                obs = []
+                for d in data:
+                    observation = make_observation(
                         provider=self.name,
-                        model=self.model,
-                        observations=[
-                            make_observation(
-                                provider=self.name,
-                                category="error",
-                                signal="provider_failure",
-                                message=f"Failed to parse Gemini response: {error_message}",
-                                confidence=1.0
-                            )
-                        ],
-                        raw_text=error_message,
+                        category=d.get("category", "quality"),
+                        signal=d.get("signal", "slop_detected"),
+                        confidence=float(d.get("confidence", 0.7)),
+                        severity=d.get("severity", "medium"),
+                        message=d.get("message", "Potential AI slop found"),
+                        evidence={
+                            "file": d.get("file") or input_file, 
+                            "line": d.get("line", 1)
+                        }
                     )
+                    obs.append(observation)
 
-        return ProviderObservation(
-            provider=self.name,
-            model=self.model,
-            observations=[
-                make_observation(
-                    provider=self.name,
-                    category="error",
-                    signal="max_retries_exceeded",
-                    message=f"Max retries ({max_retries}) exceeded for Gemini API",
-                    confidence=1.0
-                )
-            ],
-            raw_text=f"Max retries ({max_retries}) exceeded",
-        )
+                return ProviderObservation(self.name, self.model, obs, raw_text)
+
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning(f"Attempt {attempt+1} failed to parse or reach Gemini: {e}")
+                if attempt < 1:
+                    time.sleep(2)
+                    continue
+                return ProviderObservation(self.name, self.model, [], f"Error: {str(e)}")
+
+        return ProviderObservation(self.name, self.model, [], "Max retries reached.")
+
+    def collect(self) -> ProviderObservation:
+        """
+        Fallback for non-PR or local analysis.
+        """
+        return self.analyze("", input_file="local_project")

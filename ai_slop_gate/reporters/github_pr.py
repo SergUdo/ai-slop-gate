@@ -1,12 +1,15 @@
+import logging
 from typing import List, Dict, Optional
 from github import Github, GithubException
 from ai_slop_gate.reporters.base import Reporter
 from ai_slop_gate.domain.checks import CheckReport, CheckAnnotation
 
+logger = logging.getLogger(__name__)
+
 class GitHubPRReporter(Reporter):
     def __init__(self, token: str, repo_name: str, pr_id: int):
         if not token:
-            print("GitHub token is missing. GitHubPRReporter is disabled.")
+            logger.error("GitHub token is missing. GitHubPRReporter is disabled.")
             self.client = None
             return
 
@@ -14,21 +17,26 @@ class GitHubPRReporter(Reporter):
             self.client = Github(token)
             self.repo = self.client.get_repo(repo_name)
             self.pr = self.repo.get_pull(int(pr_id))
-        except GithubException as e:
-            print(f"Failed to initialize GitHub client: {e}")
+        except Exception as e:
+            logger.error(f"Failed to initialize GitHub client: {e}")
             self.client = None
 
     def report(self, report: CheckReport) -> None:
         if not self.client:
-            print("Skipping PR reporting: GitHub client not initialized.")
+            logger.warning("Skipping PR reporting: GitHub client not initialized.")
             return
 
+        # Обробка статусу (враховуємо, що status може бути як Enum, так і String)
+        status_val = report.status.name.lower() if hasattr(report.status, 'name') else str(report.status).lower()
+        
         status_map = {
             "pass": ("✅", "PASS"),
+            "allow": ("✅", "PASS"),
             "advisory": ("⚠️", "ADVISORY"),
+            "blocking": ("🚨", "FAIL"),
             "fail": ("🚨", "FAIL"),
         }
-        status_icon, status_text = status_map.get(report.status.value, ("🔍", "UNKNOWN"))
+        status_icon, status_text = status_map.get(status_val, ("🔍", "UNKNOWN"))
 
         body = f"## {status_icon} {report.title}\n\n"
         body += f"> **Status:** {status_text}\n"
@@ -36,9 +44,8 @@ class GitHubPRReporter(Reporter):
 
         if report.annotations:
             body += "### 📑 Detailed Observations\n"
-            grouped_annotations = self._group_annotations(report.annotations)
-
-            for group, annotations in grouped_annotations.items():
+            grouped = self._group_annotations(report.annotations)
+            for group, annotations in grouped.items():
                 body += f"\n#### {group}\n"
                 for ann in annotations:
                     file_info = f" in `{ann.file}`" if ann.file else ""
@@ -49,14 +56,15 @@ class GitHubPRReporter(Reporter):
 
         try:
             self.pr.create_issue_comment(body)
-            print(f"Successfully posted PR comment to {self.repo.full_name}#{self.pr.number}")
+            logger.info(f"✅ Successfully posted PR comment to {self.repo.full_name}#{self.pr.number}")
         except GithubException as e:
-            print(f"Failed to create PR comment: {e}")
+            logger.error(f"Failed to create PR comment: {e}")
 
     def _group_annotations(self, annotations: List[CheckAnnotation]) -> Dict[str, List[CheckAnnotation]]:
         groups = {}
         for ann in annotations:
-            group_key = ann.message.split(":")[0] if ":" in ann.message else "Other"
+            # Групуємо за сигналом у повідомленні або за типом
+            group_key = ann.message.split("]")[0].replace("[", "") if "]" in ann.message else "Other"
             if group_key not in groups:
                 groups[group_key] = []
             groups[group_key].append(ann)

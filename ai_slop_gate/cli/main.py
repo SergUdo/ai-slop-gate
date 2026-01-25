@@ -32,3 +32,7 @@ def main():
         return run_cli(ctx)
 
     raise SystemExit(1)
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

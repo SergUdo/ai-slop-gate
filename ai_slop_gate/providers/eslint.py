@@ -1,78 +1,64 @@
-# ai_slop_gate/providers/eslint.py
 import json
 import subprocess
+import os
+import logging
 from pathlib import Path
-from typing import List
 from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
 from ai_slop_gate.domain.observation_factory import make_observation
 
+logger = logging.getLogger(__name__)
+
 class ESLintProvider(BaseProvider):
-    def __init__(self, model: str = "eslint-v1"):
+    def __init__(self, model: str = "eslint-v8"):
         self.name = "eslint"
-        self.kind = "scm"
+        self.kind = "static"
         self.model = model
 
-    def analyze(self, input_data: str = "") -> ProviderObservation:
-        observations = self.run(Path.cwd())
-        return ProviderObservation(
-            provider=self.name,
-            model=self.model,
-            observations=observations,
-            raw_text="",
-        )
-
-    def run(self, repo_path: Path) -> List:
+    def collect(self, base_path: str = ".") -> ProviderObservation:
         observations = []
-
+        target = Path(base_path).absolute()
+        
         try:
+            # Запускаємо eslint у вказаній директорії
             result = subprocess.run(
-                ["npx", "eslint", ".", "--format", "json"],
-                cwd=repo_path,
+                ["npx", "eslint", ".", "--format", "json", "htmlcov", ".venv"],
+                cwd=target,
                 capture_output=True,
                 text=True,
-                check=False,
+                check=False
             )
-        except FileNotFoundError:
-            return observations
+            
+            if not result.stdout.strip():
+                return ProviderObservation(self.name, self.model, [], "No eslint output")
 
-        if not result.stdout.strip():
-            return observations
+            reports = json.loads(result.stdout)
+            for file_report in reports:
+                abs_path = file_report.get("filePath")
+                # Конвертуємо абсолютний шлях у відносний для GitHub
+                try:
+                    rel_path = os.path.relpath(abs_path, target)
+                except ValueError:
+                    rel_path = abs_path
 
-        reports = json.loads(result.stdout)
-
-        for file_report in reports:
-            file_path = file_report.get("filePath")
-            for msg in file_report.get("messages", []):
-                observations.append(
-                    make_observation(
+                for msg in file_report.get("messages", []):
+                    rule_id = msg.get("ruleId", "unknown")
+                    observations.append(make_observation(
                         provider=self.name,
-                        category=self._map_category(msg.get("ruleId")),
-                        signal="eslint_violation",
-                        confidence=0.9 if msg.get("severity") == 2 else 0.6,
-                        message=f"{msg.get('message')} (eslint: {msg.get('ruleId')})",
+                        category="quality",
+                        signal=rule_id,
+                        confidence=1.0,
+                        message=msg.get("message"),
+                        severity="high" if msg.get("severity") == 2 else "low",
                         evidence={
-                            "file": file_path,
+                            "file": rel_path, 
                             "line": msg.get("line"),
-                            "tool": "eslint",
-                        },
-                        rule=msg.get("ruleId"),
-                    )
-                )
+                            "tool": "eslint"
+                        }
+                    ))
+        except Exception as e:
+            logger.error(f"ESLint execution failed: {e}")
+            
+        return ProviderObservation(self.name, self.model, observations, "ESLint scan complete")
 
-        return observations
-
-    def _map_category(self, rule_id: str | None) -> str:
-        if not rule_id:
-            return "code_quality"
-        if "no-secrets" in rule_id:
-            return "security"
-        if rule_id.startswith("security/"):
-            return "security"
-        if rule_id == "no-console":
-            return "dev_in_prod"
-        if rule_id == "no-undef":
-            return "missing_required"
-        return "code_quality"
-
-    def collect(self) -> ProviderObservation:
-        return self.analyze()
+    def analyze(self, code: str, input_file: str = "") -> ProviderObservation:
+        return ProviderObservation(self.name, self.model, [], "Snippet analysis via ESLint is not implemented")
