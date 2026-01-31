@@ -1,42 +1,76 @@
 import argparse
+import os
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser("ai-slop-gate")
+def build_parser():
+    parser = argparse.ArgumentParser(
+        description="AI Slop Gate — Multi-provider AI & Static Code Analysis"
+    )
+
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # INIT
-    init_parser = subparsers.add_parser("init", help="Initialize ai-slop-gate config")
-    init_parser.add_argument("--force", action="store_true")
-    init_parser.add_argument("--policy")
-    init_parser.add_argument("--provider")
+    # -----------------------------
+    # INIT COMMAND
+    # -----------------------------
+    init_cmd = subparsers.add_parser("init", help="Initialize default policy.yml")
+    init_cmd.add_argument("--force", action="store_true", help="Overwrite existing files")
 
-    # RUN
-    run_parser = subparsers.add_parser("run", help="Run analysis")
+    # -----------------------------
+    # RUN COMMAND
+    # -----------------------------
+    run_cmd = subparsers.add_parser("run", help="Run analysis")
 
-    run_parser.add_argument("--policy", required=True)
-    run_parser.add_argument("--provider", default="static")
+    run_cmd.add_argument(
+        "--provider",
+        "-p",
+        nargs="+",
+        required=True,
+        help="List of providers to run (static, gemini, etc.)",
+    )
 
-    run_parser.add_argument("--input-text")
-    run_parser.add_argument("--input-file")
-    run_parser.add_argument("--repo")
+    run_cmd.add_argument(
+        "--path",
+        default=".",
+        help="Path to the project for static analysis",
+    )
 
-    # Compliance (intent only)
-    run_parser.add_argument("--compliance", action="store_true")
-    run_parser.add_argument("--eu-only", action="store_true")
-    run_parser.add_argument("--license-policy")
+    run_cmd.add_argument(
+        "--llm-local",
+        action="store_true",
+        help="Enable local LLM analysis",
+    )
 
-    # GitHub
-    run_parser.add_argument("--github-repo")
-    run_parser.add_argument("--github-sha")
-    run_parser.add_argument("--pr-id", type=int)
-    run_parser.add_argument("--github-checks", action="store_true")
-    run_parser.add_argument("--github-token")
+    run_cmd.add_argument(
+        "--github-repo",
+        help="GitHub repository (owner/repo)",
+    )
 
-    run_parser.add_argument(
-        "--enforcement",
-        choices=["never", "blocking", "advisory"],
-        default="advisory",
+    run_cmd.add_argument(
+        "--pr-id",
+        type=int,
+        help="Pull Request ID",
+    )
+
+    run_cmd.add_argument(
+        "--github-sha",
+        help="Commit SHA for GitHub Checks",
+    )
+
+    run_cmd.add_argument(
+        "--github-token",
+        help="GitHub token",
+    )
+
+    run_cmd.add_argument(
+        "--policy",
+        default="policy.yml",
+        help="Path to policy.yml",
+    )
+
+    run_cmd.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Verbose output",
     )
 
     return parser

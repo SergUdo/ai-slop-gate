@@ -20,3 +20,4 @@ class CheckReport:
     summary: str
     status: CheckStatus
     annotations: List[CheckAnnotation]
+    reasons: Optional[List[str]] = None

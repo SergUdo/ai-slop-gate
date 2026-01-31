@@ -6,9 +6,12 @@ from ai_slop_gate.domain.observation_factory import make_observation
 
 logger = logging.getLogger(__name__)
 
+
 class StaticProvider(BaseProvider):
-    # Папки, які ми НІКОЛИ не хочемо аналізувати
-    EXCLUDE_DIRS = {".venv", "venv", "node_modules", "ai_slop_gate", "scripts", "htmlcov", ".git"}
+    EXCLUDE_DIRS = {
+        ".venv", "venv", "node_modules", "ai_slop_gate",
+        "scripts", "htmlcov", ".git", "site-packages", "__pycache__"
+    }
 
     def __init__(self, model: str = "generic-static-v1"):
         self.name = "static"
@@ -17,18 +20,20 @@ class StaticProvider(BaseProvider):
 
     def collect(self, base_path: str = ".") -> ProviderObservation:
         observations = []
-        target_dir = Path(base_path).resolve()
-        
-        for path in target_dir.rglob("*"):
-            # ПЕРЕВІРКА ШЛЯХУ: Якщо хоча б одна частина шляху в списку ігнорування - пропускаємо
-            if any(part in self.EXCLUDE_DIRS for part in path.parts):
-                continue
-                
-            if path.is_file() and path.suffix in [".js", ".ts", ".py", ".sh", ".env"]:
-                rel_path = os.path.relpath(path, target_dir)
+        base = os.path.abspath(base_path)
+
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d not in self.EXCLUDE_DIRS]
+
+            for f in files:
+                if not any(f.endswith(ext) for ext in [".js", ".ts", ".py", ".sh", ".env"]):
+                    continue
+
+                full_path = os.path.join(root, f)
+                rel_path = os.path.relpath(full_path, base)
+
                 try:
-                    text = path.read_text(errors="ignore")
-                    # Простий пошук TODO
+                    text = open(full_path, "r", errors="ignore").read()
                     for i, line in enumerate(text.splitlines(), start=1):
                         if "TODO" in line.upper():
                             observations.append(make_observation(

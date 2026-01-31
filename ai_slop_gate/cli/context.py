@@ -1,37 +1,31 @@
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import List, Optional
 
 
 @dataclass
 class RuntimeContext:
-    # Input
-    input_text: Optional[str] = None
-    input_file: Optional[str] = None
-    repository: Optional[str] = None
+    """
+    Unified runtime context for AI Slop Gate CLI.
+    Contains all parameters required by run.py.
+    """
 
-    # Policy
-    policy_path: str = "policy.yml"
-    enforcement: str = "advisory"
+    # Multi-provider mode
+    providers: List[str]
 
-    # Providers
-    provider: str = "static"
-    enabled_providers: Optional[List[str]] = None
+    # Local static analysis path
+    path: str
 
-    # Compliance
-    compliance_enabled: bool = False
-    eu_only: bool = False
-    license_policy: Optional[str] = None
+    # LLM local mode (LLM allowed to analyze local files)
+    llm_local: bool = False
 
-    # GitHub
+    # GitHub PR mode
     github_repo: Optional[str] = None
-    github_sha: Optional[str] = None
     pr_id: Optional[int] = None
-    github_checks: bool = False
+    github_sha: Optional[str] = None
     github_token: Optional[str] = None
 
-    # Runtime
-    is_ci: bool = False
-    is_docker: bool = False
+    # Policy file path
+    policy_path: str = "policy.yml"
 
-    def as_dict(self) -> Dict[str, Any]:
-        return self.__dict__
+    # Verbose console output
+    verbose: bool = False

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ai_slop_gate.cli.utils import load_policy
-from ai_slop_gate.domain.compliance.config import ComplianceConfig
+from ai_slop_gate.domain.compliance.config import ComplianceConfig, LicenseAuditConfig
 from ai_slop_gate.domain.config import PolicyConfig
 
 
@@ -12,10 +12,10 @@ def test_effective_policy_merges_profile_and_license_audit(tmp_path: Path):
 version: "v1"
 compliance:
   enabled: true
-  active_profile: eu
-  profiles:
-    - name: eu
-      forbid_licenses: ["GPL-3.0"]
+  license_audit:
+    enabled: true
+    forbidden_licenses:
+      - GPL-3.0
 
 rules: []
 """
@@ -23,4 +23,5 @@ rules: []
 
     policy_cfg, _ = load_policy(str(policy_path))
 
-    assert "GPL-3.0" in policy_cfg.compliance.forbid_licenses
+    assert policy_cfg.compliance.license_audit.forbidden_licenses is not None
+    assert "GPL-3.0" in policy_cfg.compliance.license_audit.forbidden_licenses
