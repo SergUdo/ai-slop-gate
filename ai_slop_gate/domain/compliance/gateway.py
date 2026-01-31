@@ -1,38 +1,38 @@
-from typing import List, Optional
-
-from ai_slop_gate.domain.compliance.config import ComplianceConfig
-from ai_slop_gate.domain.compliance.observation import ComplianceObservation
 from pathlib import Path
+from typing import List
+
+from ai_slop_gate.domain.observation import Observation
+from .detector import ComplianceDetector
+from .profiles import ComplianceProfile
 
 
 class ComplianceGateway:
     """
-    Deterministic compliance gateway.
+    Executes deterministic compliance checks based on resolved ComplianceProfile.
     """
 
-    def __init__(self, config: Optional[ComplianceConfig] = None):
-        self.config = config or ComplianceConfig()
+    def __init__(self, config: ComplianceProfile | None):
+        self.config = config
 
-    def analyze(self, artifacts_path: str) -> List[ComplianceObservation]:
-        if not self.config.enabled:
+    def analyze(self, artifacts_path: str) -> List[Observation]:
+        if not self.config:
             return []
 
-        observations = []
-        artifacts_path = Path(artifacts_path)
+        observations: List[Observation] = []
 
-        req_path = artifacts_path / "requirements.txt"
-        if req_path.exists():
-            with open(req_path, "r") as f:
-                for line_number, line in enumerate(f, 1):
-                    if "# GPL-3.0" in line:
-                        observations.append(
-                            ComplianceObservation(
-                                license="GPL-3.0",
-                                severity="high",
-                                message="License GPL-3.0 is forbidden by compliance policy",
-                                evidence={"file": "requirements.txt", "line": line_number},
-                            )
-                        )
+        # License audit
+        if self.config.forbid_licenses:
+            detector = ComplianceDetector(self.config.forbid_licenses)
+
+            licenses = self._load_license_artifacts(artifacts_path)
+
+            observations.extend(detector.detect(licenses))
 
         return observations
 
+    def _load_license_artifacts(self, artifacts_path: str):
+        """
+        Temporary adapter.
+        Expected format: List[(file, license)]
+        """
+        return []

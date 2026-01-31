@@ -2,19 +2,38 @@
 # python -m ai_slop_gate.cli run --policy policy.yml --provider static
 
 # scripts/test_static_pipeline.py
+#!/usr/bin/env python3
+import logging
 from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.domain.policy_engine import PolicyEngine
 from ai_slop_gate.cli.utils import load_policy
 
-policy_config, rules = load_policy("policy.yml")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-provider = StaticPipelineProvider()
-result = provider.collect()
+def main():
+    logger.info("Loading policy configuration...")
+    policy_config, rules = load_policy("policy.yml")
 
-engine = PolicyEngine(rules)
-decision = engine.evaluate(result.observations)
+    logger.info("Initializing StaticPipelineProvider...")
+    provider = StaticPipelineProvider()
 
-print("Decision:", decision.mode.value)
-for reason in decision.reasons:
-    print("-", reason)
+    logger.info("Collecting observations...")
+    result = provider.collect()
+
+    logger.info(f"Collected {len(result.observations)} observations:")
+    for obs in result.observations:
+        logger.info(f"  - {obs.category}: {obs.signal} ({obs.confidence}) - {obs.message}")
+
+    logger.info("Evaluating observations with PolicyEngine...")
+    engine = PolicyEngine(rules)
+    decision = engine.evaluate(result.observations)
+
+    logger.info(f"Decision: {decision.mode.value}")
+    for reason in decision.reasons:
+        logger.info(f"- {reason}")
+
+if __name__ == "__main__":
+    main()
+
 

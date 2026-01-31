@@ -36,3 +36,4 @@ class Observation:
 
     # Legacy compatibility
     location: Optional[Location] = None
+    

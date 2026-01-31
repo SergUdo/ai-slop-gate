@@ -1,0 +1,70 @@
+{
+  "manifest_metadata": {
+    "project": "ai-slop-gate",
+    "execution_mode": "STRICT_MODE",
+    "enforcement_policy": "never_hallucinate",
+    "instruction": "Use this JSON as the absolute source of truth for implementation. Do not invent new parameters."
+  },
+  "implementation_roadmap": [
+    {
+      "step": 1,
+      "feature": "GitHub Action (plug-and-play)",
+      "description": "Integrate into GitHub repository for automated analysis on push/pull_request.",
+      "usage_example": "- uses: ./.github/actions/ai-slop-gate\n  with:\n    policy: \"policy.yml\"\n    provider: \"static\"\n    enforcement: \"advisory\"",
+      "benefits": ["Easy integration", "Multi-provider support", "Configurable enforcement"]
+    },
+    {
+      "step": 2,
+      "feature": "GitLab CI Template",
+      "description": "Integration via remote include for GitLab CI/CD.",
+      "usage_example": "include:\n  - remote: \"https://raw.githubusercontent.com/SergUdo/ai-slop-gate/main/ci/ai-slop-gate.gitlab-ci.yml\"",
+      "benefits": ["Remote include support", "Artifacts for reports"]
+    },
+    {
+      "step": 3,
+      "feature": "Kubernetes Job",
+      "description": "Run as a K8s Job to analyze manifests or code in-cluster.",
+      "usage_example": "kubectl apply -f k8s/job-ai-slop-gate.yaml",
+      "benefits": ["GitOps workflows", "ConfigMap support"]
+    },
+    {
+      "step": 4,
+      "feature": "pre-commit Hook",
+      "description": "Run analysis before every commit.",
+      "usage_example": "- repo: local\n  hooks:\n    - id: ai-slop-gate\n      entry: docker run -v $(pwd):/app ghcr.io/sergudo/ai-slop-gate:latest run --policy /app/policy.yml --provider static",
+      "benefits": ["Fast feedback", "Early issue detection"]
+    },
+    {
+      "step": 5,
+      "feature": "Security Scanning (Trivy)",
+      "description": "Scan Docker image for vulnerabilities.",
+      "usage_example": "- uses: aquasecurity/trivy-action@master\n  with:\n    image-ref: \"ghcr.io/sergudo/ai-slop-gate:latest\"\n    severity: \"CRITICAL,HIGH\"",
+      "benefits": ["Detect critical vulnerabilities", "Automated CI scanning"]
+    },
+    {
+      "step": 6,
+      "feature": "SBOM (Software Bill of Materials)",
+      "description": "Generate SBOM using Anchore Syft.",
+      "usage_example": "- uses: anchore/sbom-action@v0\n  with:\n    image: \"ghcr.io/sergudo/ai-slop-gate:latest\"\n    format: \"spdx-json\"",
+      "benefits": ["Compliance (NIST, ISO)", "Component tracking"]
+    },
+    {
+      "step": 7,
+      "feature": "Release Automation (semantic-release)",
+      "description": "Automate releases based on Conventional Commits.",
+      "usage_example": "- uses: cycjimmy/semantic-release-action@v4\n  with:\n    extra_plugins: |\n      @semantic-release/changelog\n      @semantic-release/git",
+      "benefits": ["Automatic changelog", "Semantic versioning"]
+    },
+    {
+      "step": 8,
+      "feature": "Multi-arch Docker Build",
+      "description": "Build images for amd64 and arm64.",
+      "usage_example": "- uses: docker/build-push-action@v5\n  with:\n    platforms: linux/amd64,linux/arm64",
+      "benefits": ["AWS Graviton support", "Broad compatibility"]
+    }
+  ],
+  "technical_matrix": {
+    "target_audiences": ["Developers", "DevOps", "SRE", "Security Teams", "Enterprise"],
+    "critical_components": ["static", "gemini", "k8s-runtime", "policy.yml"]
+  }
+}

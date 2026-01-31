@@ -15,21 +15,38 @@ class GroqProvider:
             print("Warning: SLOPE_GATE_GROQ not set, skipping Groq analysis.")
             return []
 
-        prompt = f"""
-        Analyze the following code for 'AI slop' (low-quality AI-generated patterns,
-        excessive TODOs, or poor justifications).
-        "Focus on specific architectural flaws. Instead of 'Lack of input validation',
-        focus on the actual problem, and point out what exactly can crash. If you find AI slop,
-        explain why it looks like slop (e.g., 'over-commenting obvious logic'
+        prompt =f"""
+        You are NOT a general code reviewer.
 
-        Return the results ONLY as a valid JSON list of objects with these fields:
-        - category: (e.g., "code_quality", "technical_debt")
-        - signal: (short description of the issue)
-        - confidence: (a float between 0 and 1)
-        - severity: (e.g., "high", "medium", "low")
-        - message: (detailed description of the issue)
-        - location: (file location or code snippet)
-        - evidence: (optional, additional context)
+        Your task is STRICTLY LIMITED to detecting "AI slop".
+
+        Definition of AI slop:
+        - Overly generic or placeholder code.
+        - Code that looks correct but lacks real intent or business meaning.
+        - Vague TODO comments without actionable detail.
+        - Comments that restate obvious logic.
+        - Code that appears written to "look right" rather than solve a real problem.
+        - Explicit or implicit justification like "AI suggested this" without reasoning.
+
+        DO NOT report:
+        - Missing input validation
+        - Performance concerns
+        - Security issues
+        - Naming conventions
+        - Style or formatting issues
+        - Best practices or refactoring advice
+
+        ONLY report issues that strongly indicate AI-generated low-quality code.
+
+        If no AI slop is detected, return an EMPTY JSON ARRAY [].
+
+        Return ONLY valid JSON.
+        Each item MUST contain:
+        - category: "quality"
+        - signal: short, specific description of the AI slop pattern
+        - confidence: float between 0.0 and 1.0
+        - severity: "low" | "medium" | "high"
+        - message: clear explanation WHY this indicates AI slop
 
         Code to analyze:
         {content}

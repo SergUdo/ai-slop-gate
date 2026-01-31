@@ -1,22 +1,41 @@
 import os
 import requests
+
 from ai_slop_gate.domain.decision import Decision
 
+
 def _get_pr_number() -> str | None:
+    """
+    Extract PR number from GITHUB_REF.
+    Expected formats:
+      - refs/pull/<number>/merge
+      - refs/pull/<number>/head
+    """
     ref = os.getenv("GITHUB_REF", "")
-    if ref.startswith("refs/pull/"):
-        return ref.split("/")[2]
+    parts = ref.split("/")
+
+    if len(parts) >= 4 and parts[0] == "refs" and parts[1] == "pull":
+        return parts[2]
+
     return None
+
 
 def publish_pr_comment(decision: Decision) -> None:
     token = os.getenv("AI_SLOP_GATE_TOKEN")
     repo = os.getenv("GITHUB_REPOSITORY")
     pr_number = _get_pr_number()
 
+    # Not running in PR context or missing credentials
     if not token or not repo or not pr_number:
-        return  # Skip if not in a PR context
+        return
 
-    body = f"## 🤖 AI Slop Gate — **{decision.mode.upper()}**\n\n"
+    mode = (
+        decision.mode.value.upper()
+        if hasattr(decision.mode, "value")
+        else str(decision.mode).upper()
+    )
+
+    body = f"## 🤖 AI Slop Gate — **{mode}**\n\n"
 
     if decision.reasons:
         body += "### Reasons\n"
@@ -35,7 +54,12 @@ def publish_pr_comment(decision: Decision) -> None:
     }
 
     try:
-        response = requests.post(url, headers=headers, json={"body": body})
+        response = requests.post(
+            url,
+            headers=headers,
+            json={"body": body},
+            timeout=10,
+        )
         response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to post comment: {e}")
+    except requests.RequestException as exc:
+        print(f"[ai-slop-gate] Failed to post PR comment: {exc}")

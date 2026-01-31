@@ -6,13 +6,16 @@ CONFIG_FILE = ".ai-slop-gate.yml"
 DEFAULT_CONFIG = {
     "version": 1,
     "mode": "advisory",
-    "providers": ["static", "llm"],
-    "reporters": ["stdout"],
+    "providers": ["static", "llm", "eslint", "terraform-plan", "k8s-runtime"],
+    "compliance": {
+        "enabled": False,
+        "profiles": [],
+        "forbid_licenses": [],
+    },
     "policy": {
         "ruleset": "default",
     },
 }
-
 
 def run_init(force: bool = False) -> None:
     path = Path(CONFIG_FILE)

@@ -1,21 +1,36 @@
-version: "v1"
+version: "v1.3"
 project_name: "ai_slop_gate"
- 
+
 # Global enforcement level: never | advisory | blocking
-enforcement: advisory
- 
+# Defines if the gate should fail the CI/CD pipeline
+enforcement: blocking 
+
 # --- AI Provider configuration ---
 ai_provider:
-  name: gemini                # gemini | llama | openrouter | copilot
+  name: gemini                # Options: gemini | openai | groq | copilot | local
   model: gemini-2.5-flash
   temperature: 0.1
-  mode: advisory
-  explain: false              # LLM should NOT generate long explanations unless enabled
- 
+  mode: blocking              # AI observations can trigger a block
+  explain: false              # Set true for detailed LLM reasoning
+  cache: true                 # Enable to save tokens and improve speed
+
+  # NEW: Region of the LLM provider.
+  # Used by compliance.security_audit.enforce_data_residency
+  # Examples:
+  #   US        → OpenAI, Gemini, Groq, Copilot
+  #   CN        → DeepSeek
+  #   EU        → Azure OpenAI EU, AWS Bedrock EU, Local LLMs
+  region: US
+
 # --- Compliance Module (Deterministic Sidecar) ---
 compliance:
-  enabled: false              # Overridden by --compliance flag
- 
+  enabled: true               
+
+  # NEW: Defines how residency violations are handled.
+  # advisory → warn but do not block (your chosen mode)
+  # blocking → block CI/CD if LLM is outside EU
+  data_residency_mode: advisory
+
   license_audit:
     enabled: true
     forbidden_licenses:
@@ -27,12 +42,34 @@ compliance:
  
   security_audit:
     enabled: true
+
+    # Detect hardcoded secrets (API keys, tokens, credentials)
     detect_secrets: true
+
+    # Detect GDPR/PII patterns (emails, SSN-like patterns, personal data)
+    detect_pii: true
+
+    # Detect suspicious TODOs (e.g., "Send GDPR data to Mars")
+    detect_suspicious_todos: true
+
+    # Detect non‑EU endpoints (heuristic)
+    detect_non_eu_endpoints: true
+
+    # If set to EU → warn/block when LLM provider is outside EU
     enforce_data_residency: EU
+
     severity: critical
     tags: [security, gdpr, residency]
- 
-# --- AI Slop Detection Logic ---
+
+  # Fine‑grained GDPR severity configuration
+  gdpr_detection:
+    enabled: true
+    severity_email: medium
+    severity_ssn: high
+    severity_todo: medium
+    severity_non_eu_endpoint: medium
+
+# --- AI Slop Detection Logic (LLM Context) ---
 ai_slop:
   max_redundancy: 3
   max_length: 50
@@ -43,119 +80,429 @@ ai_slop:
     severity: medium
     tags: [ai, quality]
     prompt_template: |
-      Analyze the following code snippet for potential AI slop, unidiomatic patterns, or inefficiency.
-      Focus on identifying:
-      1. Overly generic or repetitive code.
-      2. Code that doesn't match typical human-written patterns.
-      3. Comments or documentation that seem AI-generated.
-      Provide a concise PASS or FAIL and a brief explanation if FAIL.
-      Code snippet:
-      {code_snippet}
- 
-  detect_style_violations:
-    enabled: true
-    severity: low
-    tags: [style, quality]
-    prompt_template: |
-      Does the following code adhere to best practices and common idioms for its language?
-      Identify any areas that feel 'off' or generic, potentially indicating AI generation.
-      Code snippet:
-      {code_snippet}
+      Analyze the code for AI slop, unidiomatic patterns, or inefficiency.
+      Focus on identifying repetitive code and generic AI-generated comments.
+      Code: {code_snippet}
  
   detect_hallucinations:
     enabled: true
     severity: high
     tags: [ai, hallucination]
     prompt_template: |
-      Check the following code and comments for potential hallucinations or inaccuracies.
-      Focus on:
-      1. Comments that don't match the code.
-      2. Incorrect assumptions or outdated practices.
-      Code snippet:
-      {code_snippet}
- 
-# --- Static Code Quality ---
+      Check the following code for hallucinations or logic inaccuracies.
+      Verify if comments match the actual implementation.
+      Code: {code_snippet}
+
+# --- Static Code Quality Analysis ---
 code_quality:
   detect_todo: true
   detect_fixme: true
   max_function_length: 50
   severity: low
   tags: [quality, maintainability]
- 
-# --- Infrastructure Security ---
+
+  javascript:
+    max_function_length: 50
+    severity: low
+
+  python:
+    max_function_length: 50
+    severity: low
+
+# --- Infrastructure as Code (IaC) Security ---
 infrastructure_security:
   dockerfile:
     check_user: true
-    check_sensitive_env: true
     severity: high
     tags: [docker, security]
- 
+
   kubernetes:
     check_root_user: true
     check_privileged: true
     severity: critical
     tags: [k8s, security]
- 
+
   terraform:
     check_public_access: true
     severity: high
     tags: [terraform, cloud, security]
- 
-# --- Rules Engine ---
+
+# --- Rules Engine Logic ---
 rules:
- 
-  # Secrets
-  - id: hardcoded-secret
+  # ---------------------------------------------------------
+  # GLOBAL SECURITY BLOCKING
+  # ---------------------------------------------------------
+  - id: hardcoded-secret-block
     when:
-      category: security
-      signal: negative
-      min_confidence: 0.9
-    then:
-      action: blocking
-      severity: critical
-      tags: [security, secrets]
-      message: "Hardcoded secret detected"
- 
-  # Terraform
-  - id: TF_PUBLIC_ACCESS
-    when:
-      category: TERRAFORM
-      signal: INSECURE_CONFIG
-      min_confidence: 0.95
-    then:
-      action: blocking
+      signal: hardcoded_secret
       severity: high
-      tags: [terraform, cloud, security]
-      message: "Terraform plan exposes resource to public access (0.0.0.0/0)"
- 
-  - id: TF_MISSING_TAGS
-    when:
-      category: TERRAFORM
-      signal: MISSING_TAGS
-    then:
-      action: advisory
-      severity: low
-      tags: [terraform, governance]
-      message: "Terraform resource is missing mandatory tags"
- 
-  # Kubernetes
-  - id: k8s-no-root
-    when:
-      category: security
-      signal: RUN_AS_ROOT
     then:
       action: blocking
-      severity: critical
-      tags: [k8s, security]
-      message: "Kubernetes container must not run as root"
- 
-  # Code Quality
-  - id: todo-advisory
+      message: "Hardcoded secret detected. Merge prohibited."
+
+  - id: block-hardcoded-secrets
+    when:
+      signal: "hardcoded_.*"
+    then:
+      action: blocking
+      message: "Hardcoded secret detected. Merge prohibited."
+
+  - id: block-api-token-in-header
+    when:
+      signal: api_token_in_fetch_header
+    then:
+      action: blocking
+      message: "API token exposed in Authorization header."
+
+  - id: block-db-url
+    when:
+      signal: hardcoded_db_url
+    then:
+      action: blocking
+      message: "Hardcoded DB URL with credentials."
+
+  - id: block-shell-execution
+    when:
+      signal: arbitrary_shell_execution
+    then:
+      action: blocking
+      message: "Arbitrary shell execution vulnerability."
+
+  - id: block-dangerous-shell-demo
+    when:
+      signal: dangerous_shell_command_demo
+    then:
+      action: blocking
+      message: "Dangerous shell command pattern detected."
+    # ---------------------------------------------------------
+  # BLOCK: Secrets stored in localStorage (XSS risk)
+  # ---------------------------------------------------------
+  - id: block-secrets-in-localstorage
+    when:
+      signal: secrets_in_localstorage
+    then:
+      action: blocking
+      message: "Sensitive secrets stored in localStorage. Vulnerable to XSS."
+
+  # ---------------------------------------------------------
+  # BLOCK: Sensitive info exposed in debug output
+  # ---------------------------------------------------------
+  - id: block-sensitive-info-debug-output
+    when:
+      signal: sensitive_info_debug_output
+    then:
+      action: blocking
+      message: "Sensitive information exposed via debug output."
+
+  # ---------------------------------------------------------
+  # BLOCK: Arbitrary code execution via eval()
+  # ---------------------------------------------------------
+  - id: block-arbitrary-code-execution-eval
+    when:
+      signal: arbitrary_code_execution_eval
+    then:
+      action: blocking
+      message: "Arbitrary code execution via eval(). Critical vulnerability."
+
+  # ---------------------------------------------------------
+  # BLOCK: SQL Injection
+  # ---------------------------------------------------------
+  - id: block-sql-injection
+    when:
+      signal: sql_injection_vulnerability
+    then:
+      action: blocking
+      message: "SQL injection vulnerability detected."
+
+  # ---------------------------------------------------------
+  # BLOCK: XSS vulnerability
+  # ---------------------------------------------------------
+  - id: block-xss-vulnerability
+    when:
+      signal: xss_vulnerability
+    then:
+      action: blocking
+      message: "Cross-Site Scripting (XSS) vulnerability detected."
+
+  # ---------------------------------------------------------
+  # BLOCK: PII leak to non‑EU endpoint
+  # ---------------------------------------------------------
+  - id: block-pii-leak-noncompliant
+    when:
+      signal: pii_leak_noncompliant
+    then:
+      action: blocking
+      message: "PII leak to non‑EU endpoint. GDPR violation."
+
+  # ---------------------------------------------------------
+  # BLOCK: Typosquatting dependency
+  # ---------------------------------------------------------
+  - id: block-typosquatting-dependency
+    when:
+      signal: typosquatting_dependency
+    then:
+      action: blocking
+      message: "Typosquatting dependency detected. Supply chain risk."
+
+  # ---------------------------------------------------------
+  # BLOCK: File bloat (1GB copy)
+  # ---------------------------------------------------------
+  - id: block-file-bloat-copy
+    when:
+      signal: file_bloat_copy
+    then:
+      action: blocking
+      message: "Massive file bloat detected in container image."
+
+  # ---------------------------------------------------------
+  # BLOCK: Failing healthcheck
+  # ---------------------------------------------------------
+  - id: block-failing-healthcheck
+    when:
+      signal: failing_healthcheck
+    then:
+      action: blocking
+      message: "Failing HEALTHCHECK configuration."
+
+  # ---------------------------------------------------------
+  # BLOCK: Unverified external download
+  # ---------------------------------------------------------
+  - id: block-unverified-external-download
+    when:
+      signal: unverified_external_download
+    then:
+      action: blocking
+      message: "Unverified external download. Supply chain risk."
+
+  # ---------------------------------------------------------
+  # BLOCK: Host directory copy into container
+  # ---------------------------------------------------------
+  - id: block-host-dir-copy
+    when:
+      signal: host_dir_copy
+    then:
+      action: blocking
+      message: "Copying host system directories into container."
+
+  # ---------------------------------------------------------
+  # BLOCK: Excessive port exposure
+  # ---------------------------------------------------------
+  - id: block-excessive-port-exposure
+    when:
+      signal: excessive_port_exposure
+    then:
+      action: blocking
+      message: "Excessive port exposure increases attack surface."
+
+  # ---------------------------------------------------------
+  # BLOCK: sudo NOPASSWD user
+  # ---------------------------------------------------------
+  - id: block-sudo-nopasswd-user
+    when:
+      signal: sudo_nopasswd_user
+    then:
+      action: blocking
+      message: "User with NOPASSWD sudo privileges detected."
+
+  # ---------------------------------------------------------
+  # BLOCK: Root password set
+  # ---------------------------------------------------------
+  - id: block-root-password-set
+    when:
+      signal: root_password_set
+    then:
+      action: blocking
+      message: "Root password is hardcoded. Critical vulnerability."
+
+  # ---------------------------------------------------------
+  # BLOCK: Unnecessary package install (attack surface)
+  # ---------------------------------------------------------
+  - id: block-unnecessary-package-install
+    when:
+      signal: unnecessary_package_install
+    then:
+      action: blocking
+      message: "Unnecessary packages increase attack surface."
+
+  # ---------------------------------------------------------
+  # BLOCK: Hardcoded DB URL
+  # ---------------------------------------------------------
+  - id: block-hardcoded-db-url
+    when:
+      signal: hardcoded_db_url
+    then:
+      action: blocking
+      message: "Hardcoded DB URL with credentials."
+
+  # ---------------------------------------------------------
+  # BLOCK: API token in fetch header
+  # ---------------------------------------------------------
+  - id: block-api-token-in-fetch-header
+    when:
+      signal: api_token_in_fetch_header
+    then:
+      action: blocking
+      message: "API token exposed in Authorization header."
+
+  # ---------------------------------------------------------
+  # BLOCK: Unnecessary package install (attack surface)
+  # ---------------------------------------------------------
+  - id: block-unnecessary-package-install
+    when:
+      signal: unnecessary_package_install
+    then:
+      action: blocking
+      message: "Unnecessary packages increase attack surface."
+
+  # ---------------------------------------------------------
+  # BLOCK: Service selector mismatch (no endpoints)
+  # ---------------------------------------------------------
+  - id: block-service-deployment-selector-mismatch
+    when:
+      signal: service_deployment_selector_mismatch
+    then:
+      action: blocking
+      message: "Service selector does not match Deployment labels. No endpoints will be selected."
+
+  # ---------------------------------------------------------
+  # BLOCK: Service targetPort vs containerPort mismatch
+  # ---------------------------------------------------------
+  - id: block-service-targetport-containerport-mismatch
+    when:
+      signal: service_targetport_containerport_mismatch
+    then:
+      action: blocking
+      message: "Service targetPort does not match containerPort. Traffic will be black-holed."
+
+  # ---------------------------------------------------------
+  # BLOCK: Readiness probe port mismatch
+  # ---------------------------------------------------------
+  - id: block-readiness-probe-port-mismatch
+    when:
+      signal: readiness_probe_port_mismatch
+    then:
+      action: blocking
+      message: "Readiness probe checks wrong port. Pods will never become Ready."
+
+  # ---------------------------------------------------------
+  # BLOCK: Memory limit < memory request
+  # ---------------------------------------------------------
+  - id: block-resource-memory-limit-less-than-request
+    when:
+      signal: resource_memory_limit_less_than_request
+    then:
+      action: blocking
+      message: "Memory limit is lower than request. Scheduling will fail or cause OOM eviction."
+
+  # ---------------------------------------------------------
+  # BLOCK: NetworkPolicy empty 'from' allows all traffic
+  # ---------------------------------------------------------
+  - id: block-networkpolicy-empty-from-allows-all
+    when:
+      signal: networkpolicy_empty_from_allows_all_traffic
+    then:
+      action: blocking
+      message: "NetworkPolicy ingress.from: [] allows all traffic. Stealth security hole."
+
+  # ---------------------------------------------------------
+  # BLOCK: HPA target Deployment mismatch
+  # ---------------------------------------------------------
+  - id: block-hpa-target-deployment-mismatch
+    when:
+      signal: hpa_target_deployment_mismatch
+    then:
+      action: blocking
+      message: "HPA references a non-existent Deployment. Autoscaling will never trigger."
+
+  # ---------------------------------------------------------
+  # BLOCK: HPA unrealistic low utilization threshold
+  # ---------------------------------------------------------
+  - id: block-hpa-unrealistic-low-utilization
+    when:
+      signal: hpa_unrealistic_low_utilization_threshold
+    then:
+      action: blocking
+      message: "HPA averageUtilization is unrealistically low. Causes scale flapping and instability."
+
+  # ---------------------------------------------------------
+  # HIGH-SEVERITY BLOCKING (ANY CATEGORY)
+  # ---------------------------------------------------------
+  - id: global-blocking-high-severity
+    when:
+      severity: high
+      min_confidence: 0.8
+    then:
+      action: blocking
+      message: "Blocking: High-severity issue with strong confidence."
+
+  # ---------------------------------------------------------
+  # STATIC ANALYSIS: UNDEFINED VARIABLE
+  # ---------------------------------------------------------
+  - id: static-security-block
     when:
       category: quality
-      signal: negative
+      signal: no-undef
+    then:
+      action: blocking
+      message: "Undefined variable detected. Possible runtime failure."
+
+  # ---------------------------------------------------------
+  # KUBERNETES ARCHITECTURE MISMATCHES
+  # ---------------------------------------------------------
+  - id: k8s-infrastructure-mismatch
+    when:
+      category: architecture
+      signal: ".*_mismatch"
+    then:
+      action: blocking
+      message: "Infrastructure mismatch: Potential service failure."
+
+  - id: k8s-port-mismatch
+    when:
+      category: architecture
+      signal: service_targetport_mismatch
+      min_confidence: 0.8
+    then:
+      action: blocking
+      message: "Port mismatch detected."
+
+  - id: k8s-version-mismatch
+    when:
+      category: architecture
+      signal: service_deployment_version_mismatch
+    then:
+      action: blocking
+      message: "Version mismatch detected."
+
+  # ---------------------------------------------------------
+  # LICENSE VIOLATIONS
+  # ---------------------------------------------------------
+  - id: license-violation-block
+    when:
+      category: license
+      severity: high
+    then:
+      action: blocking
+      message: "Forbidden license detected."
+
+  # ---------------------------------------------------------
+  # QUALITY ADVISORY (AI SLOP)
+  # ---------------------------------------------------------
+  - id: ai-slop-advisory
+    when:
+      category: quality
+      severity: medium
+    then:
+      action: advisory
+      message: "AI Slop detected: Code quality could be improved."
+
+  # ---------------------------------------------------------
+  # MAINTENANCE / TECH DEBT
+  # ---------------------------------------------------------
+  - id: maintenance-notice
+    when:
+      signal: "negative"
     then:
       action: advisory
       severity: low
-      tags: [quality, maintainability]
-      message: "Remove TODOs and FIXMEs before merging to main"
+      message: "Technical debt: Please address placeholders."

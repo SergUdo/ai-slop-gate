@@ -92,6 +92,19 @@ Ensures that automated AI‑assisted code reviews comply with European data‑pr
 
 * Produces compliance‑friendly logs suitable for internal audits
 
+### Data Residency (GDPR/DSGVO)
+
+AI Slop Gate includes a built‑in compliance check for data residency.
+
+If `security_audit.enforce_data_residency` is set to `EU`, the tool will:
+
+- warn when an LLM provider is located outside the EU
+- continue execution (advisory mode)
+- mark the final decision as ADVISORY
+
+This allows using non‑EU LLMs (Gemini, DeepSeek, OpenAI, Copilot SDK)
+while still surfacing GDPR‑related risks.
+
 ## 🛠️ Supported Languages & Infrastructure
 * ✅ **Python** (Full support)
 * ✅ **JavaScript / TypeScript** (Full support)
@@ -207,151 +220,232 @@ if you have `.ai-slop-gate.yml`  Use `--force` to overwrite
 
 ### 3. Local Usage
 
-To run the analysis manually from your terminal:
+To run **ai‑slop‑gate** locally from your terminal:
 
-  `python -m ai_slop_gate.cli.main run --provider static --policy policy.yml`
+```bash
+python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
+```
 
 #### Optional arguments
 
+- `--provider <name>`  
+  Provider to run (static, gemini, groq, openrouter, copilot, local).
+
+- `--llm-local`  
+  Run LLM provider on your local project instead of a GitHub PR.
+
+- `--github-repo <owner/repo>`  
+  Enable GitHub integration.
+
+- `--pr-id <number>`  
+  Analyze a GitHub Pull Request (LLM diff‑only mode).
+
+- `--github-sha <sha>`  
+  Report results as GitHub Checks.
+
+- `--github-checks`  
+  Enable GitHub Checks output.
+
 - `--input-file <path>`  
-  Path to the input file for the selected provider (e.g. requirements.txt).
+  File for static analysis (e.g., requirements.txt).
 
 - `--k8s-manifests <path>`  
   Path to Kubernetes YAML manifests.
 
-- `--github-checks`  
-  Report results as GitHub Checks.
-
-- `--github-repo <repo>`  
-  Repository name for GitHub reporting.
-
-- `--github-sha <sha>`  
-  Commit SHA for GitHub Checks.
-
-- `--pr-id <number>`  
-  GitHub PR number to comment results.
-
 - `--enforcement <never|blocking|advisory>`  
-  Override enforcement level (default: advisory).
+  Override global enforcement mode.
 
 - `--compliance`  
-  Force run compliance audit (license checks, secret scanning, residency checks).
+  Force compliance audit (license, secrets, GDPR, residency).
 
 - `--profile <name>`  
-  Override active compliance profile defined in policy.yml.
+  Select compliance profile from policy.yml.
 
 - `--verbose`  
-  Enable full verbose mode, including:
-  - `active profile`
-  - `merged compliance settings`
-  - `loaded rules`
-  - `observations with evidence`
-  - `policy reasons`
-  - `annotations`
-  - `final decision summary`
-
+  Show full diagnostic output:
+  - active profile
+  - merged compliance settings
+  - loaded rules
+  - observations with evidence
+  - policy reasons
+  - annotations
+  - final decision summary
 
 #### Examples
 
-Run static analysis with default settings:
+Run static analysis:
 
-  `python -m ai_slop_gate.cli.main run --provider static --policy policy.yml`
+```bash
+python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
+```
 
-Run with verbose output:
+Verbose mode:
 
-  `python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --verbose`
+```bash
+python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --verbose
+```
 
 Run with a specific compliance profile:
 
-  `python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --profile eu-strict`
+```bash
+python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --profile eu-strict
+```
 
-
-### Run
+Run LLM on a GitHub PR:
 
 ```bash
-  python -m venv .venv
-  source .venv/bin/activate
-  pip install -e .
-  python src/cli.py --policy policy.yaml --mode advisory
+python -m ai_slop_gate.cli.main run \
+  --provider gemini \
+  --policy policy.yml \
+  --github-repo owner/repo \
+  --pr-id 42
+```
+
+Run LLM locally:
+
+```bash
+python -m ai_slop_gate.cli.main run --provider gemini --llm-local --policy policy.yml
+```
+
+#### Run (Development Mode)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
 ```
 
 #### Options Breakdown
 
-* **`-policy`**: Path to your YAML configuration file (e.g., `policy.yml`).
-* **`-provider`**: AI engine to use (groq, gemini, openrouter, or copilot).
+- **`--policy`**: Path to your YAML configuration file.
+- **`--provider`**: AI engine (static, gemini, groq, openrouter, copilot, local).
 
 ### Running Tests
 
-To run all tests with verbose output:
+```bash
+python -m pytest ai_slop_gate/tests -v
+```
+
+or:
 
 ```bash
-# From the project root
-python -m pytest ai_slop_gate/tests -v
-
-# or if using virtual environment
 source .venv/bin/activate
 python -m pytest ai_slop_gate/tests -v
 ```
 
 ### 🐳 Docker Support
 
-**ai-slop-gate** can be run as a Docker container for easy deployment and integration into CI/CD pipelines.
+ai‑slop‑gate can be executed inside Docker for reproducible CI/CD runs.
 
 #### Prerequisites
-- Docker installed on your system.
 
-#### 📦 Docker Image
+- Docker installed.
 
-A pre-built Docker image is available:
+#### 📦 Pull Pre‑built Image
 
 ```bash
-  docker pull ghcr.io/sergudo/ai-slop-gate:latest
-  docker run -v $(pwd):/app ghcr.io/sergudo/ai-slop-gate:latest run --policy /app/policy.yml --provider static
+docker pull ghcr.io/sergudo/ai-slop-gate:latest
 ```
 
-or
+Run analysis:
 
-Local use:
+```bash
+docker run -v $(pwd):/app \
+  ghcr.io/sergudo/ai-slop-gate:latest \
+  run --provider static --policy /app/policy.yml
+```
+
+#### Build Locally
+
 ```bash
 docker build -t ai-slop-gate .
 ```
 
-#### Minimal Run
+Minimal run:
+
 ```bash
-  docker run --rm sergiudo/ai-slop-gate:latest \
-    run --provider static --policy /data/policy.yml
+docker run --rm ai-slop-gate \
+  run --provider static --policy /data/policy.yml
 ```
 
-#### Mount Your Project
+Mount your project:
+
 ```bash
-  docker run --rm \
-    -v $(pwd):/data \
-    sergiudo/ai-slop-gate:latest \
-    run --provider static --policy /data/policy.yml
+docker run --rm \
+  -v $(pwd):/data \
+  ai-slop-gate \
+  run --provider static --policy /data/policy.yml
 ```
 
-#### Environment Variables (AI Providers)
+#### Environment Variables (LLM Providers)
+
 ```bash
-  docker run --rm \
-    -e GEMINI_API_KEY=$GEMINI_API_KEY \
-    -e AI_SLOP_GATE_TOKEN=$AI_SLOP_GATE_TOKEN \
-    -v $(pwd):/data \
-    sergiudo/ai-slop-gate:latest \
-    run --provider gemini --policy /data/policy.yml
+docker run --rm \
+  -e GEMINI_API_KEY=$GEMINI_API_KEY \
+  -e AI_SLOP_GATE_TOKEN=$AI_SLOP_GATE_TOKEN \
+  -v $(pwd):/data \
+  ai-slop-gate \
+  run --provider gemini --policy /data/policy.yml
 ```
 
-#### CI/CD Example (GitHub Actions)
-```bash
-  steps:
-  - uses: actions/checkout@v4
-  - name: Run ai-slop-gate
-    run: |
-      docker run --rm \
-        -e GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
-        -e AI_SLOP_GATE_TOKEN=${{ secrets.AI_SLOP_GATE_TOKEN }} \
-        -v ${{ github.workspace }}:/data \
-        sergiudo/ai-slop-gate:latest \
-        run --provider gemini --policy /data/policy.yml --github-checks
+### GitHub Actions (CI/CD)
+
+To run your Docker image inside a workflow:
+
+```yaml
+name: AI Slop Gate
+
+on:
+  pull_request:
+
+jobs:
+  ai-slop-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ai-slop-gate
+        run: |
+          docker run --rm \
+            -e GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
+            -e AI_SLOP_GATE_TOKEN=${{ secrets.AI_SLOP_GATE_TOKEN }} \
+            -v ${{ github.workspace }}:/data \
+            ghcr.io/sergudo/ai-slop-gate:latest \
+            run --provider gemini \
+                --policy /data/policy.yml \
+                --github-repo ${{ github.repository }} \
+                --pr-id ${{ github.event.pull_request.number }} \
+                --github-checks
+```
+
+#### Using your own Docker image
+
+If you publish your image as:
+
+```
+ghcr.io/<yourname>/ai-slop-gate:latest
+```
+
+Replace the image name:
+
+```yaml
+docker run --rm \
+  -e GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
+  -v ${{ github.workspace }}:/data \
+  ghcr.io/<yourname>/ai-slop-gate:latest \
+  run --provider gemini --policy /data/policy.yml --github-checks
+```
+
+Or for Docker Hub:
+
+```yaml
+docker run --rm \
+  -e GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
+  -v ${{ github.workspace }}:/data \
+  <your-dockerhub-username>/ai-slop-gate:latest \
+  run --provider gemini --policy /data/policy.yml
 ```
 
 

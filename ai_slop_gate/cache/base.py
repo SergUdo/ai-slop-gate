@@ -1,6 +1,13 @@
+from typing import Any, Optional
+
+
 class CacheBackend:
-    def get(self, key):
+    """
+    Canonical cache backend interface.
+    """
+
+    def get(self, key: str) -> Optional[Any]:
         raise NotImplementedError
 
-    def set(self, key, value, ttl=None):
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         raise NotImplementedError
