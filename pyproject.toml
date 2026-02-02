@@ -8,7 +8,7 @@ dependencies = [
     ]
 
 [project.scripts]
-ai-slop-gate = "ai_slop_gate.cli:main"
+ai-slop-gate = "ai_slop_gate.cli.main:main"
 
 [tool.setuptools.packages.find]
 include = ["ai_slop_gate*"]

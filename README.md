@@ -169,38 +169,76 @@ Unlike simple AI wrappers, **ai-slop-gate** uses a multi-layered approach to ens
 
 ```mermaid
 flowchart TD
-    A[Developer Pushes Code] --> B[Version Control System]
-    B --> C[Adapter Layer]
-    C --> D[Core Engine]
-    D --> E[Reporter]
-    E --> F[CI/CD Pipeline Status]
+  A[Developer Pushes Code] --> B[Version Control System]
+  B --> C[Adapter Layer]
+  C --> D[Core Engine]
+  D --> E[Reporter]
+  E --> F[CI/CD Pipeline Status]
 
-    subgraph "Adapter Layer"
-        C1[Maps MR/PR to Core Engine] 
-        C2[Fetches diffs / changes] 
-        C1 --> C2
-        C2 --> D
-    end
+  subgraph "Adapter Layer"
+    C1[Maps MR/PR to Core Engine] 
+    C2[Fetches diffs / changes] 
+    C1 --> C2
+    C2 --> D
+  end
 
-    subgraph "Core Engine"
-        direction TB
-        D1[AI Slop Detection]
-        D2[Static Analysis / Linting]
-        D3[Security Checks]
-        D4[LLM Multi-Model Logic Scan]
-        D1 --> D
-        D2 --> D
-        D3 --> D
-        D4 --> D
-    end
+  subgraph "Core Engine"
+    direction TB
+    D1[AI Slop Detection]
+    D2[Static Analysis / Linting]
+    D3[Security Checks]
+    D4[LLM Multi-Model Logic Scan]
+    D1 --> D
+    D2 --> D
+    D3 --> D
+    D4 --> D
+  end
 
-    subgraph "Reporter"
-        E1[Adds comments to MR/PR]
-        E2[Sets status: PASS/WARN/FAIL]
-        E1 --> E
-        E2 --> E
-    end
+  subgraph "Reporter"
+    E1[Adds comments to MR/PR]
+    E2[Sets status: PASS/WARN/FAIL]
+    E1 --> E
+    E2 --> E
+  end
 ```
+
+## 🏗️ Architecture (current status)
+
+This section describes the repository architecture and the current development status as of Feb 2, 2026.
+
+- Status: **Pre-Alpha / Experimental** — core features functional, active development on several providers and compliance pipelines.
+- Tests: Comprehensive unit + integration suites are present and passing locally. Full test run: 477 tests, coverage ~85% (html report in htmlcov/index.html).
+
+High-level components
+
+- Adapter Layer: implemented (adapters/). Maps VCS events (PRs/MRs) into the core engine.
+- Core Engine: engine orchestration, policy evaluation, and decision model are implemented. Policy merging and enforcement logic are active areas of work.
+- Providers: multiple providers implemented (LLM: `gemini`, `groq` stubs; Static: `eslint`, `static`, `static-python`, `static-docker`, `static-ts-js`, `static-js` pipeline; infra: `terraform`, `k8s`). Some provider internals remain under development and may require API keys or environment setup to exercise fully.
+- Reporters: `console`, `stdout`, GitHub PR and Checks reporters implemented. GitHub reporters require PyGithub and a token to post to real repos.
+- Testing & QA: integration tests cover end-to-end workflows and provider interactions; unit tests cover domain models, cache backends, and reporter behavior.
+
+Known gaps and roadmap
+
+- Increase targeted unit coverage for provider internals (groq, static pipeline, terraform parsers).
+- Harden CLI utilities and error handling paths (see `ai_slop_gate/cli/utils.py`).
+- Finalize compliance pipeline components under `ai_slop_gate/domain/compliance/` (profile resolver, pipeline orchestration).
+
+Quick commands
+
+Run the full test suite with coverage (recommended locally):
+
+```bash
+source .venv/bin/activate
+python -m pytest ai_slop_gate/tests --cov=ai_slop_gate --cov-report=term-missing --cov-report=html
+```
+
+Open the generated HTML coverage report:
+
+```bash
+xdg-open htmlcov/index.html  # or open in your browser
+```
+
+If you want, I can generate a prioritized list of files to add focused tests for to raise coverage further.
 
 ---
 ## 🔐 Environment Variables

@@ -1,97 +1,51 @@
-# ============================
-# Stage 7 — Python dependencies
-# ============================
-FROM python:3.12-slim AS builder
-
-WORKDIR /app
-COPY requirements.txt .
-
-# Install Python deps into /root/.local
-RUN pip install --user --no-cache-dir -r requirements.txt
-
-
-# ============================
-# Stage 2 — Full Static + LLM Image
-# ============================
 FROM python:3.12-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
-
-# ----------------------------
-# Install system dependencies
-# ----------------------------
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    wget \
-    git \
-    jq \
-    unzip \
-    ca-certificates \
-    gnupg \
-    bash \
-    make \
-    gcc \
-    g++ \
-    openssl \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 # ----------------------------
-# Install Node.js + npm + TypeScript
+# Install system tools + Node + Terraform + kubectl + linters
 # ----------------------------
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get update \
-    && apt-get install -y nodejs \
-    && npm install -g typescript eslint npm-audit-resolver
-
-# ----------------------------
-# Install Terraform
-# ----------------------------
-RUN wget https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl wget git jq unzip ca-certificates gnupg bash make gcc g++ openssl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get update && apt-get install -y nodejs \
+    && npm install -g typescript eslint npm-audit-resolver \
+    && wget https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip \
     && unzip terraform_1.9.8_linux_amd64.zip \
     && mv terraform /usr/local/bin/terraform \
-    && rm terraform_1.9.8_linux_amd64.zip
+    && rm terraform_1.9.8_linux_amd64.zip \
+    && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x kubectl && mv kubectl /usr/local/bin/ \
+    && wget -O /usr/local/bin/hadolint \
+       https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 \
+    && chmod +x /usr/local/bin/hadolint \
+    && wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+       -O /usr/local/bin/yq \
+    && chmod +x /usr/local/bin/yq \
+    && rm -rf /var/lib/apt/lists/*
 
 # ----------------------------
-# Install kubectl
+# Install Python dependencies
 # ----------------------------
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-    && chmod +x kubectl \
-    && mv kubectl /usr/local/bin/
-
-# ----------------------------
-# Install hadolint (Dockerfile linter)
-# ----------------------------
-RUN wget -O /usr/local/bin/hadolint \
-    https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 \
-    && chmod +x /usr/local/bin/hadolint
-
-# ----------------------------
-# Install yq (YAML processor)
-# ----------------------------
-RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-    -O /usr/local/bin/yq \
-    && chmod +x /usr/local/bin/yq
-
-# ----------------------------
-# Copy Python dependencies
-# ----------------------------
-COPY --from=builder /root/.local /root/.local
-ENV PATH="/root/.local/bin:${PATH}"
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # ----------------------------
 # Copy project code
 # ----------------------------
 COPY . .
 
-# Install project in editable mode
+# Remove any old version (important!)
+RUN pip uninstall -y ai-slop-gate || true
+
+# Install project
 RUN pip install --no-cache-dir -e .
 
 # ----------------------------
 # Entrypoint
 # ----------------------------
-ENTRYPOINT ["python", "-m", "ai_slop_gate.cli.main"]
+ENTRYPOINT ["ai-slop-gate"]
 CMD ["--help"]
 
 # ----------------------------
