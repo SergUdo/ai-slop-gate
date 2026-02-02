@@ -2,7 +2,6 @@
 
 ⚠️ **Status: Pre-Alpha / Experimental**
 
-`docker push ghcr.io/sergudo/ai-slop-gate:latest`
 
 *ai-slop-gate is under active development. APIs, behavior, and policies may change without notice. Do NOT rely on this tool for production security decisions yet.*
 
@@ -120,20 +119,41 @@ AI-Slop-Gate is a polyglot project combining Python-based logic with industry-st
 ```text
 ai-slop-gate/
 ├── ai_slop_gate/           # Core Python Logic
-│   ├── adapters/           # VCS Integrations (GitHub, etc.)
-|   |── domain/             # Business Logic (Policy Engine, Decisions, Signals)
+│   ├── __init__.py
+│   ├── cli.py              # CLI Entry Point
+│   ├── engine.py           # Core Engine Logic
+│   ├── policy_legacy.py    # Legacy Policy Support
+│   ├── result.py           # Result Data Models
+│   ├── adapters/           # VCS Integrations (GitHub, GitLab, Bitbucket)
+│   ├── cache/              # Caching Layer
+│   ├── cli/                # CLI Module (subcommands)
+│   ├── domain/             # Business Logic (Policy Engine, Decisions, Signals)
+│   ├── engine/             # Engine Core Components
+│   ├── fixtures/           # Test Fixtures & Sample Data
+│   ├── github/             # GitHub-specific Integrations
+│   ├── providers/          # AI Engines (Groq, Gemini, Copilot, OpenRouter)
 │   ├── reporters/          # PR Commenting & Reporting logic
-│   ├── providers/          # AI Engines (Groq, Gemini, Copilot)
-│   └── cli.py              # CLI Entry Point
+│   ├── rulesets/           # Rule Definitions & Loading
+│   └── tests/              # Unit & Integration Tests
 ├── rulesets/               # Static Analysis Rules
 │   └── eslint/             # Pre-configured ESLint rules for JS safety
 │       ├── base.mjs        # Standard coding patterns
 │       ├── prod_safety.mjs # Production-ready checks
 │       └── secrets.mjs     # Detection of leaked credentials
-├── tests/                  # Integration and unit tests
-├── .env.example            # Environment variables template
-├── pyproject.toml          # Python build configuration
-└── requirements.txt        # Python dependencies
+├── scripts/                # Utility & Build Scripts
+├── docs/                   # Documentation & Planning
+├── Dockerfile              # Docker Container Definition
+├── docker-compose.yml      # Docker Compose Configuration
+├── pyproject.toml          # Python Build Configuration
+├── requirements.txt        # Python Dependencies
+├── eslint.config.js        # ESLint Configuration
+├── pytest.ini              # pytest Configuration
+├── policy.yml              # Default Policy Configuration
+├── .env.example            # Environment Variables Template
+├── ARCHITECTURE.md         # Architecture Documentation
+├── CONTRIBUTING.md         # Contribution Guidelines
+├── DEV_SETUP.md            # Development Setup Guide
+└── LICENSE                 # MIT License
 ```
 
 ## 🛡️ Polyglot Quality Control
