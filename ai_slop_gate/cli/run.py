@@ -132,7 +132,49 @@ def run_cli(ctx: RuntimeContext) -> int:
             # -----------------------------
             if provider.kind == "static":
                 result = provider.collect(base_path=ctx.path)
-                all_observations.extend(result.observations)
+                
+                # Filter static observations by include_paths if specified in policy
+                if policy_config.include_paths:
+                    filtered_static_obs = []
+                    for obs in result.observations:
+                        file_path = None
+                        if hasattr(obs, "location") and obs.location:
+                            file_path = obs.location.file
+                        elif hasattr(obs, "evidence") and isinstance(obs.evidence, dict):
+                            file_path = obs.evidence.get("file")
+                        
+                        if not file_path:
+                            # No file path, include it
+                            filtered_static_obs.append(obs)
+                            continue
+                        
+                        # Resolve relative file paths from ctx.path
+                        if not os.path.isabs(file_path):
+                            abs_file_path = os.path.abspath(os.path.join(ctx.path, file_path))
+                        else:
+                            abs_file_path = os.path.abspath(file_path)
+                        
+                        # Check if within include_paths
+                        is_included = False
+                        for include_path in policy_config.include_paths:
+                            include_path_abs = os.path.abspath(include_path)
+                            try:
+                                rel = os.path.relpath(abs_file_path, include_path_abs)
+                                if not rel.startswith(".."):
+                                    is_included = True
+                                    break
+                            except ValueError:
+                                pass
+                        
+                        if is_included:
+                            filtered_static_obs.append(obs)
+                        else:
+                            logger.debug(f"Filtered out static observation for file outside include_paths: {file_path}")
+                    
+                    all_observations.extend(filtered_static_obs)
+                else:
+                    all_observations.extend(result.observations)
+                
                 executed_any_provider = True
                 continue
 
@@ -166,7 +208,47 @@ def run_cli(ctx: RuntimeContext) -> int:
                     artifacts_path=ctx.path,
                     ai_provider_region=policy_config.ai_provider.get("region")
                 )
-                all_observations.extend(compliance_obs)
+                
+                # Filter compliance observations by include_paths if specified in policy
+                if policy_config.include_paths:
+                    # For compliance observations, resolve relative paths from ctx.path
+                    filtered_compliance_obs = []
+                    for obs in compliance_obs:
+                        file_path = None
+                        if hasattr(obs, "location") and obs.location:
+                            file_path = obs.location.file
+                        
+                        if not file_path:
+                            # No file path, include it
+                            filtered_compliance_obs.append(obs)
+                            continue
+                        
+                        # Resolve relative file paths from ctx.path
+                        if not os.path.isabs(file_path):
+                            abs_file_path = os.path.abspath(os.path.join(ctx.path, file_path))
+                        else:
+                            abs_file_path = os.path.abspath(file_path)
+                        
+                        # Check if within include_paths
+                        is_included = False
+                        for include_path in policy_config.include_paths:
+                            include_path_abs = os.path.abspath(include_path)
+                            try:
+                                rel = os.path.relpath(abs_file_path, include_path_abs)
+                                if not rel.startswith(".."):
+                                    is_included = True
+                                    break
+                            except ValueError:
+                                pass
+                        
+                        if is_included:
+                            filtered_compliance_obs.append(obs)
+                        else:
+                            logger.debug(f"Filtered out compliance observation for file outside include_paths: {file_path}")
+                    
+                    all_observations.extend(filtered_compliance_obs)
+                else:
+                    all_observations.extend(compliance_obs)
 
         # -----------------------------
         # 6. Policy Engine Evaluation
