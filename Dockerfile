@@ -16,12 +16,16 @@ FROM python:3.12-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install minimal system deps
+# Install minimal system deps + Node.js (for ESLint)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
     jq \
     ca-certificates \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g eslint \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
