@@ -1,6 +1,10 @@
 version: "v1.3"
 project_name: "ai_slop_gate"
 
+# Limit static analysis ONLY to mounted repository code
+include_paths:
+  - /data
+
 # Global enforcement level: never | advisory | blocking
 # Defines if the gate should fail the CI/CD pipeline
 enforcement: blocking 
