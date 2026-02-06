@@ -48,7 +48,6 @@ COPY --from=node-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY policy.yml ./policy.yml
 COPY ai_slop_gate ./ai_slop_gate
 COPY pyproject.toml setup.cfg setup.py* ./
-COPY README.md ./
 
 # Install project
 RUN pip install --no-cache-dir -e .
