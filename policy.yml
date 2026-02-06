@@ -1,4 +1,4 @@
-version: "v1.3"
+version: "v1.4"
 project_name: "ai_slop_gate"
 
 # Limit static analysis ONLY to mounted repository code
