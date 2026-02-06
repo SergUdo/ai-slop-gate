@@ -48,6 +48,44 @@ def get_providers(provider_names: List[str], model: str = None) -> List[Any]:
 
 
 # -----------------------------
+# Helper: include_paths filtering
+# -----------------------------
+def build_include_filter(ctx: RuntimeContext, include_paths: List[str]):
+    """
+    Returns a function is_included(file_path) that checks whether a file
+    belongs to any include_path.
+    """
+
+    normalized_include_paths = [
+        os.path.abspath(os.path.join(ctx.path, p))
+        for p in include_paths
+    ]
+
+    def is_included(file_path: str) -> bool:
+        if not file_path:
+            return True
+
+        # Normalize file path
+        if not os.path.isabs(file_path):
+            abs_file = os.path.abspath(os.path.join(ctx.path, file_path))
+        else:
+            abs_file = os.path.abspath(file_path)
+
+        # Check if file is inside any include_path
+        for inc in normalized_include_paths:
+            try:
+                rel = os.path.relpath(abs_file, inc)
+                if not rel.startswith(".."):
+                    return True
+            except ValueError:
+                pass
+
+        return False
+
+    return is_included
+
+
+# -----------------------------
 # Main CLI Execution
 # -----------------------------
 def run_cli(ctx: RuntimeContext) -> int:
@@ -73,6 +111,11 @@ def run_cli(ctx: RuntimeContext) -> int:
         # -----------------------------
         logger.info(f"Loading policy file: {ctx.policy_path}")
         policy_config, rules = load_policy(ctx.policy_path)
+
+        # Build include filter if needed
+        include_filter = None
+        if policy_config.include_paths:
+            include_filter = build_include_filter(ctx, policy_config.include_paths)
 
         # -----------------------------
         # 2. Initialize providers
@@ -113,7 +156,7 @@ def run_cli(ctx: RuntimeContext) -> int:
                     executed_any_provider = True
                     continue
 
-                # --- LOCAL LLM MODE (LLM analyzes local repository) ---
+                # --- LOCAL LLM MODE ---
                 if ctx.llm_local:
                     logger.info("LLM local analysis enabled (--llm-local)")
                     result = provider.analyze_files(ctx.path)
@@ -121,7 +164,6 @@ def run_cli(ctx: RuntimeContext) -> int:
                     executed_any_provider = True
                     continue
 
-                # --- NO VALID LLM MODE ---
                 logger.info(
                     f"Skipping LLM provider '{provider.name}': no PR ID and --llm-local not provided."
                 )
@@ -132,49 +174,25 @@ def run_cli(ctx: RuntimeContext) -> int:
             # -----------------------------
             if provider.kind == "static":
                 result = provider.collect(base_path=ctx.path)
-                
-                # Filter static observations by include_paths if specified in policy
-                if policy_config.include_paths:
-                    filtered_static_obs = []
+
+                if include_filter:
+                    filtered = []
                     for obs in result.observations:
                         file_path = None
                         if hasattr(obs, "location") and obs.location:
                             file_path = obs.location.file
                         elif hasattr(obs, "evidence") and isinstance(obs.evidence, dict):
                             file_path = obs.evidence.get("file")
-                        
-                        if not file_path:
-                            # No file path, include it
-                            filtered_static_obs.append(obs)
-                            continue
-                        
-                        # Resolve relative file paths from ctx.path
-                        if not os.path.isabs(file_path):
-                            abs_file_path = os.path.abspath(os.path.join(ctx.path, file_path))
+
+                        if include_filter(file_path):
+                            filtered.append(obs)
                         else:
-                            abs_file_path = os.path.abspath(file_path)
-                        
-                        # Check if within include_paths
-                        is_included = False
-                        for include_path in policy_config.include_paths:
-                            include_path_abs = os.path.abspath(include_path)
-                            try:
-                                rel = os.path.relpath(abs_file_path, include_path_abs)
-                                if not rel.startswith(".."):
-                                    is_included = True
-                                    break
-                            except ValueError:
-                                pass
-                        
-                        if is_included:
-                            filtered_static_obs.append(obs)
-                        else:
-                            logger.debug(f"Filtered out static observation for file outside include_paths: {file_path}")
-                    
-                    all_observations.extend(filtered_static_obs)
+                            logger.debug(f"Filtered out static observation: {file_path}")
+
+                    all_observations.extend(filtered)
                 else:
                     all_observations.extend(result.observations)
-                
+
                 executed_any_provider = True
                 continue
 
@@ -192,12 +210,6 @@ def run_cli(ctx: RuntimeContext) -> int:
         # -----------------------------
         # 5. Compliance Pipeline
         # -----------------------------
-        # IMPORTANT ARCHITECTURAL RULE:
-        # - If we are performing LLM PR analysis, we analyze ONLY the diff.
-        #   Running compliance pipeline (which scans the local filesystem)
-        #   would incorrectly mix local repo findings with PR findings.
-        #
-        # - For local LLM mode and static providers, compliance pipeline SHOULD run.
         if is_llm_pr_analysis:
             logger.info("Skipping compliance pipeline for LLM PR analysis (diff-only mode).")
         else:
@@ -208,45 +220,20 @@ def run_cli(ctx: RuntimeContext) -> int:
                     artifacts_path=ctx.path,
                     ai_provider_region=policy_config.ai_provider.get("region")
                 )
-                
-                # Filter compliance observations by include_paths if specified in policy
-                if policy_config.include_paths:
-                    # For compliance observations, resolve relative paths from ctx.path
-                    filtered_compliance_obs = []
+
+                if include_filter:
+                    filtered = []
                     for obs in compliance_obs:
                         file_path = None
                         if hasattr(obs, "location") and obs.location:
                             file_path = obs.location.file
-                        
-                        if not file_path:
-                            # No file path, include it
-                            filtered_compliance_obs.append(obs)
-                            continue
-                        
-                        # Resolve relative file paths from ctx.path
-                        if not os.path.isabs(file_path):
-                            abs_file_path = os.path.abspath(os.path.join(ctx.path, file_path))
+
+                        if include_filter(file_path):
+                            filtered.append(obs)
                         else:
-                            abs_file_path = os.path.abspath(file_path)
-                        
-                        # Check if within include_paths
-                        is_included = False
-                        for include_path in policy_config.include_paths:
-                            include_path_abs = os.path.abspath(include_path)
-                            try:
-                                rel = os.path.relpath(abs_file_path, include_path_abs)
-                                if not rel.startswith(".."):
-                                    is_included = True
-                                    break
-                            except ValueError:
-                                pass
-                        
-                        if is_included:
-                            filtered_compliance_obs.append(obs)
-                        else:
-                            logger.debug(f"Filtered out compliance observation for file outside include_paths: {file_path}")
-                    
-                    all_observations.extend(filtered_compliance_obs)
+                            logger.debug(f"Filtered out compliance observation: {file_path}")
+
+                    all_observations.extend(filtered)
                 else:
                     all_observations.extend(compliance_obs)
 
@@ -294,7 +281,6 @@ def run_cli(ctx: RuntimeContext) -> int:
             reasons=decision.reasons,
         )
 
-        # GitHub reporting
         if ctx.github_repo and github_token:
             if ctx.pr_id:
                 GitHubPRReporter(github_token, ctx.github_repo, ctx.pr_id).report(report)
@@ -304,7 +290,6 @@ def run_cli(ctx: RuntimeContext) -> int:
                 GitHubChecksReporter(github_token, ctx.github_repo, ctx.github_sha).report(report)
                 logger.info(f"GitHub Check Run created for SHA: {ctx.github_sha[:7]}")
 
-        # Local console reporting
         else:
             ConsoleReporter(verbose=ctx.verbose).report(report)
 
