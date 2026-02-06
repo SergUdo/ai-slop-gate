@@ -45,9 +45,10 @@ COPY --from=node-builder /usr/local/bin/npx /usr/local/bin/npx
 COPY --from=node-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 
 # Copy project files (clean, predictable)
-COPY policy.yml ./policy.yml
 COPY ai_slop_gate ./ai_slop_gate
-COPY pyproject.toml setup.cfg setup.py* ./
+COPY pyproject.toml ./
+COPY policy.yml ./policy.yml
+
 
 # Install project
 RUN pip install --no-cache-dir -e .
