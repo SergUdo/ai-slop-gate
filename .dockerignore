@@ -10,3 +10,6 @@ venv
 .gitignore
 Dockerfile
 README.md
+*.egg-info
+dist
+build

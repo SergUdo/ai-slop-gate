@@ -4,6 +4,8 @@
 FROM python:3.12-slim AS python-builder
 
 WORKDIR /app
+
+# Install Python deps first (best caching)
 COPY requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
@@ -42,14 +44,11 @@ COPY --from=node-builder /usr/local/bin/npm /usr/local/bin/npm
 COPY --from=node-builder /usr/local/bin/npx /usr/local/bin/npx
 COPY --from=node-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 
-# Copy ONLY policy.yml first (forces cache bust on policy changes)
+# Copy project files (clean, predictable)
 COPY policy.yml ./policy.yml
-
-# Copy the rest of the project
-COPY . .
-
-# Remove any old version of ai-slop-gate
-RUN pip uninstall -y ai-slop-gate || true
+COPY ai_slop_gate ./ai_slop_gate
+COPY pyproject.toml setup.cfg setup.py* ./
+COPY README.md ./
 
 # Install project
 RUN pip install --no-cache-dir -e .
