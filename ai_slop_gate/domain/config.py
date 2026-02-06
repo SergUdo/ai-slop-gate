@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from ai_slop_gate.domain.compliance.config import ComplianceConfig
 from ai_slop_gate.domain.policy import PolicyRule
 
@@ -13,4 +13,5 @@ class PolicyConfig:
     infrastructure_security: Dict[str, Any]
     ai_slop: Dict[str, Any]
     rules: List[PolicyRule]
+    include_paths: Optional[List[str]] = None
 

@@ -61,6 +61,11 @@ def load_policy(path: str):
     rules_raw = data.get("rules", [])
     rules = [PolicyRule(**rule) for rule in rules_raw]
 
+    # INCLUDE PATHS
+    include_paths = data.get("include_paths", None)
+    if include_paths:
+        include_paths = [str(p) for p in include_paths]
+
     # FULL POLICY CONFIG
     policy_config = PolicyConfig(
         enforcement=data.get("enforcement", "advisory"),
@@ -70,6 +75,7 @@ def load_policy(path: str):
         infrastructure_security=data.get("infrastructure_security", {}),
         ai_slop=data.get("ai_slop", {}),
         rules=rules,
+        include_paths=include_paths,
     )
 
     return policy_config, rules

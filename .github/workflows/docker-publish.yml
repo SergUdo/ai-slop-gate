@@ -37,7 +37,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=tag
-            type=raw,value=latest
+            # type=raw,value=latest
 
       - name: Build and push (no cache)
         uses: docker/build-push-action@v5
