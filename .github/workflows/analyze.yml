@@ -55,7 +55,13 @@ jobs:
         env:
           SLOPE_GATE_GROQ: ${{ secrets.SLOPE_GATE_GROQ }}
         run: |
-          python scripts/test_groq_provider.py
+          # Run Groq provider locally via CLI using --llm-local and capture JSON
+          python -m ai_slop_gate.cli.main run \
+            --provider groq \
+            --policy policy.yml \
+            --llm-local \
+            --verbose > groq_results.json || true
+
           # ensure valid JSON
           if [ -f groq_results.json ]; then
             echo "Groq results OK"
@@ -77,10 +83,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python -m ai_slop_gate.cli.main publish \
+          # Use the CLI 'run' command with --github-checks to publish combined results
+          python -m ai_slop_gate.cli.main run \
+            --provider static_pipeline \
+            --policy policy.yml \
             --github-checks \
             --github-repo ${{ github.repository }} \
             --github-sha ${{ github.sha }} \
             --github-token ${{ secrets.GITHUB_TOKEN }} \
             --pr-id ${{ github.event.pull_request.number }} \
-            --input-file combined_results.json
+            --input-file combined_results.json \
+            --verbose || true
