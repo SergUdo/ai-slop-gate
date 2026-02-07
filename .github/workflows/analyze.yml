@@ -36,12 +36,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Run static pipeline using supported CLI args and capture JSON output
+          # Note: CLI prints results to stdout; capture to static_results.json for combining
           python -m ai_slop_gate.cli.main run \
             --provider static_pipeline \
             --policy policy.yml \
-            --enforcement advisory \
-            --base-path . \
-            --output-file static_results.json
+            --github-checks \
+            --github-repo ${{ github.repository }} \
+            --github-sha ${{ github.sha }} \
+            --github-token ${{ secrets.GITHUB_TOKEN }} \
+            --pr-id ${{ github.event.pull_request.number }} \
+            --verbose > static_results.json || true
 
       # -------------------------------
       # 2. Run Groq Chunked → save JSON
