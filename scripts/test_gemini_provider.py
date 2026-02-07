@@ -1,7 +1,9 @@
+# python -m  scripts.test_gemini_provider
+
 import os
 import logging
 from pathlib import Path
-from ai_slop_gate.providers.gemini import GeminiProvider
+from ai_slop_gate.providers.llm import GeminiProvider
 
 logging.basicConfig(level=logging.ERROR)
 

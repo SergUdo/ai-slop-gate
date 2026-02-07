@@ -4,7 +4,7 @@
 
 import os
 import logging
-from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
+from ai_slop_gate.providers.static import StaticPipelineProvider
 from ai_slop_gate.domain.policy_engine import PolicyEngine
 from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.domain.checks import CheckReport, CheckAnnotation

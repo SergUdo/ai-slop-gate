@@ -17,8 +17,8 @@ from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
 
 # Providers
-from ai_slop_gate.providers.static_pipeline import StaticPipelineProvider
-from ai_slop_gate.providers.gemini import GeminiProvider
+from ai_slop_gate.providers.static import StaticPipelineProvider
+from ai_slop_gate.providers.llm import GeminiProvider, GroqProvider
 
 # Compliance
 from ai_slop_gate.domain.compliance.pipeline import CompliancePipeline
@@ -34,6 +34,7 @@ PROVIDER_MAP = {
     "static": StaticPipelineProvider,
     "static_pipeline": StaticPipelineProvider,
     "gemini": GeminiProvider,
+    "groq": GroqProvider,
 }
 
 

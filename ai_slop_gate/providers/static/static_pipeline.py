@@ -5,12 +5,12 @@ from dataclasses import replace
 from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
 
 # Під-провайдери
-from .static import StaticProvider
-from .eslint import ESLintProvider
-from .static_python import StaticPythonProvider
-from .static_ts_js import StaticTSJSProvider
-from .static_docker import StaticDockerProvider
-from .supply_chain import SupplyChainProvider
+from ai_slop_gate.providers.static.static import StaticProvider
+from ai_slop_gate.providers.static.eslint import ESLintProvider
+from ai_slop_gate.providers.static.static_python import StaticPythonProvider
+from ai_slop_gate.providers.static.static_ts_js import StaticTSJSProvider
+from ai_slop_gate.providers.static.static_docker import StaticDockerProvider
+from ai_slop_gate.providers.static.supply_chain import SupplyChainProvider
 
 logger = logging.getLogger(__name__)
 

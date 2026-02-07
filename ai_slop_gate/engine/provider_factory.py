@@ -1,4 +1,4 @@
-from ai_slop_gate.providers.gemini import GeminiProvider
+from ai_slop_gate.providers.llm import GeminiProvider
 from ai_slop_gate.providers.cached_provider import CachedProvider
 from ai_slop_gate.cache.file_backend import FileCacheBackend
 

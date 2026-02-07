@@ -162,7 +162,7 @@ class TestProviderSpecificIntegrations:
 
     def test_eslint_provider_integration(self):
         """Test JavaScript static analysis provider integration."""
-        from ai_slop_gate.providers.static_js import StaticJSProvider
+        from ai_slop_gate.providers.static import StaticJSProvider
         
         provider = StaticJSProvider()
         assert provider is not None
