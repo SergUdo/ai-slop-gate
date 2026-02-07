@@ -1,3 +1,5 @@
+# python -m  scripts.test_gemini_provider
+
 import os
 import logging
 from pathlib import Path
