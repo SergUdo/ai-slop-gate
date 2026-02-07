@@ -1,4 +1,4 @@
-from ..result import AIAnalysisResult, AnalysisIssue
+from ai_slop_gate.result import AIAnalysisResult, AnalysisIssue
 import os
 import requests
 

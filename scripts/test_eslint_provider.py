@@ -2,7 +2,7 @@
 # npx eslint --version
 # python -m scripts.test_eslint_provider
 
-from ai_slop_gate.providers.eslint import ESLintProvider
+from ai_slop_gate.providers.static import ESLintProvider
 
 provider = ESLintProvider(target_path=".")
 

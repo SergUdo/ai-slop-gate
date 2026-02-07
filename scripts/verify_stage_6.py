@@ -1,8 +1,7 @@
  # python -m scripts.verify_stage_6
 
 
-from ai_slop_gate.providers.terraform_static import TerraformStaticProvider
-from ai_slop_gate.providers.k8s_static import KubernetesStaticProvider
+from ai_slop_gate.providers.static import TerraformStaticProvider, KubernetesStaticProvider
 
 print("▶️ Terraform provider")
 tf = TerraformStaticProvider()

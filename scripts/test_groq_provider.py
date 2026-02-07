@@ -2,7 +2,7 @@
 
 import os
 import time
-from ai_slop_gate.providers.groq import GroqProvider
+from ai_slop_gate.providers.llm import GroqProvider
 
 def test_groq():
     if not os.getenv("SLOPE_GATE_GROQ"):

@@ -1,7 +1,7 @@
 import pytest
 import os
 from pathlib import Path
-from ai_slop_gate.providers.supply_chain import SupplyChainProvider
+from ai_slop_gate.providers.static import SupplyChainProvider
 from ai_slop_gate.domain.observation import Severity
 
 def test_provider_finds_gpl_in_requirements(tmp_path):

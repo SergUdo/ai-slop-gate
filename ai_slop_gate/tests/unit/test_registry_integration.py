@@ -1,5 +1,5 @@
 from ai_slop_gate.providers.registry import provider_registry
-from ai_slop_gate.providers.supply_chain import SupplyChainProvider
+from ai_slop_gate.providers.static import SupplyChainProvider
 
 def test_supply_chain_registration():
     provider_cls = provider_registry.get("supply-chain")

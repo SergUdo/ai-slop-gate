@@ -1,5 +1,5 @@
 import tempfile
-from ai_slop_gate.providers.eslint import ESLintProvider
+from ai_slop_gate.providers.static import ESLintProvider
 
 
 def test_eslint_provider_collect_no_errors(tmp_path):
