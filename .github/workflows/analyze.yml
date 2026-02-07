@@ -27,6 +27,7 @@ jobs:
           pip install -e .
           pip install PyGithub
           pip install python-dotenv
+          pip install google-generativeai
 
       # -------------------------------
       # 1. Run Static Pipeline → save JSON
