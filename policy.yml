@@ -133,6 +133,53 @@ infrastructure_security:
 
 # --- Rules Engine Logic ---
 rules:
+  # ---------------------------------------------------------------------------
+  # HIGH-PRIORITY BLOCKING RULES (Inserted to enforce blocking behavior)
+  # These rules are placed BEFORE existing rules to ensure they take precedence
+  # over any allow/advisory rules defined later.
+  # ---------------------------------------------------------------------------
+
+  # Block any critical compliance violations explicitly
+  - id: block-critical-compliance-violations
+    when:
+      severity: ["critical"]
+    then:
+      action: blocking
+      message: "Critical compliance violation"
+
+  # Block any LLM/AI provider failures
+  - id: block-llm-failures
+    when:
+      level: ["failure"]
+    then:
+      action: blocking
+      message: "LLM failure detected"
+
+  # Block a broad set of AI Slop related signals (regex matches)
+  # Note: pattern uses alternation to match any of the listed slop-related signals
+  - id: block-ai-slop-related-signals
+    when:
+      signal: "slop|nonsensical|contradictory|ai_generated|meaningless|chaos|unreviewed|bad_practice|insecure_base_image_recommendation|vulnerable_base_image_recommendation|overwrite_built_artifacts|debug_tools_in_production_image|remote_ssh_server_recommendation"
+    then:
+      action: blocking
+      message: "AI Slop detected"
+
+  # Block critical hardcoded secrets / dangerous data flows discovered by static providers
+  - id: block-hardcoded-secrets-static
+    when:
+      signal: "hardcoded_api_key|hardcoded_sensitive_data|hardcoded_root_credentials|hardcoded_root_password_mysql|gdpr_data_exfiltration|sql_injection_vulnerability"
+    then:
+      action: blocking
+      message: "Hardcoded secrets or dangerous data flows"
+
+  # Block when total findings exceed a safe threshold
+  - id: block-too-many-findings
+    when:
+      count_greater_than: 10
+    then:
+      action: blocking
+      message: "Too many issues detected"
+
   # ---------------------------------------------------------
   # GLOBAL SECURITY BLOCKING
   # ---------------------------------------------------------
