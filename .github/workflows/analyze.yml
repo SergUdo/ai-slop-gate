@@ -36,9 +36,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python -m ai_slop_gate.cli run \
-            --policy policy.yml \
+          python -m ai_slop_gate.cli.main run \
             --provider static_pipeline \
+            --policy policy.yml \
             --enforcement advisory \
             --base-path . \
             --output-file static_results.json
@@ -50,7 +50,13 @@ jobs:
         env:
           SLOPE_GATE_GROQ: ${{ secrets.SLOPE_GATE_GROQ }}
         run: |
-          python scripts/test_groq_provider.py > groq_results.json || true
+          python scripts/test_groq_provider.py
+          # ensure valid JSON
+          if [ -f groq_results.json ]; then
+            echo "Groq results OK"
+          else
+            echo "[]" > groq_results.json
+          fi
 
       # -------------------------------
       # 3. Combine results
@@ -66,7 +72,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python -m ai_slop_gate.cli publish \
+          python -m ai_slop_gate.cli.main publish \
             --github-checks \
             --github-repo ${{ github.repository }} \
             --github-sha ${{ github.sha }} \
