@@ -1,34 +1,38 @@
-python -m scripts.test_gemini_provider
-Provider: gemini
-Model: models/gemini-2.5-flash
-Raw text:
-```json
-[
-  {
-    "category": "quality",
-    "signal": "Generic function name and placeholder return value",
-    "confidence": 0.8,
-    "severity": "low",
-    "message": "The function name 'foo' combined with the iconic placeholder return value '42' is a very common pattern for minimal examples or stubs. This often indicates a lack of specific intent, characteristic of AI-generated code when precise requirements are not provided."
-  },
-  {
-    "category": "quality",
-    "signal": "Vague TODO comment",
-    "confidence": 0.9,
-    "severity": "low",
-    "message": "The comment '# TODO: refactor this' is extremely generic and lacks any specific context or reasoning for why a refactor is needed or what it should entail. This is a common characteristic of AI slop, where the model includes a 'future work' marker without deeper understanding or specific instructions."
-  },
-  {
-    "category": "quality",
-    "signal": "Absence of specific business logic or purpose",
-    "confidence": 0.9,
-    "severity": "medium",
-    "message": "The function performs no actual business logic, computation, or interaction; it merely returns a hardcoded constant. This extreme lack of specificity and functional purpose is a strong indicator of AI-generated 'slop', as the model produced the simplest possible valid output without specific guidance."
-  }
-]
-```
+ Scanning repo: /home/serhiy/slop_test
+🧩 Created 1 chunks for analysis
 
-Observations:
-- Observation(rule_id='gemini.quality.Generic function name and placeholder return value', category='quality', signal='Generic function name and placeholder return value', message="The function name 'foo' combined with the iconic placeholder return value '42' is a very common pattern for minimal examples or stubs. This often indicates a lack of specific intent, characteristic of AI-generated code when precise requirements are not provided.", severity='low', confidence=0.8, location=None)
-- Observation(rule_id='gemini.quality.Vague TODO comment', category='quality', signal='Vague TODO comment', message="The comment '# TODO: refactor this' is extremely generic and lacks any specific context or reasoning for why a refactor is needed or what it should entail. This is a common characteristic of AI slop, where the model includes a 'future work' marker without deeper understanding or specific instructions.", severity='low', confidence=0.9, location=None)
-- Observation(rule_id='gemini.quality.Absence of specific business logic or purpose', category='quality', signal='Absence of specific business logic or purpose', message="The function performs no actual business logic, computation, or interaction; it merely returns a hardcoded constant. This extreme lack of specificity and functional purpose is a strong indicator of AI-generated 'slop', as the model produced the simplest possible valid output without specific guidance.", severity='medium', confidence=0.9, location=None)
+🚀 Sending chunk 1/1 to Gemini...
+⏱️ Chunk 1 response in 30.49s
+------------------------------------------------------------
+🧠 Total findings: 16
+
+📝 Final GitHub-style report:
+
+<!-- AI_SLOP_GATE_REPORT -->
+## ⚠️ AI Slop Gate — Advisory
+
+- **Local Gemini multi-file chunked test**
+
+---
+
+### `quality`
+- The 'Final Verdict' section is duplicated in the README, indicating potential AI-generated slop or copy-paste error. [low, 1.00] (chunk_1:145)
+- Found a TODO comment 'orjsonschema' indicating incomplete work or a potential hallucinated package reference. [low, 1.00] (chunk_1:13)
+- The annotation `ai-slop-gate.check: 'passed-by-internal-llm'` provides a false sense of security or correctness, common in AI-generated configurations, especially given the actual misconfigurations. [medium, 1.00] (chunk_1:38)
+- The annotation `security.policy: 'strict-but-not-really'` is contradictory and misleading, suggesting a lack of genuine security enforcement. [medium, 1.00] (chunk_1:39)
+- Found a TODO comment `// TODO Need fix` indicating incomplete or pending work. [low, 1.00] (chunk_1:13)
+- Found a TODO comment `# TODO Need fix` indicating incomplete or pending work. [low, 1.00] (chunk_1:31)
+- The return value of `manager.dump_debug()` is assigned to `_` but never used, indicating dead code or a missing action. [low, 1.00] (chunk_1:32)
+
+### `architecture`
+- The Service selector `version: v2` does not match the Deployment's Pod label `version: v2.1`, resulting in the Service having no healthy endpoints. [medium, 1.00] (chunk_1:14)
+- The Service `targetPort: 9090` does not match the container's actual listening port `8080`, leading to a silent traffic black hole. [medium, 1.00] (chunk_1:19)
+- The readiness probe's `tcpSocket` targets port `3000`, which is not exposed by the container (only `8080`), causing Pods to never reach a Ready state. [medium, 1.00] (chunk_1:52)
+- The container's memory limit (`64Mi`) is lower than its memory request (`128Mi`), which can lead to scheduling failures, constant evictions, or OOM (Out Of Memory) issues. [medium, 1.00] (chunk_1:61)
+- The HorizontalPodAutoscaler's `scaleTargetRef` names `billing-backend-v2`, but the actual Deployment is `billing-backend`, preventing autoscaling from ever triggering. [medium, 1.00] (chunk_1:90)
+- The HorizontalPodAutoscaler uses an unrealistically low `averageUtilization: 10` for memory, which will cause constant scaling up/down flapping and system instability. [high, 1.00] (chunk_1:95)
+- The `overengineered_sum` function unnecessarily uses `HyperConfigurableManager` for a simple summation, adding unwarranted complexity for a trivial task. [medium, 1.00] (chunk_1:22)
+- Using the `ghcr.io/sergudo/ai-slop-gate:latest` Docker image introduces non-reproducibility and potential instability in the CI/CD pipeline due to mutable tag usage. [medium, 1.00] (chunk_1:22)
+
+### `security`
+- The NetworkPolicy's ingress rule with `from: []` effectively allows all incoming traffic, creating a stealth security hole that contradicts the policy's name. [high, 1.00] (chunk_1:77)
