@@ -22,7 +22,10 @@ class GroqProvider(BaseProvider):
         if not self.api_key:
             raise ValueError("SLOPE_GATE_GROQ is missing. Please set it in .env or environment variables.")
 
-        self.url = "https://api.groq.com/v1/chat/completions"
+        if any(self.model.startswith(x) for x in ["llama", "mixtral"]):
+             self.url = "https://api.groq.com/openai/v1/chat/completions"
+        else:
+            self.url = "https://api.groq.com/v1/chat/completions"
 
     # -------------------------------------------------------------------------
     # HELPER: Load prompt from external file

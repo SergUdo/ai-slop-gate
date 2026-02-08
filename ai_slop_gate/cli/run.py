@@ -11,25 +11,19 @@ from ai_slop_gate.domain.checks import CheckReport, CheckAnnotation
 from ai_slop_gate.domain.observation import Observation
 from ai_slop_gate.domain.decision import DecisionMode
 
-# Reporters
 from ai_slop_gate.reporters.console import ConsoleReporter
 from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
 
-# Providers
-from ai_slop_gate.providers.static import StaticPipelineProvider
+from ai_slop_gate.providers.static.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.providers.llm import GeminiProvider, GroqProvider
 
-# Compliance
 from ai_slop_gate.domain.compliance.pipeline import CompliancePipeline
 
 load_dotenv()
 logger = logging.getLogger("ai_slop_gate")
 
 
-# -----------------------------
-# Provider Factory
-# -----------------------------
 PROVIDER_MAP = {
     "static": StaticPipelineProvider,
     "static_pipeline": StaticPipelineProvider,
@@ -38,48 +32,62 @@ PROVIDER_MAP = {
 }
 
 
-def get_providers(provider_names: List[str], model: str = None) -> List[Any]:
+def resolve_model(policy_config, provider_name: str) -> str | None:
+    if provider_name in ("static", "static_pipeline"):
+        return None
+
+    ai = policy_config.ai_provider
+    models = ai.get("models", {})
+
+    if provider_name in models:
+        return models[provider_name]
+
+    if "model" in ai:
+        return ai["model"]
+
+    raise ValueError(
+        f"[STRICT MODE] No model defined for provider '{provider_name}'. "
+        f"Add it under ai_provider.models.{provider_name} in policy.yml"
+    )
+
+
+def get_providers(provider_names: List[str], policy_config=None) -> List[Any]:
     providers = []
     for name in provider_names:
         key = name.lower()
         if key not in PROVIDER_MAP:
             raise ValueError(f"Unknown provider: {name}")
+        model = resolve_model(policy_config, key)
         providers.append(PROVIDER_MAP[key](model=model))
     return providers
 
 
 # -----------------------------
-# Helper: include_paths filtering
+# FIXED include filter
 # -----------------------------
 def build_include_filter(ctx: RuntimeContext, include_paths: List[str]):
-    """
-    Returns a function is_included(file_path) that checks whether a file
-    belongs to any include_path.
-    """
-
     normalized_include_paths = [
         os.path.abspath(os.path.join(ctx.path, p))
         for p in include_paths
     ]
 
     def is_included(file_path: str) -> bool:
+        if not normalized_include_paths:
+            return True
+
         if not file_path:
             return True
 
-        # Normalize file path
-        if not os.path.isabs(file_path):
-            abs_file = os.path.abspath(os.path.join(ctx.path, file_path))
-        else:
-            abs_file = os.path.abspath(file_path)
+        abs_file = (
+            os.path.abspath(os.path.join(ctx.path, file_path))
+            if not os.path.isabs(file_path)
+            else os.path.abspath(file_path)
+        )
 
-        # Check if file is inside any include_path
         for inc in normalized_include_paths:
-            try:
-                rel = os.path.relpath(abs_file, inc)
-                if not rel.startswith(".."):
-                    return True
-            except ValueError:
-                pass
+            inc = os.path.abspath(inc)
+            if abs_file == inc or abs_file.startswith(inc + os.sep):
+                return True
 
         return False
 
@@ -87,14 +95,9 @@ def build_include_filter(ctx: RuntimeContext, include_paths: List[str]):
 
 
 # -----------------------------
-# Main CLI Execution
+# MAIN CLI
 # -----------------------------
 def run_cli(ctx: RuntimeContext) -> int:
-    """
-    Main entry point for AI Slop Gate CLI.
-    Handles provider execution, compliance pipeline, policy evaluation, and reporting.
-    """
-
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -107,72 +110,49 @@ def run_cli(ctx: RuntimeContext) -> int:
     github_token = ctx.github_token or os.getenv("GITHUB_TOKEN")
 
     try:
-        # -----------------------------
-        # 1. Load policy configuration
-        # -----------------------------
         logger.info(f"Loading policy file: {ctx.policy_path}")
         policy_config, rules = load_policy(ctx.policy_path)
 
-        # Build include filter if needed
         include_filter = None
         if policy_config.include_paths:
             include_filter = build_include_filter(ctx, policy_config.include_paths)
 
-        # -----------------------------
-        # 2. Initialize providers
-        # -----------------------------
         provider_names = ctx.providers or []
-        providers = get_providers(provider_names, model=policy_config.ai_provider.get("model"))
+        providers = get_providers(provider_names, policy_config=policy_config)
 
         if not providers:
-            raise ValueError("No providers specified. Use --provider static or --provider gemini etc.")
+            raise ValueError("No providers specified.")
 
         logger.info(f"Providers selected: {provider_names}")
 
         all_observations: List[Observation] = []
         executed_any_provider = False
 
-        # Determine if ANY provider is LLM
         has_llm_provider = any(getattr(p, "kind", None) == "llm" for p in providers)
-
-        # Determine if we are performing LLM PR analysis (diff-only mode)
         is_llm_pr_analysis = bool(has_llm_provider and ctx.github_repo and ctx.pr_id)
 
         # -----------------------------
-        # 3. Run providers
+        # STATIC + LLM PROVIDERS
         # -----------------------------
         for provider in providers:
             logger.info(f"Running provider: {provider.name} ({provider.kind})")
 
-            # -----------------------------
-            # LLM PROVIDER LOGIC
-            # -----------------------------
             if provider.kind == "llm":
-
-                # --- PR MODE (LLM analyzes GitHub PR diff only) ---
                 if ctx.github_repo and ctx.pr_id:
-                    logger.info(f"LLM PR analysis: repo={ctx.github_repo}, pr={ctx.pr_id}")
                     result = provider.analyze_pr(ctx.github_repo, ctx.pr_id, github_token)
                     all_observations.extend(result.observations)
                     executed_any_provider = True
                     continue
 
-                # --- LOCAL LLM MODE ---
                 if ctx.llm_local:
-                    logger.info("LLM local analysis enabled (--llm-local)")
                     result = provider.analyze_files(ctx.path)
                     all_observations.extend(result.observations)
                     executed_any_provider = True
                     continue
 
-                logger.info(
-                    f"Skipping LLM provider '{provider.name}': no PR ID and --llm-local not provided."
-                )
+                logger.info(f"Skipping LLM provider '{provider.name}'")
                 continue
 
-            # -----------------------------
-            # STATIC PROVIDER LOGIC
-            # -----------------------------
             if provider.kind == "static":
                 result = provider.collect(base_path=ctx.path)
 
@@ -187,8 +167,6 @@ def run_cli(ctx: RuntimeContext) -> int:
 
                         if include_filter(file_path):
                             filtered.append(obs)
-                        else:
-                            logger.debug(f"Filtered out static observation: {file_path}")
 
                     all_observations.extend(filtered)
                 else:
@@ -197,23 +175,14 @@ def run_cli(ctx: RuntimeContext) -> int:
                 executed_any_provider = True
                 continue
 
-        # -----------------------------
-        # 4. Ensure at least one provider executed
-        # -----------------------------
         if not executed_any_provider:
-            logger.error(
-                "No analyzers were executed. "
-                "If you specified only LLM providers, add --llm-local for local analysis "
-                "or provide --pr-id for PR analysis."
-            )
+            logger.error("No analyzers executed.")
             return 1
 
         # -----------------------------
-        # 5. Compliance Pipeline
+        # COMPLIANCE PIPELINE
         # -----------------------------
-        if is_llm_pr_analysis:
-            logger.info("Skipping compliance pipeline for LLM PR analysis (diff-only mode).")
-        else:
+        if not is_llm_pr_analysis:
             if policy_config.compliance and policy_config.compliance.enabled:
                 logger.info("Running compliance pipeline...")
                 pipeline = CompliancePipeline(policy_config.compliance)
@@ -222,31 +191,35 @@ def run_cli(ctx: RuntimeContext) -> int:
                     ai_provider_region=policy_config.ai_provider.get("region")
                 )
 
-                if include_filter:
-                    filtered = []
-                    for obs in compliance_obs:
-                        file_path = None
-                        if hasattr(obs, "location") and obs.location:
-                            file_path = obs.location.file
+                policy_dir = os.path.dirname(os.path.abspath(ctx.policy_path))
+                target_dir = os.path.abspath(ctx.path)
 
-                        if include_filter(file_path):
-                            filtered.append(obs)
-                        else:
-                            logger.debug(f"Filtered out compliance observation: {file_path}")
+                filtered = []
+                for obs in compliance_obs:
+                    if hasattr(obs, "location") and obs.location and obs.location.file:
+                        file_path = obs.location.file
+                    else:
+                        file_path = ctx.path
 
-                    all_observations.extend(filtered)
-                else:
-                    all_observations.extend(compliance_obs)
+                    if os.path.basename(file_path) == "policy.yml" and policy_dir != target_dir:
+                        continue
+
+                    if include_filter and not include_filter(file_path):
+                        continue
+
+                    filtered.append(obs)
+
+                all_observations.extend(filtered)
 
         # -----------------------------
-        # 6. Policy Engine Evaluation
+        # POLICY ENGINE
         # -----------------------------
         engine = PolicyEngine(rules)
         decision = engine.evaluate(all_observations)
         logger.info(f"Policy Verdict: {decision.mode.value.upper()}")
 
         # -----------------------------
-        # 7. Build GitHub-style annotations
+        # ANNOTATIONS
         # -----------------------------
         annotations = []
         for obs in all_observations:
@@ -272,7 +245,7 @@ def run_cli(ctx: RuntimeContext) -> int:
             )
 
         # -----------------------------
-        # 8. Reporting
+        # REPORTING
         # -----------------------------
         report = CheckReport(
             title="AI Slop Gate Report",
@@ -285,12 +258,8 @@ def run_cli(ctx: RuntimeContext) -> int:
         if ctx.github_repo and github_token:
             if ctx.pr_id:
                 GitHubPRReporter(github_token, ctx.github_repo, ctx.pr_id).report(report)
-                logger.info("Results posted to GitHub PR.")
-
             if ctx.github_sha:
                 GitHubChecksReporter(github_token, ctx.github_repo, ctx.github_sha).report(report)
-                logger.info(f"GitHub Check Run created for SHA: {ctx.github_sha[:7]}")
-
         else:
             ConsoleReporter(verbose=ctx.verbose).report(report)
 

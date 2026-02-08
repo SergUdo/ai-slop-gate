@@ -4,7 +4,7 @@
 # scripts/test_static_pipeline.py
 #!/usr/bin/env python3
 import logging
-from ai_slop_gate.providers.static import StaticPipelineProvider
+from ai_slop_gate.providers.static.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.domain.policy_engine import PolicyEngine
 from ai_slop_gate.cli.utils import load_policy
 

@@ -66,7 +66,7 @@ class StaticPipelineProvider(BaseProvider):
                 if res and res.observations:
                     all_obs.extend(res.observations)
             except Exception as e:
-                logger.error(f"Failed to run provider {provider.name}: {e}")
+                logger.exception(f"Failed to run provider {provider.name}")
 
         return self._smart_aggregate(all_obs)
 

@@ -3,7 +3,7 @@ project_name: "ai_slop_gate"
 
 # Limit static analysis ONLY to mounted repository code
 include_paths:
-  - /data
+  - .
 
 # Global enforcement level: never | advisory | blocking
 # Defines if the gate should fail the CI/CD pipeline
@@ -11,12 +11,25 @@ enforcement: blocking
 
 # --- AI Provider configuration ---
 ai_provider:
-  name: gemini                # Options: gemini | openai | groq | copilot | local
-  model: gemini-2.5-flash
+  # ACTIVE provider (user or workflow chooses)
+  name: gemini # BACKWARD-COMPATIBLE default model (still works)
+  model: gemini-2.5-flash # NEW: Multi-provider model registry 
+  models: 
+    gemini: gemini-2.5-flash
+    groq: llama-3.3-70b-versatile 
+    groq_native: gemma-2-9b 
+    openai: gpt-4o-mini
+    copilot: gpt-4o-mini
+    local: llama3.1:8b 
+    openrouter: mistral-large 
+
+  # NEW: Default provider if none specified 
+  default_provider: gemini
   temperature: 0.1
-  mode: blocking              # AI observations can trigger a block
-  explain: false              # Set true for detailed LLM reasoning
-  cache: true                 # Enable to save tokens and improve speed
+  mode: blocking 
+  explain: false 
+  cache: true
+  region: US
 
   # NEW: Region of the LLM provider.
   # Used by compliance.security_audit.enforce_data_residency
