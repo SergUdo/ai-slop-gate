@@ -29,3 +29,6 @@ class RuntimeContext:
 
     # Verbose console output
     verbose: bool = False
+
+    # Compliance-only mode
+    compliance_only: bool = False

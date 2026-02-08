@@ -1,7 +1,6 @@
 import argparse
 import os
 
-
 def build_parser():
     parser = argparse.ArgumentParser(
         description="AI Slop Gate — Multi-provider AI & Static Code Analysis"
@@ -20,11 +19,12 @@ def build_parser():
     # -----------------------------
     run_cmd = subparsers.add_parser("run", help="Run analysis")
 
+    # ЗМІНА ТУТ: required=False
     run_cmd.add_argument(
         "--provider",
         "-p",
         nargs="+",
-        required=True,
+        required=False, 
         help="List of providers to run (static, gemini, etc.)",
     )
 
@@ -74,7 +74,9 @@ def build_parser():
     )
 
     run_cmd.add_argument(
-        "--compliance", action="store_true", help="Run only compliance checks"
+        "--compliance", 
+        action="store_true", 
+        help="Run compliance checks"
     )
 
     return parser

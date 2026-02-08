@@ -24,6 +24,7 @@ def main():
             github_token=args.github_token,
             policy_path=args.policy,
             verbose=args.verbose,
+            compliance_only=getattr(args, "compliance", False)
         )
         return run_cli(ctx)
 
