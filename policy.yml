@@ -28,7 +28,8 @@ ai_provider:
   temperature: 0.1
   mode: blocking 
   explain: false 
-  cache: true
+  cache: true 
+  block_in_pr: true
   region: US
 
   # NEW: Region of the LLM provider.
@@ -42,6 +43,7 @@ ai_provider:
 # --- Compliance Module (Deterministic Sidecar) ---
 compliance:
   enabled: true               
+  run_in_pr: true
 
   # NEW: Defines how residency violations are handled.
   # advisory → warn but do not block (your chosen mode)
@@ -151,6 +153,13 @@ rules:
   # These rules are placed BEFORE existing rules to ensure they take precedence
   # over any allow/advisory rules defined later.
   # ---------------------------------------------------------------------------
+  - id: block-llm-failure-in-pr
+    when:
+      severity: failure
+    then:
+      action: blocking
+      message: "LLM failure detected in PR"
+
   - id: block-llm-failure
     when:
       severity: failure
