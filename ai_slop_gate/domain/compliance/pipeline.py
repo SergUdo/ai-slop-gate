@@ -1,28 +1,17 @@
 import os
-import json
 import re
 from typing import List, Optional
 
 from ai_slop_gate.domain.observation import Observation, Location
 from ai_slop_gate.domain.compliance.config import ComplianceConfig
+from ai_slop_gate.providers.static.supply_chain import SupplyChainProvider
 
 
 class CompliancePipeline:
     EXCLUDE_DIRS = {
-        ".git",
-        ".venv",
-        "venv",
-        "__pycache__",
-        "node_modules",
-        "dist",
-        "build",
-        ".slop",
-        ".idea",
-        ".pytest_cache",
-        "site-packages",
-        "ai_slop_gate",
-        "htmlcov",
-        "tests",
+        ".git", ".venv", "venv", "__pycache__", "node_modules",
+        "dist", "build", ".slop", ".idea", ".pytest_cache",
+        "site-packages", "ai_slop_gate", "htmlcov", "tests",
     }
 
     def __init__(self, cfg: ComplianceConfig):
@@ -32,47 +21,32 @@ class CompliancePipeline:
         observations = []
 
         observations.extend(self._check_forbidden_licenses(artifacts_path))
+        
         observations.extend(self._scan_source_for_secrets_and_gdpr(artifacts_path))
+        
         observations.extend(self._check_data_residency(ai_provider_region))
 
         return observations
 
     # -------------------------------------------------------------------------
-    # 1. Forbidden licenses
+    # 1. Forbidden licenses (Updated to use SupplyChainProvider)
     # -------------------------------------------------------------------------
     def _check_forbidden_licenses(self, artifacts_path: str) -> List[Observation]:
-        forbidden = set(self.cfg.license_audit.forbidden_licenses or [])
-        if not forbidden:
+        forbidden_list = self.cfg.license_audit.forbidden_licenses or []
+        if not forbidden_list:
             return []
 
-        manifest_path = os.path.join(artifacts_path, ".slop", "supply_chain.json")
-        if not os.path.exists(manifest_path):
-            return []
-
-        try:
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            return []
-
-        deps = data.get("dependencies", [])
+        scanner = SupplyChainProvider()
+        result = scanner.collect(base_path=artifacts_path)
+        
         observations = []
+        forbidden_upper = [lic.upper() for lic in forbidden_list]
 
-        for dep in deps:
-            lic = dep.get("license")
-            name = dep.get("name")
-
-            if lic and lic in forbidden:
-                observations.append(
-                    Observation(
-                        category="compliance",
-                        signal="forbidden_license",
-                        confidence=1.0,
-                        message=f"Dependency '{name}' uses forbidden license '{lic}'.",
-                        severity="high",
-                        location=Location(file="policy.yml"),
-                    )
-                )
+        for obs in result.observations:
+            message_upper = obs.message.upper()
+            
+            if any(f in message_upper for f in forbidden_upper):
+                observations.append(obs)
 
         return observations
 
@@ -93,7 +67,7 @@ class CompliancePipeline:
             for fname in files:
                 if not fname.endswith((
                     ".py", ".js", ".ts", ".java", ".go", ".rb",
-                    ".php", ".cs", ".txt", ".md"
+                    ".php", ".cs", ".txt", ".md", ".yaml", ".yml"
                 )):
                     continue
 
@@ -128,7 +102,7 @@ class CompliancePipeline:
                                 signal="pii_email",
                                 confidence=1.0,
                                 message="Email address detected in source code.",
-                                severity=self.cfg.gdpr_detection.severity_email,
+                                severity=self.cfg.gdpr_detection.severity_email or "medium",
                                 location=Location(file=path, line=i),
                             )
                         )
@@ -141,20 +115,20 @@ class CompliancePipeline:
                                 signal="suspicious_todo",
                                 confidence=1.0,
                                 message="Suspicious TODO comment found.",
-                                severity=self.cfg.gdpr_detection.severity_todo,
+                                severity=self.cfg.gdpr_detection.severity_todo or "low",
                                 location=Location(file=path, line=i),
                             )
                         )
 
-                    # Non‑EU endpoints
-                    if detect_endpoints and re.search(r"https?://(?!eu)([a-z0-9-]+\.)+[a-z]{2,}", line, re.I):
+                    # Non‑EU endpoints (improved regex to avoid false positives with 'eu' in middle)
+                    if detect_endpoints and re.search(r"https?://(?![a-z0-9-]*eu)([a-z0-9-]+\.)+[a-z]{2,}", line, re.I):
                         observations.append(
                             Observation(
                                 category="compliance",
                                 signal="non_eu_endpoint",
                                 confidence=1.0,
                                 message="Non‑EU endpoint detected.",
-                                severity=self.cfg.gdpr_detection.severity_non_eu_endpoint,
+                                severity=self.cfg.gdpr_detection.severity_non_eu_endpoint or "medium",
                                 location=Location(file=path, line=i),
                             )
                         )
@@ -201,3 +175,4 @@ class CompliancePipeline:
             ]
 
         return []
+    

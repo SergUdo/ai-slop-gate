@@ -125,6 +125,52 @@ def run_cli(ctx: RuntimeContext) -> int:
 
         logger.info(f"Providers selected: {provider_names}")
 
+        # ============================================================
+        # NEW: COMPLIANCE-ONLY MODE
+        # ============================================================
+        if getattr(ctx, "compliance_only", False):
+            logger.info("Running in COMPLIANCE-ONLY mode...")
+
+            pipeline = CompliancePipeline(policy_config.compliance)
+            compliance_obs = pipeline.run(
+                artifacts_path=ctx.path,
+                ai_provider_region=policy_config.ai_provider.get("region")
+            )
+
+            engine = PolicyEngine(rules)
+            decision = engine.evaluate(compliance_obs)
+            logger.info(f"Policy Verdict: {decision.mode.value.upper()}")
+
+            annotations = []
+            for obs in compliance_obs:
+                file_path = getattr(obs.location, "file", "root")
+                line_num = getattr(obs.location, "line", 1)
+                level = "failure" if obs.severity in ["high", "critical"] else "warning"
+
+                annotations.append(
+                    CheckAnnotation(
+                        file=file_path,
+                        line=line_num,
+                        level=level,
+                        message=f"[{obs.signal}] {obs.message}"
+                    )
+                )
+
+            report = CheckReport(
+                title="AI Slop Gate Report",
+                summary=f"Verdict: {decision.mode.value.upper()}. Found {len(annotations)} issues.",
+                status=decision.mode,
+                annotations=annotations,
+                reasons=decision.reasons,
+            )
+
+            ConsoleReporter(verbose=ctx.verbose).report(report)
+            return 0 if decision.mode != DecisionMode.BLOCKING else 1
+
+        # ============================================================
+        # NORMAL MODE (STATIC + LLM)
+        # ============================================================
+
         all_observations: List[Observation] = []
         executed_any_provider = False
 
@@ -265,6 +311,10 @@ def run_cli(ctx: RuntimeContext) -> int:
 
         logger.info("--- Execution Completed Successfully ---")
         return 0 if decision.mode != DecisionMode.BLOCKING else 1
+
+    except Exception as e:
+        logger.error(f"Execution failed: {str(e)}", exc_info=True)
+        return 1
 
     except Exception as e:
         logger.error(f"Execution failed: {str(e)}", exc_info=True)

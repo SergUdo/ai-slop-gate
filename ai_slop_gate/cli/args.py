@@ -73,4 +73,8 @@ def build_parser():
         help="Verbose output",
     )
 
+    run_cmd.add_argument(
+        "--compliance", action="store_true", help="Run only compliance checks"
+    )
+
     return parser
