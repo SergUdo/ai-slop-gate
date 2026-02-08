@@ -151,6 +151,12 @@ rules:
   # These rules are placed BEFORE existing rules to ensure they take precedence
   # over any allow/advisory rules defined later.
   # ---------------------------------------------------------------------------
+  - id: block-llm-failure
+    when:
+      severity: failure
+    then:
+      action: blocking
+      message: "LLM detected a failure-level issue"
 
   # Block any critical compliance violations explicitly
   - id: block-critical-compliance-violations
