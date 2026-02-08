@@ -33,7 +33,7 @@ class TestGroqProviderBasics:
             assert provider.kind == "llm"
             assert provider.model == "test-model"
             assert provider.api_key == "test-key"
-            assert provider.url == "https://api.groq.com/openai/v1/chat/completions"
+            assert provider.url == "https://api.groq.com/v1/chat/completions"
 
     def test_groq_provider_missing_api_key(self):
         """Test that missing API key raises ValueError."""
