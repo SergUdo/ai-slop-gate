@@ -107,8 +107,9 @@ while still surfacing GDPR‑related risks.
 ## 🛠️ Supported Languages & Infrastructure
 * ✅ **Python** (Full support)
 * ✅ **JavaScript / TypeScript** (Full support)
-* 🚀 **Terraform & Kubernetes** (Active development - IaC review)
-* 🔄 **Docker**
+* ✅ **Docker** (Full support)
+* ✅ **Kubernetes** (Full support)
+* 🚀 **Terraform** (Active development - IaC review)
 
 ---
 
