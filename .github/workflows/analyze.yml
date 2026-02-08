@@ -3,6 +3,8 @@ name: AI Slop Gate — Full Analysis
 on:
   pull_request:
     branches: [ main ]
+  push:
+    branches: [ "main" ]
 
 jobs:
   analyze:
