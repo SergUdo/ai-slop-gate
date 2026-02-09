@@ -415,6 +415,21 @@ When running in a CI/CD pipeline, you must add these variables to your **GitHub 
 
 **Note**: Ensure your workflow file references these secrets accordingly.
 
+### GitLab Integration
+
+AI Slop Gate supports full GitLab CI/CD integration, including static, LLM, and compliance analysis.
+
+See the full guide here:
+
+➡️ **[docs/gitlab.md](docs/gitlab.md)**
+
+This document explains:
+- how to configure `.gitlab-ci.yml`
+- how to run static, LLM, and full analysis
+- how to set GitLab CI/CD variables
+- how to use Groq and Gemini inside private GitLab repositories
+
+
 ## 📄 License
 MIT License © 2025 Vira Udovychenko.
 
