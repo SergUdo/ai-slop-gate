@@ -413,6 +413,12 @@ When running in a CI/CD pipeline, you must add these variables to your **GitHub 
 * **GITHUB_TOKEN**: (Mandatory) A GitHub token with permissions to read the PR diff and write comments.
 * **Provider Keys**: `GEMINI_API_KEY`, or `SLOPE_GATE_GROQ` depending on which AI service your workflow is configured to use.
 
+#### Examples workflows
+
+➡️ **[docs/workflow_gemini.yml](docs/example_workflow_gemini.yml)**
+
+➡️ **[docs/workflow_static.yml](docs/example_workflow_static.yml)**
+
 **Note**: Ensure your workflow file references these secrets accordingly.
 
 ### GitLab Integration
