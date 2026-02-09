@@ -64,7 +64,7 @@ def build_include_filter(ctx: RuntimeContext, include_paths: List[str]):
     return is_included
 
 def extract_location(obs: Observation):
-    """Уніфікована функція для витягування шляху та рядка з обсервації"""
+    """Extract file path and line number from an observation, handling different possible structures."""
     file_path = "root"
     line_num = 1
     if hasattr(obs, "location") and obs.location:
@@ -97,14 +97,14 @@ def run_cli(ctx: RuntimeContext) -> int:
         provider_names = ctx.providers or []
         is_compliance_only = getattr(ctx, "compliance_only", False)
 
-        # ПЕРЕВІРКА: чи є хоча б один інструмент для запуску
+        # If no providers specified and not compliance-only, log error and exit
         if not provider_names and not is_compliance_only:
             logger.error("No analyzers specified. Use --provider or --compliance.")
             return 1
 
         all_observations: List[Observation] = []
 
-        # --- Крок 1: Запуск LLM / Static провайдерів ---
+        # --- Step 1: Run LLM / Static Providers ---
         if provider_names:
             providers = get_providers(provider_names, policy_config=policy_config)
             for provider in providers:
@@ -121,14 +121,14 @@ def run_cli(ctx: RuntimeContext) -> int:
                 else: # Static
                     result = provider.collect(base_path=ctx.path)
 
-                # Фільтрація знахідок
+                # Statics may return observations directly, while LLMs return a structured result
                 for obs in result.observations:
                     f_path, _ = extract_location(obs)
                     if not include_filter or include_filter(f_path):
                         all_observations.append(obs)
 
-        # --- Крок 2: Запуск Compliance Pipeline ---
-        # Запускається або в режимі --compliance, або якщо включено в політиці (і це не PR аналіз)
+        # --- Step 2: Compliance Checks ---
+        # Run compliance checks if enabled in policy and not overridden by CLI, or if --compliance-only is set
         should_run_compliance = is_compliance_only or (
             policy_config.compliance and policy_config.compliance.enabled 
             and not (ctx.github_repo and ctx.pr_id)
@@ -147,18 +147,18 @@ def run_cli(ctx: RuntimeContext) -> int:
 
             for obs in compliance_obs:
                 f_path, _ = extract_location(obs)
-                # Ігноруємо policy.yml якщо він не є частиною цільового репозиторію
+                # Ignore policy.yml from other directories to prevent noise, but allow if it's in the target directory (e.g. monorepo root)
                 if os.path.basename(f_path) == "policy.yml" and policy_dir != target_dir:
                     continue
                 if not include_filter or include_filter(f_path):
                     all_observations.append(obs)
 
-        # --- Крок 3: Прийняття рішення (Policy Engine) ---
+        # --- Step 3: Evaluate ---
         engine = PolicyEngine(rules)
         decision = engine.evaluate(all_observations)
         logger.info(f"Policy Verdict: {decision.mode.value.upper()}")
 
-        # --- Крок 4: Формування звіту ---
+        # --- Step 4: Report ---
         annotations = []
         for obs in all_observations:
             f_path, l_num = extract_location(obs)
@@ -180,7 +180,7 @@ def run_cli(ctx: RuntimeContext) -> int:
             reasons=decision.reasons,
         )
 
-        # --- Крок 5: Репортери ---
+        # --- Крок 5: Reporters ---
         if ctx.github_repo and github_token and (ctx.pr_id or ctx.github_sha):
             if ctx.pr_id:
                 GitHubPRReporter(github_token, ctx.github_repo, ctx.pr_id).report(report)

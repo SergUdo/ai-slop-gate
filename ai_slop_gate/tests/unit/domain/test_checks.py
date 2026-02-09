@@ -345,7 +345,7 @@ class TestCheckReport:
         ann = CheckAnnotation(
             file="app.py",
             line=42,
-            message="Error: Успех не гарантирован",
+            message="Error: Success is not guaranteed",
             level="failure"
         )
         report = CheckReport(
@@ -355,4 +355,4 @@ class TestCheckReport:
             annotations=[ann]
         )
         
-        assert report.annotations[0].message == "Error: Успех не гарантирован"
+        assert report.annotations[0].message == "Error: Success is not guaranteed"

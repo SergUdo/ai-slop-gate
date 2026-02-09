@@ -248,11 +248,9 @@ Create a `.env` file in the root directory of your project and add the keys for 
 
 **Required for GitHub PR commenting**
 
-`AI_SLOP_GATE_TOKEN`=your_github_personal_access_token
+`GITHUB_TOKEN`=your_github_personal_access_token
 
 **Provider Keys (Add based on your configuration)**
-
-`LLAMA_API_KEY`=your_openrouter_api_key
 
 `GEMINI_API_KEY`=your_google_gemini_api_key
 
@@ -279,11 +277,40 @@ if you have `.ai-slop-gate.yml`  Use `--force` to overwrite
 
 ### 3. Local Usage
 
-To run **ai‑slop‑gate** locally from your terminal:
+Analyze the current project (ai‑slop‑gate itself)
+When you run the CLI inside the ai‑slop‑gate repository, the tool analyzes its own source code by default:
 
 ```bash
 python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
 ```
+#### Analyze any external repository
+
+```bash
+python -m ai_slop_gate.cli run --provider static --policy policy.yml --path /path/to/your/project
+```
+
+```bash
+python -m ai_slop_gate.cli run --provider compliance --policy policy.yml --path /path/to/your/project
+```
+
+#### Run LLM locally:
+
+```bash
+python -m ai_slop_gate.cli.main run --provider gemini --llm-local --policy policy.yml --path /path/to/your/project
+```
+
+```bash
+python -m ai_slop_gate.cli.main run --provider groq --llm-local --policy policy.yml --path /path/to/your/project
+```
+
+#### Supported Providers
+- `static` — full static analysis (secrets, eval, Dockerfile, PII, TODO, supply‑chain)
+
+- `groq` — LLM analysis (local or GitHub PR)
+
+- `gemini` — LLM analysis (local or GitHub PR)
+
+- `compliance` — GDPR, EU residency, license, supply‑chain compliance
 
 #### Optional arguments
 
@@ -291,7 +318,7 @@ python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
   Provider to run (static, gemini, groq, openrouter, copilot, local).
 
 - `--llm-local`  
-  Run LLM provider on your local project instead of a GitHub PR.
+  Run Groq/Gemini on the local project (full‑repo LLM mode)
 
 - `--github-repo <owner/repo>`  
   Enable GitHub integration.
@@ -302,68 +329,24 @@ python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
 - `--github-sha <sha>`  
   Report results as GitHub Checks.
 
-- `--github-checks`  
-  Enable GitHub Checks output.
-
-- `--input-file <path>`  
-  File for static analysis (e.g., requirements.txt).
-
-- `--k8s-manifests <path>`  
-  Path to Kubernetes YAML manifests.
-
 - `--enforcement <never|blocking|advisory>`  
   Override global enforcement mode.
-
-- `--compliance`  
-  Force compliance audit (license, secrets, GDPR, residency).
 
 - `--profile <name>`  
   Select compliance profile from policy.yml.
 
 - `--verbose`  
-  Show full diagnostic output:
-  - active profile
-  - merged compliance settings
-  - loaded rules
-  - observations with evidence
-  - policy reasons
-  - annotations
-  - final decision summary
+  Show full diagnostic output.
 
-#### Examples
+#### ⚠️ API_KEY and Token Required
 
-Run static analysis:
+LLM providers (Groq, Gemini) require a `API_KEY` when analyzing.
+If no `GITHUB_TOKEN` and `API_KEY` is provided, the CLI will skip the LLM provider and fall back to non‑LLM checks.
+
+When no token is available, you will see:
 
 ```bash
-python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
-```
-
-Verbose mode:
-
-```bash
-python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --verbose
-```
-
-Run with a specific compliance profile:
-
-```bash
-python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --profile eu-strict
-```
-
-Run LLM on a GitHub PR:
-
-```bash
-python -m ai_slop_gate.cli.main run \
-  --provider gemini \
-  --policy policy.yml \
-  --github-repo owner/repo \
-  --pr-id 42
-```
-
-Run LLM locally:
-
-```bash
-python -m ai_slop_gate.cli.main run --provider gemini --llm-local --policy policy.yml
+Skipping LLM provider 'gemini': insufficient context.
 ```
 
 #### Run (Development Mode)
@@ -372,13 +355,8 @@ python -m ai_slop_gate.cli.main run --provider gemini --llm-local --policy polic
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
+python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --path /path/to/your/
 ```
-
-#### Options Breakdown
-
-- **`--policy`**: Path to your YAML configuration file.
-- **`--provider`**: AI engine (static, gemini, groq, openrouter, copilot, local).
 
 ### Running Tests
 
@@ -412,7 +390,7 @@ Run analysis:
 ```bash
 docker run -v $(pwd):/app \
   ghcr.io/sergudo/ai-slop-gate:latest \
-  run --provider static --policy /app/policy.yml
+  run --provider static --policy /app/policy.yml --path /path/to/your/
 ```
 
 #### Build Locally
@@ -425,96 +403,15 @@ Minimal run:
 
 ```bash
 docker run --rm ai-slop-gate \
-  run --provider static --policy /data/policy.yml
+  run --provider static --policy /data/policy.yml --path /path/to/your/
 ```
-
-Mount your project:
-
-```bash
-docker run --rm \
-  -v $(pwd):/data \
-  ai-slop-gate \
-  run --provider static --policy /data/policy.yml
-```
-
-#### Environment Variables (LLM Providers)
-
-```bash
-docker run --rm \
-  -e GEMINI_API_KEY=$GEMINI_API_KEY \
-  -e AI_SLOP_GATE_TOKEN=$AI_SLOP_GATE_TOKEN \
-  -v $(pwd):/data \
-  ai-slop-gate \
-  run --provider gemini --policy /data/policy.yml
-```
-
-### GitHub Actions (CI/CD)
-
-To run your Docker image inside a workflow:
-
-```yaml
-name: AI Slop Gate
-
-on:
-  pull_request:
-
-jobs:
-  ai-slop-gate:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run ai-slop-gate
-        run: |
-          docker run --rm \
-            -e GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
-            -e AI_SLOP_GATE_TOKEN=${{ secrets.AI_SLOP_GATE_TOKEN }} \
-            -v ${{ github.workspace }}:/data \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider gemini \
-                --policy /data/policy.yml \
-                --github-repo ${{ github.repository }} \
-                --pr-id ${{ github.event.pull_request.number }} \
-                --github-checks
-```
-
-#### Using your own Docker image
-
-If you publish your image as:
-
-```
-ghcr.io/<yourname>/ai-slop-gate:latest
-```
-
-Replace the image name:
-
-```yaml
-docker run --rm \
-  -e GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
-  -v ${{ github.workspace }}:/data \
-  ghcr.io/<yourname>/ai-slop-gate:latest \
-  run --provider gemini --policy /data/policy.yml --github-checks
-```
-
-Or for Docker Hub:
-
-```yaml
-docker run --rm \
-  -e GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
-  -v ${{ github.workspace }}:/data \
-  <your-dockerhub-username>/ai-slop-gate:latest \
-  run --provider gemini --policy /data/policy.yml
-```
-
-
 
 ### GitHub Actions Integration
 
 When running in a CI/CD pipeline, you must add these variables to your **GitHub Repository Secrets**:
 
-* **AI_SLOP_GATE_TOKEN**: (Mandatory) A GitHub token with permissions to read the PR diff and write comments.
-* **Provider Keys**: `Add LLAMA_API_KEY`, `GEMINI_API_KEY`, or `SLOPE_GATE_GROQ` depending on which AI service your workflow is configured to use.
+* **GITHUB_TOKEN**: (Mandatory) A GitHub token with permissions to read the PR diff and write comments.
+* **Provider Keys**: `GEMINI_API_KEY`, or `SLOPE_GATE_GROQ` depending on which AI service your workflow is configured to use.
 
 **Note**: Ensure your workflow file references these secrets accordingly.
 

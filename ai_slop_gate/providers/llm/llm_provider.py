@@ -17,18 +17,17 @@ class LlmProvider(BaseProvider):
         pass
 
     def collect(self, base_path: str = ".") -> ProviderObservation:
-        """Реалізація collect через локальний аналіз файлів."""
+        """Create a ProviderObservation."""
         return self.analyze_files(base_path)
 
     def analyze_files(self, path: str) -> ProviderObservation:
-        """Розбиває файли репозиторію на чанки та аналізує їх."""
+        """Chanks a directory and sends it to the LLM."""
         repo_path = Path(path)
         logger.info(f"LLM Provider: Scanning local path {repo_path}")
 
         all_observations = []
         current_chunk = ""
         
-        # Список ігнорування (можна винести в конфіг)
         ignore_dirs = {".git", "node_modules", "venv", "__pycache__", ".idea"}
 
         for file_path in repo_path.rglob("*"):
@@ -40,7 +39,7 @@ class LlmProvider(BaseProvider):
             try:
                 content = file_path.read_text(encoding="utf-8")
                 rel_path = file_path.relative_to(repo_path)
-                # Додаємо маркер файлу для LLM
+                # Wrap each file in a simple header to help the LLM understand the structure. This is especially useful for batch processing.
                 entry = f"--- File: {rel_path} ---\n{content}\n\n"
 
                 if len(current_chunk) + len(entry) > self.MAX_CHUNK_SIZE:
@@ -66,7 +65,7 @@ class LlmProvider(BaseProvider):
         )
 
     def _load_prompt(self, provider_name: str, name: str) -> str:
-        """Завантажує промпт з файлу prompts/{provider_name}/{name}.prompt"""
+        """Load a prompt template from the filesystem based on provider and name. This allows us to keep our prompts organized and easily editable without changing code."""
         prompt_dir = Path(__file__).parent / "prompts" / provider_name
         prompt_file = prompt_dir / f"{name}.prompt"
         

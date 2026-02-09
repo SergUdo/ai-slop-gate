@@ -15,7 +15,7 @@ from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.domain.checks import CheckReport, CheckStatus, CheckAnnotation
 from ai_slop_gate.domain.observation import Observation
 
-# Налаштування логування
+# Set up logging
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

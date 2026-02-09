@@ -12,7 +12,7 @@ class CheckAnnotation:
     file: Optional[str]
     line: Optional[int]
     message: str
-    level: str  # "warning" або "failure"
+    level: str  # "warning" or "failure"
 
 @dataclass(frozen=True)
 class CheckReport:

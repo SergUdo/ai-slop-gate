@@ -288,8 +288,7 @@ class TestMakeObservation:
         assert obs.location.line == 42
 
     def test_make_observation_unicode_in_message(self):
-        """Test make_observation with unicode characters."""
-        message = "Помилка безпеки: знайдена вразливість SQL ін'єкції"
+        message = "SQL injection detected: user input 'DROP TABLE users;' in query 'SELECT * FROM users WHERE id = {input}'"
         obs = make_observation(
             provider="static",
             category="security",

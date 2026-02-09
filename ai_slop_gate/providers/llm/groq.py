@@ -117,7 +117,7 @@ class GroqProvider(LlmProvider):
         return ProviderObservation(self.name, self.model, [], "Max retries reached or Rate Limit exceeded.")
 
     def _call_groq_api(self, prompt: str, strict_json: bool = False) -> dict | None:
-        """Внутрішній метод для виконання HTTP запиту з обробкою статусів."""
+        """Call the Groq API."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -141,7 +141,7 @@ class GroqProvider(LlmProvider):
             resp = requests.post(self.url, headers=headers, json=payload, timeout=45)
             
             if resp.status_code == 429:
-                # Rate Limit exceeded, повертаємо None
+                # Rate Limit handlingwith respect to Groq's guidance
                 retry_after = resp.headers.get("retry-after", "2")
                 logger.warning(f"Groq Rate Limit (429). Waiting {retry_after}s...")
                 time.sleep(float(retry_after))

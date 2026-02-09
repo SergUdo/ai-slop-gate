@@ -36,7 +36,7 @@ class SupplyChainProvider(BaseProvider):
         manifests = ["requirements.txt", "package.json", "pyproject.toml"]
 
         for root, dirs, files in os.walk(target):
-            # Фільтруємо директорії на місці — найефективніший спосіб
+            # Modify dirs in-place to skip excluded directories. This prevents os.walk from descending into them, which improves performance and reduces noise.
             dirs[:] = [d for d in dirs if d not in self.EXCLUDE_DIRS]
 
             for f in files:
@@ -48,7 +48,7 @@ class SupplyChainProvider(BaseProvider):
                         with open(full_path, "r", encoding="utf-8") as content:
                             text = content.read()
 
-                            # Простий приклад: виявлення GPL
+                            # Simple heuristic: if we see "GPL" in the manifest, it's a strong signal of a copyleft license, which has significant compliance implications. We create an observation for this. In a real implementation, we would want to do a more thorough analysis of the license text, but this is a good starting point for demonstration purposes.
                             if "GPL" in text.upper():
                                 observations.append(
                                     make_observation(

@@ -4,7 +4,7 @@ from typing import List
 from dataclasses import replace
 from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
 
-# Під-провайдери
+# import all static analysis providers
 from ai_slop_gate.providers.static.static import StaticProvider
 from ai_slop_gate.providers.static.eslint import ESLintProvider
 from ai_slop_gate.providers.static.static_python import StaticPythonProvider
@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 class StaticPipelineProvider(BaseProvider):
     """
-    Головний статичний пайплайн, який запускає всі під-провайдери
-    над ТІЛЬКИ тим шляхом, який передає користувач.
+    SteticPipelineProvider - the main provider for static analysis. It runs a series of static analysis tools and aggregates their results. The collect() method is the main entry point, which executes each provider in the pipeline and then smartly aggregates the observations, filtering out noise and grouping similar issues together.
     """
 
     EXCLUDE_DIRS = {
@@ -33,7 +32,7 @@ class StaticPipelineProvider(BaseProvider):
         ".idea",
         ".pytest_cache",
         "site-packages",
-        "ai_slop_gate",   # щоб не аналізувати сам себе
+        "ai_slop_gate", 
         "htmlcov",
     }
 
@@ -51,12 +50,11 @@ class StaticPipelineProvider(BaseProvider):
         ]
 
     # -------------------------------------------------------------------------
-    # ГОЛОВНИЙ МЕТОД: аналізує ТІЛЬКИ base_path
+    # Main collect method → runs all providers and aggregates results
     # -------------------------------------------------------------------------
     def collect(self, base_path: str = ".") -> ProviderObservation:
         """
-        Запускає всі статичні провайдери над ТІЛЬКИ тим шляхом,
-        який передав користувач (ctx.path).
+        Runs all providers in the pipeline and aggregates their results.
         """
         all_obs = []
 
@@ -71,7 +69,7 @@ class StaticPipelineProvider(BaseProvider):
         return self._smart_aggregate(all_obs)
 
     # -------------------------------------------------------------------------
-    # Фільтрація та агрегація
+    # Smart aggregation method → filters noise and groups similar issues
     # -------------------------------------------------------------------------
     def _smart_aggregate(self, observations: List) -> ProviderObservation:
         clean_list = []
@@ -84,10 +82,10 @@ class StaticPipelineProvider(BaseProvider):
             elif isinstance(obs.evidence, dict):
                 f = obs.evidence.get("file", "unknown")
 
-            # Нормалізуємо шлях
+            # Normalize path for consistent exclusion checks
             parts = f.replace("\\", "/").split("/")
 
-            # Пропускаємо, якщо файл у чорному списку
+            # Filter out noise based on file paths. This helps reduce false positives from dependencies, build artifacts, or our own code.
             if any(p in self.EXCLUDE_DIRS for p in parts):
                 continue
 
@@ -96,7 +94,7 @@ class StaticPipelineProvider(BaseProvider):
         if not clean_list:
             return ProviderObservation(self.name, self.model, [], "No issues found")
 
-        # Групування
+        # Group similar issues together by signal and file. If there are many similar issues in the same file, we keep a few examples and then add a summary observation to indicate that this is a common pattern. This helps focus attention on unique issues while still acknowledging widespread problems.
         grouped = defaultdict(list)
         for obs in clean_list:
             f_key = obs.location.file if (hasattr(obs, "location") and obs.location) else "unknown"
@@ -117,7 +115,7 @@ class StaticPipelineProvider(BaseProvider):
         return ProviderObservation(self.name, self.model, final_results, "Done")
 
     # -------------------------------------------------------------------------
-    # analyze() → просто викликає collect(base_path)
+    # analyze() → runs the collect() method
     # -------------------------------------------------------------------------
     def analyze(self, code: str, input_file: str = "", base_path: str = ".") -> ProviderObservation:
         return self.collect(base_path=base_path)

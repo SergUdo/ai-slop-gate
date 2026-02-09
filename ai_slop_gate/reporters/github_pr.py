@@ -26,7 +26,7 @@ class GitHubPRReporter(Reporter):
             logger.warning("Skipping PR reporting: GitHub client not initialized.")
             return
 
-        # Обробка статусу (враховуємо, що status може бути як Enum, так і String)
+        # Determine status icon and text based on report status. We want to make it visually clear in the PR comment whether this is a pass, advisory, or fail, so we use emojis and consistent formatting.
         status_val = report.status.name.lower() if hasattr(report.status, 'name') else str(report.status).lower()
         
         status_map = {
@@ -63,7 +63,7 @@ class GitHubPRReporter(Reporter):
     def _group_annotations(self, annotations: List[CheckAnnotation]) -> Dict[str, List[CheckAnnotation]]:
         groups = {}
         for ann in annotations:
-            # Групуємо за сигналом у повідомленні або за типом
+            # Group by the first part of the message (e.g. signal type) to organize observations. This helps reviewers quickly understand the main categories of issues without getting lost in details.
             group_key = ann.message.split("]")[0].replace("[", "") if "]" in ann.message else "Other"
             if group_key not in groups:
                 groups[group_key] = []

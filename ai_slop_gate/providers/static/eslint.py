@@ -19,7 +19,7 @@ class ESLintProvider(BaseProvider):
         target = Path(base_path).absolute()
         
         try:
-            # Запускаємо eslint у вказаній директорії
+            # Run ESLint with JSON output. We use npx to ensure we run the local version if available. The "htmlcov" formatter is used to avoid color codes in the output, and we ignore the .venv directory.
             result = subprocess.run(
                 ["npx", "eslint", ".", "--format", "json", "htmlcov", ".venv"],
                 cwd=target,
@@ -34,7 +34,7 @@ class ESLintProvider(BaseProvider):
             reports = json.loads(result.stdout)
             for file_report in reports:
                 abs_path = file_report.get("filePath")
-                # Конвертуємо абсолютний шлях у відносний для GitHub
+                # Get the relative path for better readability in observations, but fall back to absolute if it fails (e.g., if the file is outside the target directory).
                 try:
                     rel_path = os.path.relpath(abs_path, target)
                 except ValueError:

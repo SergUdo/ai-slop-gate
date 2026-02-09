@@ -19,7 +19,6 @@ def build_parser():
     # -----------------------------
     run_cmd = subparsers.add_parser("run", help="Run analysis")
 
-    # ЗМІНА ТУТ: required=False
     run_cmd.add_argument(
         "--provider",
         "-p",

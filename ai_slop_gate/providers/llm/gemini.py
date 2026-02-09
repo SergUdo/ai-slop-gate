@@ -24,7 +24,7 @@ class GeminiProvider(LlmProvider):
         self._model = genai.GenerativeModel(self.model)
 
     def analyze_pr(self, repo: str, pr_id: int, token: str) -> ProviderObservation:
-        # Логіка GitHub PR (залишається як була, викликає self.analyze в кінці)
+        # Load PR diff using GitHub API, then analyze with Gemini. This avoids sending large diffs through CLI args and allows us to focus on changed code.
         try:
             gh = Github(token)
             repository = gh.get_repo(repo)

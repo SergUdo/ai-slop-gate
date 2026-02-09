@@ -228,16 +228,16 @@ class TestPolicyRule:
         rule = PolicyRule(
             id="unicode-rule",
             when={
-                "description": "Перевіряє безпеку",
-                "language": "укр"
+                "description": "Checks for security issues",
+                "language": "english"
             },
             then={
-                "message": "Помилка безпеки!"
+                "message": "Missing security!"
             }
         )
         
-        assert rule.when["description"] == "Перевіряє безпеку"
-        assert rule.then["message"] == "Помилка безпеки!"
+        assert rule.when["description"] == "Checks for security issues"
+        assert rule.then["message"] == "Missing security!"
 
     def test_policy_rule_special_characters_in_id(self):
         """Test PolicyRule with special characters in id."""
