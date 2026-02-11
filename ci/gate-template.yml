@@ -8,11 +8,11 @@ stages:
   variables:
     SLOP_PATH: $CI_PROJECT_DIR
     SLOP_PROVIDERS: "static"
+  interruptible: true
   script:
     - |
       echo "--- AI SLOP GATE STARTING ---"
       
-      # ВИПРАВЛЕННЯ: Визначаємо шлях до полісі, щоб $SELECTED_POLICY не був порожнім
       if [ -f "policy.yml" ]; then
         SELECTED_POLICY="policy.yml"
       else
@@ -20,7 +20,6 @@ stages:
       fi
       echo "Using policy: $SELECTED_POLICY"
 
-      # Ініціалізація аргументів
       ARGS="" 
       IS_LLM=false
 
@@ -36,13 +35,14 @@ stages:
       fi
 
       echo "DEBUG: Final ARGS are: $ARGS"
+      
       ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$SELECTED_POLICY"
 
 ai_slop_gate_quick:
   extends: .slop_gate_base
   stage: test
   variables:
-    SLOP_PROVIDERS: $SLOP_PROVIDERS
+    SLOP_PROVIDERS: "static"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
