@@ -15,22 +15,28 @@ stages:
   script:
     - |
       echo "--- AI SLOP GATE STARTING ---"
-      echo "Scan Path: $SLOP_PATH"
       
-      # Build providers arguments
-      ARGS=""
-      for p in $SLOP_PROVIDERS; do 
-        ARGS="$ARGS --provider $p"
-      done
-      
-      # Use the policy file that is baked into the image at /app/policy.yml
-      # unless a local one exists in the repo root
+      # Determine policy
       if [ -f "policy.yml" ]; then
         SELECTED_POLICY="policy.yml"
-        echo "Found policy.yml in repository. Using it."
       else
         SELECTED_POLICY="/app/policy.yml"
-        echo "No policy.yml in repository. Using built-in image policy: $SELECTED_POLICY"
+      fi
+
+      # Build arguments
+      ARGS=""
+      IS_LLM=false
+      for p in $SLOP_PROVIDERS; do 
+        ARGS="$ARGS --provider $p"
+        if [[ "$p" == "gemini" || "$p" == "groq" ]]; then
+          IS_LLM=true
+        fi
+      done
+      
+      # Add --llm-local flag if LLM providers are active
+      if [ "$IS_LLM" = true ]; then
+        ARGS="$ARGS --llm-local"
+        echo "LLM providers detected, adding --llm-local flag."
       fi
       
       ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$SELECTED_POLICY"
