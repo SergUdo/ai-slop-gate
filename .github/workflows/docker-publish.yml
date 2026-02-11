@@ -12,13 +12,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       packages: write
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
@@ -28,24 +27,29 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: sergudo
-          password: ${{ secrets.GHCR_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/sergudo/ai-slop-gate
+          images: ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
             type=raw,value=latest
+            type=sha,format=short
 
-      - name: Build and push (no cache)
+      - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          no-cache: true
+          # Fixes tag overwriting and metadata issues in GHCR
+          provenance: false
+          # Inject commit SHA to verify image version inside container
+          build-args: |
+            BUILD_SHA=${{ github.sha }}
