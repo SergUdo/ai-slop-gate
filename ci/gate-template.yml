@@ -16,16 +16,24 @@ stages:
     - |
       echo "--- AI SLOP GATE STARTING ---"
       echo "Scan Path: $SLOP_PATH"
-      echo "Active Providers: $SLOP_PROVIDERS"
       
-      # Transform space-separated providers into --provider arguments
+      # Build providers arguments
       ARGS=""
       for p in $SLOP_PROVIDERS; do 
         ARGS="$ARGS --provider $p"
       done
       
-      # Run the gate logic. Fails the job if blocking issues are found.
-      ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy policy.yml
+      # Use the policy file that is baked into the image at /app/policy.yml
+      # unless a local one exists in the repo root
+      if [ -f "policy.yml" ]; then
+        SELECTED_POLICY="policy.yml"
+        echo "Found policy.yml in repository. Using it."
+      else
+        SELECTED_POLICY="/app/policy.yml"
+        echo "No policy.yml in repository. Using built-in image policy: $SELECTED_POLICY"
+      fi
+      
+      ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$SELECTED_POLICY"
 
 # 1. Quick Analysis (Static provider only, optimized for speed)
 # Runs on every Merge Request and push to the default branch
