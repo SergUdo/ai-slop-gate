@@ -16,16 +16,9 @@ stages:
     - |
       echo "--- AI SLOP GATE STARTING ---"
       
-      # Determine policy
-      if [ -f "policy.yml" ]; then
-        SELECTED_POLICY="policy.yml"
-      else
-        SELECTED_POLICY="/app/policy.yml"
-      fi
-
-      # Build arguments
-      ARGS=""
+      ARGS="" 
       IS_LLM=false
+
       for p in $SLOP_PROVIDERS; do 
         ARGS="$ARGS --provider $p"
         if [[ "$p" == "gemini" || "$p" == "groq" ]]; then
@@ -33,11 +26,10 @@ stages:
         fi
       done
       
-      # Add --llm-local flag if LLM providers are active
       if [ "$IS_LLM" = true ]; then
         ARGS="$ARGS --llm-local"
-        echo "LLM providers detected, adding --llm-local flag."
       fi
+
       echo "DEBUG: Final ARGS are: $ARGS"
       ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$SELECTED_POLICY"
 
