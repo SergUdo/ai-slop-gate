@@ -1,32 +1,34 @@
-# ci/gate-template.yml - Повний шаблон для імпорту
-
-# CI/CD Pipeline для AI SLOP GATE with multiple providers (static, compliance, gemini, groq):
+# CI/CD Pipeline for AI SLOP GATE with multiple providers (static, compliance, gemini, groq)
 stages:
   - test
 
 # Base configuration (Template)
 .slop_gate_base:
-  image: ghcr.io/sergudo/ai-slop-gate:latest
+  image: 
+    name: ghcr.io/sergudo/ai-slop-gate:latest
+    # Overriding entrypoint is crucial for GitLab Runner to execute shell scripts
+    entrypoint: [""] 
   variables:
     SLOP_PATH: $CI_PROJECT_DIR
     SLOP_PROVIDERS: "static"
   interruptible: true
   script:
     - |
-      echo "--- AI SLOP GATE CONFIGURATION ---"
-      echo "Path: $SLOP_PATH"
-      echo "Providers: $SLOP_PROVIDERS"
+      echo "--- AI SLOP GATE STARTING ---"
+      echo "Scan Path: $SLOP_PATH"
+      echo "Active Providers: $SLOP_PROVIDERS"
       
-      # Build the arguments for the gate based on the specified providers
+      # Transform space-separated providers into --provider arguments
       ARGS=""
       for p in $SLOP_PROVIDERS; do 
         ARGS="$ARGS --provider $p"
       done
       
-      # Run the gate with the specified providers and fail on blocking issues
+      # Run the gate logic. Fails the job if blocking issues are found.
       ai-slop-gate run --path "$SLOP_PATH" $ARGS --fail-on blocking
 
-# 1. Speed check (static provider only, running for MRs and main branch)
+# 1. Quick Analysis (Static provider only, optimized for speed)
+# Runs on every Merge Request and push to the default branch
 ai_slop_gate_quick:
   extends: .slop_gate_base
   stage: test
@@ -36,17 +38,17 @@ ai_slop_gate_quick:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# 2. Full check (all providers, running on schedule or manually)
+# 2. Comprehensive Analysis (LLM + Compliance + Static)
+# Runs automatically on MRs if credentials are found, or can be triggered manually
 ai_slop_gate_full:
   extends: .slop_gate_base
   stage: test
-  # Variant with all providers enabled for comprehensive testing
   variables:
     SLOP_PROVIDERS: "static compliance gemini groq"
   rules:
-    # Start automatically for MRs if API keys are set, otherwise allow manual start
+    # Trigger automatically for Merge Requests only if API keys are available
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($GEMINI_API_KEY || $SLOPE_GATE_GROQ)
       when: on_success
-    # ]Can start manually from UI GitLab
+    # Allow manual execution via GitLab UI (Web)
     - if: $CI_PIPELINE_SOURCE == "web"
       when: always
