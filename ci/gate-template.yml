@@ -6,7 +6,7 @@ stages:
 
 # Base configuration (Template)
 .slop_gate_base:
-  image: ghcr.io/sergiudo/ai-slop-gate:latest
+  image: ghcr.io/sergudo/ai-slop-gate:latest
   variables:
     SLOP_PATH: $CI_PROJECT_DIR
     SLOP_PROVIDERS: "static"
