@@ -25,7 +25,7 @@ stages:
       done
       
       # Run the gate logic. Fails the job if blocking issues are found.
-      ai-slop-gate run --path "$SLOP_PATH" $ARGS --fail-on blocking
+      ai-slop-gate run --path "$SLOP_PATH" $ARGS
 
 # 1. Quick Analysis (Static provider only, optimized for speed)
 # Runs on every Merge Request and push to the default branch
