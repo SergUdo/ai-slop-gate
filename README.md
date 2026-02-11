@@ -366,25 +366,43 @@ ai‑slop‑gate can be executed inside Docker for reproducible CI/CD runs.
 docker pull ghcr.io/sergudo/ai-slop-gate:latest
 ```
 
-Run analysis:
+#### 🐳 Running with Docker
 
 ```bash
-docker run -v $(pwd):/app \
-  ghcr.io/sergudo/ai-slop-gate:latest \
-  run --provider static --policy /app/policy.yml --path /path/to/your/
+docker run --rm -v $(pwd):/src ghcr.io/sergudo/ai-slop-gate:latest \
+  run --provider static \
+  --policy /src/policy.yml \
+  --path /src
 ```
 
-#### Build Locally
+**Breakdown of arguments:**
+
+- `-v $(pwd):/src`: Mounts your current directory (containing your code and `policy.yml`) to the `/src` folder inside the container.
+
+- `--rm`: Automatically removes the container after the analysis is finished.
+
+- `--policy /src/policy.yml`: Path to your policy file inside the container.
+
+`--path /src`: The directory to analyze (in this case, everything you mounted).
+
+**Note**: Ensure your `policy.yml` is present in the directory where you run this command, or adjust the path accordingly.
+
+
+#### 🛠️ Build & Run Locally
+
+**Build the image**:
 
 ```bash
 docker build -t ai-slop-gate .
 ```
 
-Minimal run:
+**Run the local image**:
 
 ```bash
-docker run --rm ai-slop-gate \
-  run --provider static --policy /data/policy.yml --path /path/to/your/
+docker run --rm \
+  -v $(pwd):/data \
+  ai-slop-gate \
+  run --provider static --policy /data/policy.yml --path /data
 ```
 
 ### GitHub Actions Integration

@@ -1,0 +1,22 @@
+.slop_gate_base:
+  image: ghcr.io/sergiudo/ai-slop-gate:latest
+  variables:
+    WORKSPACE: $CI_PROJECT_DIR
+  interruptible: true
+
+ai_slop_gate_static:
+  extends: .slop_gate_base
+  stage: test
+  script:
+    - ai-slop-gate run --path $WORKSPACE --provider static --fail-on blocking
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+ai_slop_gate_full:
+  extends: .slop_gate_base
+  stage: test
+  script:
+    - ai-slop-gate run --path $WORKSPACE --provider static --provider compliance --provider gemini --fail-on blocking
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && ($GEMINI_API_KEY || $SLOPE_GATE_GROQ)
