@@ -9,7 +9,7 @@ python -m ai_slop_gate.cli run --policy policy.yml --provider static_pipeline --
 === AI SLOP GATE REPORT ===
 Title: AI Slop Gate Report
 Summary: Verdict: BLOCKING. Found 7 issues.
-Verdict: ALLOW
+Verdict: BLOCKING
 Total findings: 7
 
 Issues:

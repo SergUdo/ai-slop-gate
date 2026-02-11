@@ -101,7 +101,7 @@ If `security_audit.enforce_data_residency` is set to `EU`, the tool will:
 - continue execution (advisory mode)
 - mark the final decision as ADVISORY
 
-This allows using non‑EU LLMs (Gemini, DeepSeek, OpenAI, Copilot SDK)
+This allows using non‑EU LLMs (Gemini, Groq, Copilot SDK)
 while still surfacing GDPR‑related risks.
 
 ## 🛠️ Supported Languages & Infrastructure
@@ -157,15 +157,6 @@ ai-slop-gate/
 └── LICENSE                 # MIT License
 ```
 
-## 🛡️ Polyglot Quality Control
-
-Unlike simple AI wrappers, **ai-slop-gate** uses a multi-layered approach to ensure code integrity across different stacks:
-
-* **Python Engine:** Orchestrates the analysis, manages CI/CD communication, and interfaces with high-speed LLMs.
-* **JavaScript Rulesets:** Uses the `rulesets/eslint` directory to enforce strict production safety and prevent "AI-generated mess" in JS/TS files.
-* **Static + AI:** By combining standard linting (ESLint) with AI logic, the tool catches both syntax errors and complex logical "slop".
-
-
 ## 🏗️ Architecture
 
 ```mermaid
@@ -203,44 +194,6 @@ flowchart TD
   end
 ```
 
-## 🏗️ Architecture (current status)
-
-This section describes the repository architecture and the current development status as of Feb 2, 2026.
-
-- Status: **Pre-Alpha / Experimental** — core features functional, active development on several providers and compliance pipelines.
-- Tests: Comprehensive unit + integration suites are present and passing locally. Full test run: 477 tests, coverage ~85% (html report in htmlcov/index.html).
-
-High-level components
-
-- Adapter Layer: implemented (adapters/). Maps VCS events (PRs/MRs) into the core engine.
-- Core Engine: engine orchestration, policy evaluation, and decision model are implemented. Policy merging and enforcement logic are active areas of work.
-- Providers: multiple providers implemented (LLM: `gemini`, `groq` stubs; Static: `eslint`, `static`, `static-python`, `static-docker`, `static-ts-js`, `static-js` pipeline; infra: `terraform`, `k8s`). Some provider internals remain under development and may require API keys or environment setup to exercise fully.
-- Reporters: `console`, `stdout`, GitHub PR and Checks reporters implemented. GitHub reporters require PyGithub and a token to post to real repos.
-- Testing & QA: integration tests cover end-to-end workflows and provider interactions; unit tests cover domain models, cache backends, and reporter behavior.
-
-Known gaps and roadmap
-
-- Increase targeted unit coverage for provider internals (groq, static pipeline, terraform parsers).
-- Harden CLI utilities and error handling paths (see `ai_slop_gate/cli/utils.py`).
-- Finalize compliance pipeline components under `ai_slop_gate/domain/compliance/` (profile resolver, pipeline orchestration).
-
-Quick commands
-
-Run the full test suite with coverage (recommended locally):
-
-```bash
-source .venv/bin/activate
-python -m pytest ai_slop_gate/tests --cov=ai_slop_gate --cov-report=term-missing --cov-report=html
-```
-
-Open the generated HTML coverage report:
-
-```bash
-xdg-open htmlcov/index.html  # or open in your browser
-```
-
-If you want, I can generate a prioritized list of files to add focused tests for to raise coverage further.
-
 ---
 ## 🔐 Environment Variables
 
@@ -263,6 +216,8 @@ Create a `.env` file in the root directory of your project and add the keys for 
 ```bash
 git clone [https://github.com/SergUdo/ai-slop-gate.git](https://github.com/SergUdo/ai-slop-gate.git)
 cd ai-slop-gate
+python -m venv .venv
+source .venv/bin/activate
 pip install -e .
 ```
 
@@ -349,15 +304,6 @@ When no token is available, you will see:
 Skipping LLM provider 'gemini': insufficient context.
 ```
 
-#### Run (Development Mode)
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --path /path/to/your/
-```
-
 ### Running Tests
 
 ```bash
@@ -368,8 +314,43 @@ or:
 
 ```bash
 source .venv/bin/activate
-python -m pytest ai_slop_gate/tests -v
+python -m pytest ai_slop_gate/tests --cov=ai_slop_gate --cov-report=term-missing --cov-report=html
 ```
+
+Open the generated HTML coverage report:
+
+```bash
+xdg-open htmlcov/index.html  # or open in your browser
+```
+
+If you want, I can generate a prioritized list of files to add focused tests for to raise coverage further.
+
+### 🔍 Analysis Examples & Reports
+You can find real-world execution logs in the docs/ folder:
+
+➡️ **[LLM Analysis (Gemini)](docs/answer_gemini.txt)** - Detection of AI slop, hallucinations, and overengineered patterns using Gemini.
+
+➡️ **[LLM Analysis (Groq)](docs/answer_groq.txt)** - Detection of AI slop, hallucinations, and overengineered patterns using GROQ.
+
+➡️ **[Statics Audit](docs/answer_static_pipelane.txt)** — High-speed, deterministic security & quality gates for polyglot environments:
+
+- **Multi-Language Support**: Built-in static providers for `Python (AST)`, `JavaScript/TypeScript (ESLint)`.
+
+- **Infrastructure as Code (IaC)**: Deep inspection of `Kubernetes (static & runtime)`, `Terraform (static & plan)`, and `Dockerfiles` to prevent misconfigurations.
+
+- **Supply Chain Security**: Validation of dependency manifests and registry integrity to block malicious or high-risk packages.
+
+- **Zero-Cost Pre-filtering**: Instant detection of hardcoded secrets, dangerous functions (eval, exec), and permissive permissions before invoking LLM engines.
+
+➡️ **[Compliance Audit](docs//answer_complaince.txt)** - Automated gate for legal and regulatory requirements:
+
+- **License Intelligence**: Real-time detection of forbidden licenses (GPL/AGPL) and copy-left pattern alerts to prevent IP contamination.
+
+- **AI Hallucination Protection**: Prevention of supply-chain attacks by detecting non-existent or typosquatted package names suggested by LLMs.
+
+- **GDPR/DSGVO Residency**: Strict validation of AI provider regions to ensure code and metadata stay within EU-approved endpoints.
+
+
 
 ### 🐳 Docker Support
 
