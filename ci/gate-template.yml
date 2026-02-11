@@ -38,7 +38,7 @@ stages:
         ARGS="$ARGS --llm-local"
         echo "LLM providers detected, adding --llm-local flag."
       fi
-      
+      echo "DEBUG: Final ARGS are: $ARGS"
       ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$SELECTED_POLICY"
 
 # 1. Quick Analysis (Static provider only, optimized for speed)
