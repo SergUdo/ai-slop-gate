@@ -1,9 +1,11 @@
 import logging
 import time
 import random
+import os
 from pathlib import Path
 from abc import abstractmethod
 from typing import List, Any
+import ai_slop_gate
 from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
 
 logger = logging.getLogger(__name__)
@@ -21,14 +23,14 @@ class LlmProvider(BaseProvider):
         return self.analyze_files(base_path)
 
     def analyze_files(self, path: str) -> ProviderObservation:
-        """Chanks a directory and sends it to the LLM."""
+        """Chunks a directory and sends it to the LLM."""
         repo_path = Path(path)
         logger.info(f"LLM Provider: Scanning local path {repo_path}")
 
         all_observations = []
         current_chunk = ""
         
-        ignore_dirs = {".git", "node_modules", "venv", "__pycache__", ".idea"}
+        ignore_dirs = {".git", "node_modules", "venv", "__pycache__", ".idea", ".venv", "dist", "build"}
 
         for file_path in repo_path.rglob("*"):
             if not file_path.is_file():
@@ -37,9 +39,12 @@ class LlmProvider(BaseProvider):
                 continue
 
             try:
+                # Limit to certain file types to avoid sending large binaries or irrelevant files to the LLM
+                if file_path.suffix.lower() not in ['.py', '.js', '.ts', '.yaml', '.yml', '.dockerfile', '.md', '.txt', '.prompt']:
+                    continue
+
                 content = file_path.read_text(encoding="utf-8")
                 rel_path = file_path.relative_to(repo_path)
-                # Wrap each file in a simple header to help the LLM understand the structure. This is especially useful for batch processing.
                 entry = f"--- File: {rel_path} ---\n{content}\n\n"
 
                 if len(current_chunk) + len(entry) > self.MAX_CHUNK_SIZE:
@@ -47,6 +52,7 @@ class LlmProvider(BaseProvider):
                         res = self.analyze(current_chunk, input_file="local_batch")
                         all_observations.extend(res.observations)
                     current_chunk = entry
+                    # Anti-rate limit: sleep a bit between requests to avoid hitting LLM rate limits
                     time.sleep(1.5 + random.random())
                 else:
                     current_chunk += entry
@@ -65,12 +71,19 @@ class LlmProvider(BaseProvider):
         )
 
     def _load_prompt(self, provider_name: str, name: str) -> str:
-        """Load a prompt template from the filesystem based on provider and name. This allows us to keep our prompts organized and easily editable without changing code."""
-        prompt_dir = Path(__file__).parent / "prompts" / provider_name
-        prompt_file = prompt_dir / f"{name}.prompt"
+        """
+        Loads a prompt template from the filesystem. 
+        Uses absolute path resolution relative to the package root for reliability.
+        """
+        # Path to the package root (where __init__.py of ai_slop_gate is located)
+        package_root = Path(os.path.dirname(ai_slop_gate.__file__))
+        
+        # Construct the absolute path to the prompt file based on the provider name and prompt name
+        prompt_file = package_root / "providers" / "llm" / "prompts" / provider_name / f"{name}.prompt"
         
         if not prompt_file.exists():
-            raise FileNotFoundError(f"Prompt file missing: {prompt_file}")
+            # If the prompt file does not exist, raise an error with a clear message
+            raise FileNotFoundError(f"Prompt file missing: {prompt_file.absolute()}")
         
+        logger.debug(f"Loading prompt from: {prompt_file}")
         return prompt_file.read_text(encoding="utf-8")
-    
