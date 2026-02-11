@@ -245,7 +245,7 @@ python -m ai_slop_gate.cli run --provider static --policy policy.yml --path /pat
 ```
 
 ```bash
-python -m ai_slop_gate.cli run --provider compliance --policy policy.yml --path /path/to/your/project
+ python -m ai_slop_gate.cli run --compliance --policy policy.yml --path /path/to/your/project
 ```
 
 #### Run LLM locally:

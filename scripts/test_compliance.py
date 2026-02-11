@@ -1,3 +1,6 @@
+#  python   scripts/test_compliance.py
+
+
 import os
 import logging
 import json
