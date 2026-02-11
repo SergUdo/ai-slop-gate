@@ -1,6 +1,3 @@
-stages:
-  - test
-
 .slop_gate_base:
   image: 
     name: ghcr.io/sergudo/ai-slop-gate:latest
@@ -8,17 +5,19 @@ stages:
   variables:
     SLOP_PATH: $CI_PROJECT_DIR
     SLOP_PROVIDERS: "static"
-  interruptible: true
   script:
     - |
       echo "--- AI SLOP GATE STARTING ---"
       
-      if [ -f "policy.yml" ]; then
-        SELECTED_POLICY="policy.yml"
+      if [ -z "$SELECTED_POLICY" ]; then
+        if [ -f "policy.yml" ]; then
+          POLICY_PATH="policy.yml"
+        else
+          POLICY_PATH="/app/policy.yml"
+        fi
       else
-        SELECTED_POLICY="/app/policy.yml"
+        POLICY_PATH="$SELECTED_POLICY"
       fi
-      echo "Using policy: $SELECTED_POLICY"
 
       ARGS="" 
       IS_LLM=false
@@ -34,24 +33,12 @@ stages:
         ARGS="$ARGS --llm-local"
       fi
 
-      echo "DEBUG: Final ARGS are: $ARGS"
-      
-      ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$SELECTED_POLICY"
+      echo "DEBUG: Running with providers: $SLOP_PROVIDERS"
+      ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$POLICY_PATH"
 
-ai_slop_gate_quick:
+ai_slop_gate_run:
   extends: .slop_gate_base
   stage: test
-  variables:
-    SLOP_PROVIDERS: "static"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-ai_slop_gate_full:
-  extends: .slop_gate_base
-  stage: test
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($GEMINI_API_KEY || $SLOPE_GATE_GROQ)
-      when: on_success
     - if: $CI_PIPELINE_SOURCE == "web"
-      when: always
