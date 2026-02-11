@@ -1,22 +1,52 @@
+# ci/gate-template.yml - Повний шаблон для імпорту
+
+# CI/CD Pipeline для AI SLOP GATE with multiple providers (static, compliance, gemini, groq):
+stages:
+  - test
+
+# Base configuration (Template)
 .slop_gate_base:
   image: ghcr.io/sergiudo/ai-slop-gate:latest
   variables:
-    WORKSPACE: $CI_PROJECT_DIR
+    SLOP_PATH: $CI_PROJECT_DIR
+    SLOP_PROVIDERS: "static"
   interruptible: true
+  script:
+    - |
+      echo "--- AI SLOP GATE CONFIGURATION ---"
+      echo "Path: $SLOP_PATH"
+      echo "Providers: $SLOP_PROVIDERS"
+      
+      # Build the arguments for the gate based on the specified providers
+      ARGS=""
+      for p in $SLOP_PROVIDERS; do 
+        ARGS="$ARGS --provider $p"
+      done
+      
+      # Run the gate with the specified providers and fail on blocking issues
+      ai-slop-gate run --path "$SLOP_PATH" $ARGS --fail-on blocking
 
-ai_slop_gate_static:
+# 1. Speed check (static provider only, running for MRs and main branch)
+ai_slop_gate_quick:
   extends: .slop_gate_base
   stage: test
-  script:
-    - ai-slop-gate run --path $WORKSPACE --provider static --fail-on blocking
+  variables:
+    SLOP_PROVIDERS: "static"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
+# 2. Full check (all providers, running on schedule or manually)
 ai_slop_gate_full:
   extends: .slop_gate_base
   stage: test
-  script:
-    - ai-slop-gate run --path $WORKSPACE --provider static --provider compliance --provider gemini --fail-on blocking
+  # Variant with all providers enabled for comprehensive testing
+  variables:
+    SLOP_PROVIDERS: "static compliance gemini groq"
   rules:
-    - if: $CI_COMMIT_BRANCH == "main" && ($GEMINI_API_KEY || $SLOPE_GATE_GROQ)
+    # Start automatically for MRs if API keys are set, otherwise allow manual start
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($GEMINI_API_KEY || $SLOPE_GATE_GROQ)
+      when: on_success
+    # ]Can start manually from UI GitLab
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: always
