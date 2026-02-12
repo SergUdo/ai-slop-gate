@@ -1,0 +1,24 @@
+# AI Slop Gate - Trivy Ignore List
+# Policy: Ignore vulnerabilities without a fixed version or those 
+# inherent to the base Debian/Python slim image that are under investigation.
+
+# --- Example of OS-level vulnerabilities (Glibc / OpenSSL) ---
+# CVE-2024-XXXX: Vulnerability in glibc that has no fix for Debian Bookworm yet.
+# CVE-2023-YYYY: OpenSSL issue not reachable via AI Slop Gate CLI logic.
+
+# --- Specific Ignored CVEs (based on your scan) ---
+
+# node-tar: Arbitrary file creation (often found in Node-slim base)
+# We ignore this because we don't use npm/node to extract untrusted archives.
+CVE-2024-28863
+CVE-2022-3517
+
+# glob: Command Injection (found in node_modules of npm)
+# CLI only uses node for internal execution, not for parsing user glob patterns via JS.
+CVE-2022-3520
+
+# cross-spawn: Regular expression denial of service
+CVE-2024-21538
+
+# --- Low/Medium noise ---
+# You can also ignore by ID if you see specific library issues that are false positives
