@@ -5,6 +5,11 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Додаємо права для можливості закриття PR та запису коментарів
+permissions:
+  pull-requests: write
+  contents: read
+
 jobs:
   llm-analysis:
     runs-on: ubuntu-22.04
@@ -14,9 +19,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AI Slop Gate (Gemini PR analysis)
+        id: slop_gate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        continue-on-error: true
         run: |
           docker run --rm \
             -e GITHUB_TOKEN \
@@ -27,3 +34,16 @@ jobs:
               --policy policy.yml \
               --github-repo "${{ github.repository }}" \
               --pr-id "${{ github.event.pull_request.number }}"
+
+      - name: Close PR on Policy Violation
+        if: steps.slop_gate.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr close ${{ github.event.pull_request.number }} \
+            --comment "🚫 PR closed based on the AI Slop Gate analysis above. Please address the issues mentioned in the comments before re-submitting." \
+            --repo ${{ github.repository }}
+
+      - name: Fail workflow if slop detected
+        if: steps.slop_gate.outcome == 'failure'
+        run: exit 1

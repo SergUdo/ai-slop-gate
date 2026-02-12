@@ -508,6 +508,9 @@ When running in a CI/CD pipeline, you must add these variables to your **GitHub 
 
 **Note**: Ensure your workflow file references these secrets accordingly.
 
+### 📺 See it in action
+Check out [this example PR](https://github.com/SergUdo/slop_test/pull/7) where `ai-slop-gate` automatically analyzed, commented on, and closed a low-quality submission.
+
 ### GitLab Integration
 
 AI Slop Gate supports full GitLab CI/CD integration, including static, LLM, and compliance analysis.
