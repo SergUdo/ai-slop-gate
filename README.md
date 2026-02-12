@@ -1,9 +1,9 @@
 # 🛡️ ai-slop-gate
 
-⚠️ **Status: Pre-Alpha / Experimental**
+⚠️ **Status: Active Development (Beta)**
 
 
-*ai-slop-gate is under active development. APIs, behavior, and policies may change without notice. Do NOT rely on this tool for production security decisions yet.*
+*ai-slop-gate is evolving rapidly. While we have implemented robust **DevSecOps gates** (SBOM, License Audit, CVE Scanning), the core AI reasoning logic and APIs are subject to change.*
 
 ---
 **ai-slop-gate** — Open-source CI/CD tool combining static analysis and multi-LLM (Groq, Gemini, GitHub Copilot, OpenRouter) code review to detect low-intent AI-generated code.  
@@ -386,6 +386,17 @@ You can find real-world execution logs in the docs/ folder:
 - **AI Hallucination Protection**: Prevention of supply-chain attacks by detecting non-existent or typosquatted package names suggested by LLMs.
 
 - **GDPR/DSGVO Residency**: Strict validation of AI provider regions to ensure code and metadata stay within EU-approved endpoints.
+
+## 🧪 Test Your Workflow
+
+To see `ai-slop-gate` in action, we maintain a dedicated repository filled with "AI Slop", insecure code patterns, and various violations:
+
+👉 **[SergUdo/slop_test](https://github.com/SergUdo/slop_test)**
+
+You can use this repository to:
+- **Benchmark** the detection engine.
+- **Test** your CI/CD integration.
+- **Verify** how the tool handles different levels of "slop" and policy violations.
 
 ### 🐳 Docker Support
 
