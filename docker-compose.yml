@@ -1,25 +1,23 @@
 services:
   ai-slop-gate:
-    image: ghcr.io/sergudo/ai-slop-gate:latest
     build: .
-    volumes:
-      - .:/app
     environment:
       - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - .:/app
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
 
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
-    ports:
-      - "11434:11434"
     volumes:
       - ollama_storage:/root/.ollama
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 5
 
   model-puller:
@@ -27,7 +25,7 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
-    entrypoint: ["/bin/sh", "-c", "curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"mistral\"}'"]
+    entrypoint: ["/bin/sh", "-c", "curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"qwen2.5-coder:1.5b\"}'"]
 
 volumes:
   ollama_storage:
