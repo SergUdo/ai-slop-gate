@@ -22,3 +22,10 @@ CVE-2024-21538
 
 # --- Low/Medium noise ---
 # You can also ignore by ID if you see specific library issues that are false positives
+
+# Allowed Licenses (Ignore them from failing the build)
+MIT
+Apache-2.0
+BSD-3-Clause
+Python-2.0
+PSF-2.0

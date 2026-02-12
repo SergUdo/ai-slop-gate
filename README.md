@@ -69,8 +69,9 @@ The goal is **early signal, not absolute truth**.
 
 ## ✨ Features
 - 🌍 **Vendor-agnostic:** Seamless integration with GitHub, GitLab.
-- 🤖 **Multi-Model Intelligence:** Supports **Groq (Llama 3.3)** for extreme speed, **Google Gemini** (Free tier) and **Local LLMs (Ollama)** integration.
-- 🇪🇺 **Regulatory Compliance (EU AI Act & DORA)**: Automated safeguards for AI robustness, accuracy, and cybersecurity (Article 15 AI Act) and digital operational resilience for financial sectors
+- 🤖 **Multi-Model Intelligence:** Supports **Groq (Llama 3.3)** (Free tier) for extreme speed, **Google Gemini** (Free tier) and **Local LLMs (Ollama)** (Free tier) integration.
+- 🇪🇺 **Regulatory Compliance (EU AI Act & DORA)**: Automated safeguards for AI robustness, accuracy, and cybersecurity (Article 15 AI Act) and digital operational resilience for financial sectors.
+We provide a full SPDX SBOM for every release to comply with EU AI Act transparency requirements.
 - ⚙️ **CI/CD Ready:** Automated PR commenting via GitHub API (GitHub Actions).
 - 📢 **Advisory Mode:** Highlights issues without blocking workflows; critical issues can optionally fail the build.
 - 🛠️ **Local CLI:** Developers can run audits on their machines using the same rules as the CI.

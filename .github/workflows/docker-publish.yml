@@ -85,3 +85,14 @@ jobs:
         with:
           name: sbom-report
           path: 'sbom-spdx.json'
+
+      # --- STEP 7: License Compliance Audit ---
+      - name: Audit Licenses in SBOM
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'sbom'
+          scan-ref: 'sbom-spdx.json'
+          format: 'table'
+          exit-code: '1'
+          scanners: 'license'
+          severity: 'CRITICAL,HIGH'
