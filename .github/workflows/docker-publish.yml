@@ -77,21 +77,21 @@ jobs:
         uses: anchore/sbom-action@v0
         with:
           image: ${{ fromJson(steps.meta.outputs.json).tags[0] }}
-          artifact-name: "sbom-spdx.json"
           format: "spdx-json"
+          output-file: "sbom-spdx.json"
 
       - name: Upload SBOM as artifact
         uses: actions/upload-artifact@v4
         with:
           name: sbom-report
-          path: 'sbom-spdx.json'
+          path: "./sbom-spdx.json"
 
       # --- STEP 7: License Compliance Audit ---
       - name: Audit Licenses in SBOM
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'sbom'
-          scan-ref: 'sbom-spdx.json'
+          scan-ref: './sbom-spdx.json'
           format: 'table'
           exit-code: '1'
           scanners: 'license'
