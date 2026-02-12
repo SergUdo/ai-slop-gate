@@ -17,7 +17,7 @@ from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
 
 from ai_slop_gate.providers.static.static_pipeline import StaticPipelineProvider
-from ai_slop_gate.providers.llm import GeminiProvider, GroqProvider
+from ai_slop_gate.providers.llm import GeminiProvider, GroqProvider, OllamaProvider
 from ai_slop_gate.domain.compliance.pipeline import CompliancePipeline
 
 load_dotenv()
@@ -28,6 +28,7 @@ PROVIDER_MAP = {
     "static_pipeline": StaticPipelineProvider,
     "gemini": GeminiProvider,
     "groq": GroqProvider,
+    "ollama": OllamaProvider
 }
 
 def resolve_model(policy_config, provider_name: str) -> str | None:

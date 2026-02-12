@@ -18,10 +18,8 @@ ai_provider:
     gemini: gemini-2.5-flash
     groq: llama-3.3-70b-versatile 
     groq_native: gemma-2-9b 
-    openai: gpt-4o-mini
-    copilot: gpt-4o-mini
     local: llama3.1:8b 
-    openrouter: mistral-large 
+    ollama: qwen2.5-coder:1.5b # qwen2.5:7b, qwen2.5:1.5b, mistral, llama3.2:1b, phi3:mini, codegemma:2b, qwen2.5-coder:1.5b, qwen2.5-coder:7b, deepseek-coder:1.3b, llama3.2:1b, gemma2:2b
 
   # NEW: Default provider if none specified 
   default_provider: gemini
