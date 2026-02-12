@@ -380,8 +380,6 @@ You can find real-world execution logs in the docs/ folder:
 
 - **GDPR/DSGVO Residency**: Strict validation of AI provider regions to ensure code and metadata stay within EU-approved endpoints.
 
-
-
 ### 🐳 Docker Support
 
 ai‑slop‑gate can be executed inside Docker for reproducible CI/CD runs.
@@ -433,6 +431,48 @@ docker run --rm \
   -v $(pwd):/data \
   ai-slop-gate \
   run --provider static --policy /data/policy.yml --path /data
+```
+
+### 🐳 Running with Local LLM (Docker & Ollama)
+
+AI Slop Gate is fully containerized and can run with local LLMs (via Ollama) to ensure 100% data privacy and zero API costs.
+
+* **Infrastructure Setup**
+
+The easiest way to start is using the provided `docker-compose.yml`. This will spin up the Gate and an Ollama instance:
+
+```bash
+# Start the local AI infrastructure
+docker-compose up -d
+```
+
+* **Local CLI Execution**
+
+If you want to run the analysis against a local project directory using the containerized engine:
+
+```bash
+python -m ai_slop_gate.cli run \
+  --provider ollama \
+  --llm-local \
+  --path ./your-project \
+  --policy policy.yml
+```
+
+* **CI/CD Integration (GitHub Actions / Self-Hosted)**
+
+To use local LLM in your CI pipeline on a self-hosted runner:
+
+- **Deploy the stack on your runner**: `docker-compose up -d`.
+- **Execute via Action**: Trigger the analysis by mounting the workspace into the container:
+
+```bash
+- name: Run AI Slop Gate
+  run: |
+    docker compose run --rm gate \
+      python -m ai_slop_gate.cli run \
+      --provider ollama \
+      --llm-local \
+      --path /workspace/your-project
 ```
 
 ### GitHub Actions Integration

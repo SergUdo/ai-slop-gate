@@ -74,9 +74,9 @@ jobs:
       - name: Generate SBOM (Software Bill of Materials)
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ steps.meta.outputs.tags }}
+          image: ghcr.io/${{ github.repository }}:latest
           artifact-name: "sbom-spdx.json"
-          output-format: "spdx-json"
+          output-file: "sbom-spdx.json"
 
       - name: Upload SBOM as artifact
         uses: actions/upload-artifact@v4
