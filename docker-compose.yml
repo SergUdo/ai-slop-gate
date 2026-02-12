@@ -1,8 +1,31 @@
 services:
   ai-slop-gate:
-    image: ai_slop_gate:latest
     build: .
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
     volumes:
       - .:/app
-    working_dir: /app
-    entrypoint: ["tail", "-f", "/dev/null"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama_storage:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  model-puller:
+    image: curlimages/curl:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c", "curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"qwen2.5-coder:1.5b\"}'"]
+
+volumes:
+  ollama_storage:

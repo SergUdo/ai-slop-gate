@@ -48,9 +48,10 @@ class ProviderRegistry:
         
         # Try to import LLM providers, but don't fail if dependencies are missing
         try:
-            from .llm import GeminiProvider, GroqProvider
+            from .llm import GeminiProvider, GroqProvider, OllamaProvider
             self.register("gemini", GeminiProvider)
             self.register("groq", GroqProvider)
+            self.register("ollama", OllamaProvider)
         except ImportError:
             # LLM providers require additional dependencies that may not be installed
             pass

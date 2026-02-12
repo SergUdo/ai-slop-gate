@@ -13,6 +13,12 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 FROM node:20-slim AS node-binaries
 
 # ============================
+# Stage: Security Tools (Trivy & Syft)
+# ============================
+FROM aquasec/trivy:latest AS trivy-bin
+FROM anchore/syft:latest AS syft-bin
+
+# ============================
 # Stage 3 — Runtime Image
 # ============================
 FROM python:3.12-slim
@@ -37,6 +43,10 @@ WORKDIR /app
 COPY --from=python-builder /install /usr/local
 COPY --from=node-binaries /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-binaries /usr/local/lib/node_modules /usr/local/lib/node_modules
+# Copy Security Tools from official images
+COPY --from=trivy-bin /usr/local/bin/trivy /usr/local/bin/trivy
+COPY --from=syft-bin /syft /usr/local/bin/syft
+RUN chmod +x /usr/local/bin/trivy /usr/local/bin/syft
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 

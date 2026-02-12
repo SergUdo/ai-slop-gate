@@ -1,5 +1,5 @@
 from ai_slop_gate.cli.utils import load_policy
-from ai_slop_gate.domain.policy_engine import PolicyRule
+from ai_slop_gate.domain.contracts import PolicyRule
 from ai_slop_gate.domain.config import PolicyConfig
 from pathlib import Path
 

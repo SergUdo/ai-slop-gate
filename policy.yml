@@ -18,10 +18,8 @@ ai_provider:
     gemini: gemini-2.5-flash
     groq: llama-3.3-70b-versatile 
     groq_native: gemma-2-9b 
-    openai: gpt-4o-mini
-    copilot: gpt-4o-mini
     local: llama3.1:8b 
-    openrouter: mistral-large 
+    ollama: qwen2.5-coder:1.5b # qwen2.5:7b, qwen2.5:1.5b, mistral, llama3.2:1b, phi3:mini, codegemma:2b, qwen2.5-coder:1.5b, qwen2.5-coder:7b, deepseek-coder:1.3b, llama3.2:1b, gemma2:2b
 
   # NEW: Default provider if none specified 
   default_provider: gemini
@@ -61,6 +59,15 @@ compliance:
  
   security_audit:
     enabled: true
+
+    external_scanners: [trivy]
+    
+    detect_secrets: true
+    detect_pii: true
+    detect_suspicious_todos: true
+
+    # Detect GDPR/PII patterns (emails, SSN-like patterns, personal data)
+    detect_gdpr: true
 
     # Detect hardcoded secrets (API keys, tokens, credentials)
     detect_secrets: true
@@ -153,6 +160,13 @@ rules:
   # These rules are placed BEFORE existing rules to ensure they take precedence
   # over any allow/advisory rules defined later.
   # ---------------------------------------------------------------------------
+  - id: static-failsafe-block
+    when:
+      severity: failure
+    then:
+      action: blocking
+      message: "Security failure detected by static pipeline."
+
   - id: block-llm-failure-in-pr
     when:
       severity: failure
@@ -253,7 +267,38 @@ rules:
     then:
       action: blocking
       message: "Dangerous shell command pattern detected."
-    # ---------------------------------------------------------
+
+  # ---------------------------------------------------------
+  # TRIVY & VULNERABILITY SCANNING
+  # ---------------------------------------------------------
+  - id: block-critical-vulnerabilities
+    when:
+      category: security
+      signal: vulnerability_found
+      severity: critical
+    then:
+      action: blocking
+      message: "CRITICAL vulnerability found by Trivy. Patch required."
+
+  - id: block-high-vulnerabilities
+    when:
+      category: security
+      signal: vulnerability_found
+      severity: high
+    then:
+      action: blocking
+      message: "HIGH vulnerability found by Trivy. Review and fix."
+
+  - id: advisory-vulnerabilities
+    when:
+      category: security
+      signal: vulnerability_found
+      severity: ["medium", "low"]
+    then:
+      action: advisory
+      message: "Security vulnerability detected (Medium/Low). Consider updating dependencies."
+
+  # ---------------------------------------------------------
   # BLOCK: Secrets stored in localStorage (XSS risk)
   # ---------------------------------------------------------
   - id: block-secrets-in-localstorage

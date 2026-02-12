@@ -41,3 +41,9 @@ package-lock.json
 
 # Tests
 htmlcov/
+
+# Sphinx build output
+docs/build/
+
+# Doctree cache
+docs/source/.doctrees/

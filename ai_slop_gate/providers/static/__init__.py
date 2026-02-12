@@ -12,6 +12,8 @@ from .k8s_static import KubernetesStaticProvider
 from .terraform_plan import TerraformPlanProvider
 from .terraform_static import TerraformStaticProvider
 from .supply_chain import SupplyChainProvider
+from .trivy import TrivyProvider
+from .sbom import SBOMProvider
 
 __all__ = [
     "StaticProvider",
@@ -26,4 +28,6 @@ __all__ = [
     "TerraformPlanProvider",
     "TerraformStaticProvider",
     "SupplyChainProvider",
+    "TrivyProvider",
+    "SBOMProvider",
 ]
