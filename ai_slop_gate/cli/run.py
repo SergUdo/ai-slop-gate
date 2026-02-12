@@ -31,16 +31,25 @@ PROVIDER_MAP = {
     "ollama": OllamaProvider
 }
 
-def resolve_model(policy_config, provider_name: str) -> str | None:
+def resolve_model(policy_config, provider_name: str) -> str:
+
     if provider_name in ("static", "static_pipeline"):
         return None
-    ai = policy_config.ai_provider
-    models = ai.get("models", {})
-    if provider_name in models:
-        return models[provider_name]
-    if "model" in ai:
-        return ai["model"]
-    return "default" # Fallback
+
+    ai_cfg = policy_config.ai_provider
+    models_map = ai_cfg.get("models", {})
+
+    if provider_name in models_map:
+        return models_map[provider_name]
+
+    global_model = ai_cfg.get("model")
+    if global_model:
+        return global_model
+
+    raise ValueError(
+        f"[STRICT MODE] No model defined for LLM provider '{provider_name}'. "
+        f"Please specify it in 'ai_provider.models.{provider_name}' or set a global 'ai_provider.model'."
+    )
 
 def get_providers(provider_names: List[str], policy_config=None) -> List[Any]:
     providers = []
@@ -96,10 +105,10 @@ def run_cli(ctx: RuntimeContext) -> int:
             include_filter = build_include_filter(ctx, policy_config.include_paths)
 
         provider_names = ctx.providers or []
-        is_compliance_only = getattr(ctx, "compliance_only", False)
+        
+        is_compliance_enabled = getattr(ctx, "compliance", False) or getattr(ctx, "compliance_only", False)
 
-        # If no providers specified and not compliance-only, log error and exit
-        if not provider_names and not is_compliance_only:
+        if not provider_names and not is_compliance_enabled:
             logger.error("No analyzers specified. Use --provider or --compliance.")
             return 1
 
@@ -122,15 +131,13 @@ def run_cli(ctx: RuntimeContext) -> int:
                 else: # Static
                     result = provider.collect(base_path=ctx.path)
 
-                # Statics may return observations directly, while LLMs return a structured result
                 for obs in result.observations:
                     f_path, _ = extract_location(obs)
                     if not include_filter or include_filter(f_path):
                         all_observations.append(obs)
 
         # --- Step 2: Compliance Checks ---
-        # Run compliance checks if enabled in policy and not overridden by CLI, or if --compliance-only is set
-        should_run_compliance = is_compliance_only or (
+        should_run_compliance = is_compliance_enabled or (
             policy_config.compliance and policy_config.compliance.enabled 
             and not (ctx.github_repo and ctx.pr_id)
         )
@@ -148,7 +155,6 @@ def run_cli(ctx: RuntimeContext) -> int:
 
             for obs in compliance_obs:
                 f_path, _ = extract_location(obs)
-                # Ignore policy.yml from other directories to prevent noise, but allow if it's in the target directory (e.g. monorepo root)
                 if os.path.basename(f_path) == "policy.yml" and policy_dir != target_dir:
                     continue
                 if not include_filter or include_filter(f_path):
@@ -163,6 +169,7 @@ def run_cli(ctx: RuntimeContext) -> int:
         annotations = []
         for obs in all_observations:
             f_path, l_num = extract_location(obs)
+            # Support both severity levels and signals for determining annotation level
             level = "failure" if obs.severity in ["high", "critical", "failure"] else "warning"
             annotations.append(
                 CheckAnnotation(
@@ -181,7 +188,7 @@ def run_cli(ctx: RuntimeContext) -> int:
             reasons=decision.reasons,
         )
 
-        # --- Крок 5: Reporters ---
+        # --- Step 5: Reporters ---
         if ctx.github_repo and github_token and (ctx.pr_id or ctx.github_sha):
             if ctx.pr_id:
                 GitHubPRReporter(github_token, ctx.github_repo, ctx.pr_id).report(report)

@@ -60,6 +60,15 @@ compliance:
   security_audit:
     enabled: true
 
+    external_scanners: [trivy]
+    
+    detect_secrets: true
+    detect_pii: true
+    detect_suspicious_todos: true
+
+    # Detect GDPR/PII patterns (emails, SSN-like patterns, personal data)
+    detect_gdpr: true
+
     # Detect hardcoded secrets (API keys, tokens, credentials)
     detect_secrets: true
 
@@ -151,6 +160,13 @@ rules:
   # These rules are placed BEFORE existing rules to ensure they take precedence
   # over any allow/advisory rules defined later.
   # ---------------------------------------------------------------------------
+  - id: static-failsafe-block
+    when:
+      severity: failure
+    then:
+      action: blocking
+      message: "Security failure detected by static pipeline."
+
   - id: block-llm-failure-in-pr
     when:
       severity: failure
@@ -251,7 +267,38 @@ rules:
     then:
       action: blocking
       message: "Dangerous shell command pattern detected."
-    # ---------------------------------------------------------
+
+  # ---------------------------------------------------------
+  # TRIVY & VULNERABILITY SCANNING
+  # ---------------------------------------------------------
+  - id: block-critical-vulnerabilities
+    when:
+      category: security
+      signal: vulnerability_found
+      severity: critical
+    then:
+      action: blocking
+      message: "CRITICAL vulnerability found by Trivy. Patch required."
+
+  - id: block-high-vulnerabilities
+    when:
+      category: security
+      signal: vulnerability_found
+      severity: high
+    then:
+      action: blocking
+      message: "HIGH vulnerability found by Trivy. Review and fix."
+
+  - id: advisory-vulnerabilities
+    when:
+      category: security
+      signal: vulnerability_found
+      severity: ["medium", "low"]
+    then:
+      action: advisory
+      message: "Security vulnerability detected (Medium/Low). Consider updating dependencies."
+
+  # ---------------------------------------------------------
   # BLOCK: Secrets stored in localStorage (XSS risk)
   # ---------------------------------------------------------
   - id: block-secrets-in-localstorage

@@ -1,5 +1,6 @@
 from ai_slop_gate.domain.observation import Observation, Severity
-from ai_slop_gate.domain.policy_engine import PolicyRule, PolicyEngine
+from ai_slop_gate.domain.contracts import PolicyRule
+from ai_slop_gate.domain.policy_engine import PolicyEngine
 from ai_slop_gate.domain.decision import DecisionMode
 
 

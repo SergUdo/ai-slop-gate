@@ -8,32 +8,34 @@ from ai_slop_gate.providers.static.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.domain.policy_engine import PolicyEngine
 from ai_slop_gate.cli.utils import load_policy
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 def main():
-    logger.info("Loading policy configuration...")
-    policy_config, rules = load_policy("policy.yml")
+    try:
+        policy_config, rules = load_policy("policy.yml")
+    except Exception as e:
+        logger.error(f"Failed to load policy: {e}")
+        return
 
-    logger.info("Initializing StaticPipelineProvider...")
+    # 2. Ініціалізація Пайплайну
+    logger.info("🚀 Starting Static Analysis Pipeline (Static + Trivy)...")
     provider = StaticPipelineProvider()
 
-    logger.info("Collecting observations...")
-    result = provider.collect()
+    result = provider.collect(".")
 
-    logger.info(f"Collected {len(result.observations)} observations:")
+    logger.info(f"📊 Collected {len(result.observations)} findings:")
     for obs in result.observations:
-        logger.info(f"  - {obs.category}: {obs.signal} ({obs.confidence}) - {obs.message}")
+        color = "🔴" if obs.severity == "critical" or obs.severity == "high" else "🟡"
+        logger.info(f"  {color} [{obs.category.upper()}] {obs.message} (Sev: {obs.severity})")
 
-    logger.info("Evaluating observations with PolicyEngine...")
     engine = PolicyEngine(rules)
     decision = engine.evaluate(result.observations)
 
-    logger.info(f"Decision: {decision.mode.value}")
+    logger.info("---")
+    logger.info(f"⚖️ Final Decision: {decision.mode.value.upper()}")
     for reason in decision.reasons:
-        logger.info(f"- {reason}")
+        logger.info(f"  - {reason}")
 
 if __name__ == "__main__":
     main()
-
-

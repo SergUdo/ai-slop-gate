@@ -1,4 +1,4 @@
-from ai_slop_gate.domain.policy_engine import PolicyRule
+from ai_slop_gate.domain.contracts import PolicyRule
 
 
 def test_policy_rule_contract():

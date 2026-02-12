@@ -26,6 +26,9 @@ GitLab CI runs AI Slop Gate using the official Docker image:
 - A `policy.yml` file in the root of your GitLab repository.
 - A `.gitlab-ci.yml` file that invokes the Docker image.
 
+**Policy Override**
+You can override the default policy file using the `--policy` flag. This is particularly useful for monorepos or different environment stages (e.g., `audit-only.yml` vs `strict-production.yml`)
+
 ### Optional (for LLM providers)
 Set GitLab CI/CD variables:
 
@@ -41,117 +44,11 @@ LLM jobs will run only if at least one of these variables is present.
 Below is the recommended configuration for GitLab CI:
 
 ```yaml
-stages:
-  - ai_slop_gate_static
-  - ai_slop_gate_llm
-  - ai_slop_gate_full
-
 variables:
-  DOCKER_IMAGE: "ghcr.io/sergiudo/ai-slop-gate:latest"
-  WORKSPACE: "/workspace"
+  SLOP_PROVIDERS: "gemini" 
+  GEMINI_API_KEY: $GEMINI_API_KEY 
+  SLOPE_GATE_GROQ: $SLOPE_GATE_GROQ
 
-# -----------------------------
-# STATIC ANALYSIS JOB
-# -----------------------------
-ai_slop_gate_static:
-  stage: ai_slop_gate_static
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - echo "Running AI Slop Gate (static providers only)"
-    - docker run --rm \
-        -v "$CI_PROJECT_DIR:$WORKSPACE" \
-        "$DOCKER_IMAGE" \
-        run \
-          --path "$WORKSPACE" \
-          --policy "$WORKSPACE/policy.yml" \
-          --provider static \
-          --fail-on blocking
-  allow_failure: false
-
-# -----------------------------
-# LLM ANALYSIS JOB (Groq + Gemini)
-# -----------------------------
-ai_slop_gate_llm:
-  stage: ai_slop_gate_llm
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - echo "Running AI Slop Gate (LLM providers)"
-    - docker run --rm \
-        -e GEMINI_API_KEY="$GEMINI_API_KEY" \
-        -e SLOPE_GATE_GROQ="$SLOPE_GATE_GROQ" \
-        -v "$CI_PROJECT_DIR:$WORKSPACE" \
-        "$DOCKER_IMAGE" \
-        run \
-          --path "$WORKSPACE" \
-          --policy "$WORKSPACE/policy.yml" \
-          --provider groq \
-          --provider gemini \
-          --fail-on blocking
-  rules:
-    - if: '$GEMINI_API_KEY || $SLOPE_GATE_GROQ'
-      when: on_success
-    - when: never
-  allow_failure: false
-
-# -----------------------------
-# FULL ANALYSIS JOB (static + llm + compliance)
-# -----------------------------
-ai_slop_gate_full:
-  stage: ai_slop_gate_full
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - echo "Running AI Slop Gate (full providers)"
-    - docker run --rm \
-        -e GEMINI_API_KEY="$GEMINI_API_KEY" \
-        -e SLOPE_GATE_GROQ="$SLOPE_GATE_GROQ" \
-        -v "$CI_PROJECT_DIR:$WORKSPACE" \
-        "$DOCKER_IMAGE" \
-        run \
-          --path "$WORKSPACE" \
-          --policy "$WORKSPACE/policy.yml" \
-          --provider static \
-          --provider groq \
-          --provider gemini \
-          --provider compliance \
-          --fail-on blocking
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      when: on_success
-    - when: never
-  allow_failure: false
-  ```
-
----
-
-## 4. Running Different Types of Analysis
-
-### Static analysis (always runs)
-No environment variables required.
-
-Runs automatically via:
-
-```bash
-ai_slop_gate_static
+include:
+  - remote: 'https://raw.githubusercontent.com/sergudo/ai-slop-gate/main/ci/gate-template.yml'
 ```
-
-### LLM analysis (Groq + Gemini)
-
-Requires at least one variable:
-
-`SLOPE_GATE_GROQ`
-
-`GEMINI_API_KEY`
-
-Runs automatically via:
-
-```bash
-ai_slop_gate_llm
-```
-
-
