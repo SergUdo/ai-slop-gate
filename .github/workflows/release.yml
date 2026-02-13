@@ -17,14 +17,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # -----------------------------
-      # 1. Checkout
-      # -----------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # -----------------------------
-      # 2. Semantic Versioning (auto bump)
+      # 1. Semantic Versioning
       # -----------------------------
       - name: Determine next version
         id: semver
@@ -45,7 +42,7 @@ jobs:
           git push origin $VERSION
 
       # -----------------------------
-      # 3. Generate CHANGELOG
+      # 2. Generate CHANGELOG
       # -----------------------------
       - name: Generate changelog
         id: changelog
@@ -57,14 +54,11 @@ jobs:
         run: echo "${{ steps.changelog.outputs.changelog }}" > CHANGELOG.md
 
       # -----------------------------
-      # 4. Set up Docker Buildx
+      # 3. Docker Buildx
       # -----------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # -----------------------------
-      # 5. Login to GHCR
-      # -----------------------------
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -72,9 +66,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      # -----------------------------
-      # 6. Extract metadata (tags)
-      # -----------------------------
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -86,9 +77,6 @@ jobs:
             type=raw,value=${{ env.VERSION }}
             type=sha,format=short
 
-      # -----------------------------
-      # 7. Multi-arch build (amd64 + arm64)
-      # -----------------------------
       - name: Build and push multi-arch image
         id: build
         uses: docker/build-push-action@v5
@@ -103,28 +91,38 @@ jobs:
           provenance: false
 
       # -----------------------------
-      # 8. Sign image with cosign
+      # 4. Extract digest for signing
+      # -----------------------------
+      - name: Extract image digest
+        id: digest
+        run: |
+          DIGEST=$(docker buildx imagetools inspect ghcr.io/${{ github.repository }}:${{ env.VERSION }} --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+
+      # -----------------------------
+      # 5. Cosign signing (digest only)
       # -----------------------------
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: Sign image
+      - name: Sign image with cosign
         env:
           COSIGN_EXPERIMENTAL: "true"
           COSIGN_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
-          for tag in ${{ steps.meta.outputs.tags }}; do
-            cosign sign --key env://COSIGN_KEY $tag
-          done
+          cosign sign \
+            --yes \
+            --key env://COSIGN_KEY \
+            ghcr.io/${{ github.repository }}@${{ steps.digest.outputs.digest }}
 
       # -----------------------------
-      # 9. Trivy scan
+      # 6. Trivy scan
       # -----------------------------
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ fromJson(steps.meta.outputs.json).tags[0] }}
+          image-ref: ghcr.io/${{ github.repository }}@${{ steps.digest.outputs.digest }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
@@ -136,12 +134,12 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
       # -----------------------------
-      # 10. SBOM
+      # 7. SBOM
       # -----------------------------
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ fromJson(steps.meta.outputs.json).tags[0] }}
+          image: ghcr.io/${{ github.repository }}@${{ steps.digest.outputs.digest }}
           format: "spdx-json"
           output-file: "sbom-spdx.json"
 
@@ -152,7 +150,22 @@ jobs:
           path: "./sbom-spdx.json"
 
       # -----------------------------
-      # 11. License audit
+      # 9. Create GitHub Release
+      # -----------------------------
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: Release ${{ env.VERSION }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+
+      # -----------------------------
+      # 8. License audit
       # -----------------------------
       - name: Audit Licenses in SBOM
         uses: aquasecurity/trivy-action@master
