@@ -78,4 +78,30 @@ def build_parser():
         help="Run compliance checks"
     )
 
+    # GitLab integration
+    run_cmd.add_argument(
+        '--gitlab-project',
+        type=str,
+        help='GitLab project path (e.g., username/project or group/subgroup/project)'
+    )
+
+    run_cmd.add_argument(
+        '--mr-iid',
+        type=int,
+        help='GitLab Merge Request IID (internal ID)'
+    )
+
+    run_cmd.add_argument(
+        '--gitlab-url',
+        type=str,
+        default='https://gitlab.com',
+        help='GitLab instance URL (default: https://gitlab.com)'
+    )
+
+    run_cmd.add_argument(
+        '--gitlab-token',
+        type=str,
+        help='GitLab API token (or use GITLAB_TOKEN / CI_JOB_TOKEN env var)'
+    )
+
     return parser

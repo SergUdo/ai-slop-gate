@@ -45,7 +45,6 @@ jobs:
             ghcr.io/sergudo/ai-slop-gate:latest \
             run --provider static --path /data > raw_report.txt 2>&1
           
-          # Виводимо в консоль для дебагу
           cat raw_report.txt
 
       - name: Professional Static Report
@@ -53,15 +52,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Витягуємо тільки змістовну частину звіту
-          # Ми прибираємо логи таймстемпів і залишаємо лише блок REPORT
-          sed -n '/=== AI SLOP GATE REPORT ===/,/=== END OF REPORT ===/p' raw_report.txt > clean_report.md
+          sed -n '/=== AI SLOP GATE STATIC REPORT ===/,/=== END OF REPORT ===/p' raw_report.txt > clean_report.md
           
-          # Додаємо емодзі та форматування як у Gemini
           echo "### 🚨 AI Slop Gate Static Analysis" > final_comment.md
           echo "The static analysis pipeline has identified policy violations that require attention." >> final_comment.md
           echo "" >> final_comment.md
           cat clean_report.md >> final_comment.md
           
-          # Публікуємо професійний коментар
           gh pr comment ${{ github.event.pull_request.number }} --body-file final_comment.md --repo ${{ github.repository }}

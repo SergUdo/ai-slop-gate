@@ -1,8 +1,7 @@
 import os
 import sys
 import logging
-import json
-from typing import List, Any, Optional
+from typing import List, Any
 from dotenv import load_dotenv
 
 from ai_slop_gate.cli.utils import load_policy
@@ -15,6 +14,7 @@ from ai_slop_gate.domain.decision import DecisionMode
 from ai_slop_gate.reporters.console import ConsoleReporter
 from ai_slop_gate.reporters.github_pr import GitHubPRReporter
 from ai_slop_gate.reporters.github_checks import GitHubChecksReporter
+from ai_slop_gate.reporters.gitlab_mr import GitLabMRReporter
 
 from ai_slop_gate.providers.static.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.providers.llm import GeminiProvider, GroqProvider, OllamaProvider
@@ -32,7 +32,6 @@ PROVIDER_MAP = {
 }
 
 def resolve_model(policy_config, provider_name: str) -> str:
-
     if provider_name in ("static", "static_pipeline"):
         return None
 
@@ -74,7 +73,7 @@ def build_include_filter(ctx: RuntimeContext, include_paths: List[str]):
     return is_included
 
 def extract_location(obs: Observation):
-    """Extract file path and line number from an observation, handling different possible structures."""
+    """Extract file path and line number from an observation."""
     file_path = "root"
     line_num = 1
     if hasattr(obs, "location") and obs.location:
@@ -94,7 +93,9 @@ def run_cli(ctx: RuntimeContext) -> int:
     )
 
     logger.info("--- AI SLOP GATE STARTING ---")
+    
     github_token = ctx.github_token or os.getenv("GITHUB_TOKEN")
+    gitlab_token = ctx.gitlab_token or os.getenv("GITLAB_TOKEN") or os.getenv("CI_JOB_TOKEN")
 
     try:
         logger.info(f"Loading policy file: {ctx.policy_path}")
@@ -106,34 +107,36 @@ def run_cli(ctx: RuntimeContext) -> int:
 
         provider_names = ctx.providers or []
         
-        # ✅ ДЕТАЛЬНЕ ЛОГУВАННЯ РЕЖИМІВ
+        # Working mode detection
         is_compliance_only = getattr(ctx, "compliance_only", False)
         is_compliance_flag = getattr(ctx, "compliance", False)
-        is_pr_mode = bool(ctx.github_repo and ctx.pr_id)
+        is_github_pr = bool(ctx.github_repo and ctx.pr_id)
+        is_gitlab_mr = bool(getattr(ctx, 'gitlab_project', None) and getattr(ctx, 'mr_iid', None))  # ✅ ДОДАНО
         
         logger.info("=" * 60)
         logger.info("EXECUTION MODE DETECTION:")
         logger.info(f"  Providers requested: {provider_names or '(none)'}")
         logger.info(f"  --compliance flag: {is_compliance_flag}")
         logger.info(f"  --compliance-only flag: {is_compliance_only}")
-        logger.info(f"  GitHub PR mode: {is_pr_mode}")
-        if is_pr_mode:
-            logger.info(f"    repo: {ctx.github_repo}, PR: {ctx.pr_id}")
+        logger.info(f"  GitHub PR mode: {is_github_pr}")
+        logger.info(f"  GitLab MR mode: {is_gitlab_mr}")
+        if is_github_pr:
+            logger.info(f"    GitHub repo: {ctx.github_repo}, PR: {ctx.pr_id}")
+        if is_gitlab_mr:
+            logger.info(f"    GitLab project: {ctx.gitlab_project}, MR: {ctx.mr_iid}")
         logger.info(f"  policy.compliance.enabled: {policy_config.compliance.enabled if policy_config.compliance else 'N/A'}")
         if policy_config.compliance:
             run_in_pr = getattr(policy_config.compliance, 'run_in_pr', False)
             logger.info(f"  policy.compliance.run_in_pr: {run_in_pr}")
         logger.info("=" * 60)
 
-        # Якщо нічого не вказано, помилка
         if not provider_names and not is_compliance_flag and not is_compliance_only:
             logger.error("❌ No analyzers specified. Use --provider, --compliance, or --compliance-only.")
             return 1
 
         all_observations: List[Observation] = []
 
-        # --- Step 1: Run LLM / Static Providers ---
-        # ✅ Провайдери НЕ запускаються якщо --compliance-only
+        # Step 1: Providers
         if provider_names and not is_compliance_only:
             logger.info(f"▶️  STEP 1: Running {len(provider_names)} provider(s)")
             providers = get_providers(provider_names, policy_config=policy_config)
@@ -141,14 +144,14 @@ def run_cli(ctx: RuntimeContext) -> int:
                 logger.info(f"  → Running provider: {provider.name} ({provider.kind})")
                 
                 if provider.kind == "llm":
-                    if ctx.github_repo and ctx.pr_id:
+                    if is_github_pr:
                         result = provider.analyze_pr(ctx.github_repo, ctx.pr_id, github_token)
                     elif ctx.llm_local:
                         result = provider.analyze_files(ctx.path)
                     else:
                         logger.warning(f"  ⚠️  Skipping LLM provider '{provider.name}': insufficient context.")
                         continue
-                else: # Static
+                else:
                     result = provider.collect(base_path=ctx.path)
 
                 provider_obs_count = 0
@@ -162,21 +165,17 @@ def run_cli(ctx: RuntimeContext) -> int:
         else:
             logger.info("⏭️  STEP 1: Skipped (no providers or --compliance-only mode)")
 
-        # --- Step 2: Compliance Checks ---
-        # ✅ ВИПРАВЛЕНА ЛОГІКА
+        # Step 2: Compliance
         should_run_compliance = False
         compliance_reason = []
         
-        # Причина 1: Явний флаг від користувача
         if is_compliance_flag or is_compliance_only:
             should_run_compliance = True
             compliance_reason.append("explicit --compliance flag")
         
-        # Причина 2: Увімкнено в policy.yml
         if policy_config.compliance and policy_config.compliance.enabled:
-            # Перевіряємо чи можна запускати в поточному режимі
+            is_pr_mode = is_github_pr or is_gitlab_mr
             if is_pr_mode:
-                # В PR режимі - тільки якщо run_in_pr=true
                 run_in_pr = getattr(policy_config.compliance, 'run_in_pr', False)
                 if run_in_pr:
                     should_run_compliance = True
@@ -184,7 +183,6 @@ def run_cli(ctx: RuntimeContext) -> int:
                 else:
                     compliance_reason.append("(blocked: run_in_pr=false)")
             else:
-                # Локальний режим - завжди запускати
                 should_run_compliance = True
                 compliance_reason.append("policy.compliance.enabled=true (local mode)")
 
@@ -206,7 +204,6 @@ def run_cli(ctx: RuntimeContext) -> int:
             compliance_obs_count = 0
             for obs in compliance_obs:
                 f_path, _ = extract_location(obs)
-                # Пропускаємо policy.yml з іншої директорії
                 if os.path.basename(f_path) == "policy.yml" and policy_dir != target_dir:
                     continue
                 if not include_filter or include_filter(f_path):
@@ -217,7 +214,7 @@ def run_cli(ctx: RuntimeContext) -> int:
         else:
             logger.info("  ⏭️  Compliance skipped")
 
-        # --- Step 3: Evaluate ---
+        # Step 3: Evaluate
         logger.info("▶️  STEP 3: Policy evaluation")
         logger.info(f"  Total observations: {len(all_observations)}")
         
@@ -225,11 +222,10 @@ def run_cli(ctx: RuntimeContext) -> int:
         decision = engine.evaluate(all_observations)
         logger.info(f"  ✅ Policy Verdict: {decision.mode.value.upper()}")
 
-        # --- Step 4: Report ---
+        # Step 4: Report
         annotations = []
         for obs in all_observations:
             f_path, l_num = extract_location(obs)
-            # Support both severity levels and signals for determining annotation level
             level = "failure" if obs.severity in ["high", "critical", "failure"] else "warning"
             annotations.append(
                 CheckAnnotation(
@@ -248,9 +244,20 @@ def run_cli(ctx: RuntimeContext) -> int:
             reasons=decision.reasons,
         )
 
-        # --- Step 5: Reporters ---
+        # Step 5: Reporters
         logger.info("▶️  STEP 5: Reporting")
-        if ctx.github_repo and github_token and (ctx.pr_id or ctx.github_sha):
+        
+        # GitLab MR Reporter
+        if is_gitlab_mr and gitlab_token:
+            logger.info(f"  Using GitLab MR reporter for {ctx.gitlab_project}!{ctx.mr_iid}")
+            GitLabMRReporter(
+                gitlab_token, 
+                ctx.gitlab_project, 
+                ctx.mr_iid,
+                gitlab_url=getattr(ctx, 'gitlab_url', 'https://gitlab.com')
+            ).report(report)
+        # GitHub Reporters
+        elif is_github_pr and github_token:
             logger.info(f"  Using GitHub reporters for repo={ctx.github_repo}")
             if ctx.pr_id:
                 logger.info(f"  → Posting PR comment to PR #{ctx.pr_id}")
@@ -258,8 +265,9 @@ def run_cli(ctx: RuntimeContext) -> int:
             if ctx.github_sha:
                 logger.info(f"  → Creating GitHub Check for commit {ctx.github_sha}")
                 GitHubChecksReporter(github_token, ctx.github_repo, ctx.github_sha).report(report)
+        # Console fallback
         else:
-            logger.info("  Using console reporter (no GitHub context)")
+            logger.info("  Using console reporter (no CI/CD context)")
             ConsoleReporter(verbose=ctx.verbose).report(report)
 
         logger.info("=" * 60)

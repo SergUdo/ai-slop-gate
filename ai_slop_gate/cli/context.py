@@ -32,3 +32,16 @@ class RuntimeContext:
 
     # Compliance-only mode
     compliance_only: bool = False
+    
+    # GitLab MR mode
+    github_repo: Optional[str] = None
+    pr_id: Optional[int] = None
+    github_sha: Optional[str] = None
+    github_token: Optional[str] = None
+    
+    # GitLab MR mode  
+    gitlab_project: Optional[str] = None
+    mr_iid: Optional[int] = None
+    gitlab_url: str = 'https://gitlab.com'
+    gitlab_token: Optional[str] = None
+    
