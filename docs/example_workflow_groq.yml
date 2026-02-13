@@ -22,15 +22,15 @@ jobs:
         id: slop_gate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SLOPE_GATE_GROQ: ${{ secrets.SLOPE_GATE_GROQ }}
         continue-on-error: true
         run: |
           docker run --rm \
             -e GITHUB_TOKEN \
-            -e GEMINI_API_KEY \
+            -e SLOPE_GATE_GROQ \
             ghcr.io/sergudo/ai-slop-gate:latest \
             run \
-              --provider gemini \
+              --provider groq \
               --policy policy.yml \
               --github-repo "${{ github.repository }}" \
               --pr-id "${{ github.event.pull_request.number }}"

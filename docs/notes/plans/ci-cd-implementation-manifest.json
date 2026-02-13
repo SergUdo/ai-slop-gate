@@ -1,70 +1,192 @@
 {
   "manifest_metadata": {
     "project": "ai-slop-gate",
+    "version": "2.1",
     "execution_mode": "STRICT_MODE",
     "enforcement_policy": "never_hallucinate",
-    "instruction": "Use this JSON as the absolute source of truth for implementation. Do not invent new parameters."
+    "instruction": "Use this JSON as the absolute source of truth for implementation. Do not invent new parameters.",
+    "positioning": "Open-source, free, EU-oriented compliance-grade architecture"
   },
   "implementation_roadmap": [
     {
       "step": 1,
       "feature": "GitHub Action (plug-and-play)",
       "description": "Integrate into GitHub repository for automated analysis on push/pull_request.",
-      "usage_example": "- uses: ./.github/actions/ai-slop-gate\n  with:\n    policy: \"policy.yml\"\n    provider: \"static\"\n    enforcement: \"advisory\"",
-      "benefits": ["Easy integration", "Multi-provider support", "Configurable enforcement"]
+      "benefits": [
+        "Easy integration",
+        "Multi-provider support",
+        "Configurable enforcement",
+        "Stateless execution model"
+      ]
     },
     {
       "step": 2,
-      "feature": "GitLab CI Template",
-      "description": "Integration via remote include for GitLab CI/CD.",
-      "usage_example": "include:\n  - remote: \"https://raw.githubusercontent.com/SergUdo/ai-slop-gate/main/ci/ai-slop-gate.gitlab-ci.yml\"",
-      "benefits": ["Remote include support", "Artifacts for reports"]
+      "feature": "Kubernetes Deployment Model",
+      "description": "Provide production-ready Kubernetes deployment with stateless API replicas and worker replicas.",
+      "sub_features": [
+        "Stateless API layer",
+        "Horizontal scaling support",
+        "Health probes (liveness/readiness)",
+        "Graceful shutdown",
+        "ConfigMap and Secret integration"
+      ],
+      "benefits": [
+        "Cloud-native deployment",
+        "Enterprise readiness",
+        "HA-ready architecture"
+      ]
     },
     {
       "step": 3,
-      "feature": "Kubernetes Job",
-      "description": "Run as a K8s Job to analyze manifests or code in-cluster.",
-      "usage_example": "kubectl apply -f k8s/job-ai-slop-gate.yaml",
-      "benefits": ["GitOps workflows", "ConfigMap support"]
+      "feature": "Cluster Mode (Production Default)",
+      "description": "Distributed architecture with multiple API and Worker replicas using shared Redis state.",
+      "requirements": [
+        "API must remain stateless",
+        "All job state externalized",
+        "Idempotent job processing",
+        "Retry with exponential backoff",
+        "Dead-letter queue support",
+        "Distributed locking with TTL"
+      ],
+      "benefits": [
+        "Horizontal scalability",
+        "Fault isolation",
+        "Production reliability"
+      ]
     },
     {
       "step": 4,
-      "feature": "pre-commit Hook",
-      "description": "Run analysis before every commit.",
-      "usage_example": "- repo: local\n  hooks:\n    - id: ai-slop-gate\n      entry: docker run -v $(pwd):/app ghcr.io/sergudo/ai-slop-gate:latest run --policy /app/policy.yml --provider static",
-      "benefits": ["Fast feedback", "Early issue detection"]
+      "feature": "Storage Strategy (Phase 1 - Redis Primary)",
+      "description": "Use Redis as primary storage for job state, cache, locking, and queue in early production phase.",
+      "allowed_usage": [
+        "Scan job state",
+        "Temporary analysis results",
+        "Rate limiting",
+        "Distributed locks",
+        "Queue management",
+        "Cache"
+      ],
+      "forbidden_usage": [
+        "Long-term audit logs",
+        "Compliance history persistence",
+        "Tenant billing data",
+        "Security-critical audit storage"
+      ],
+      "requirements": [
+        "AOF persistence enabled",
+        "Snapshot backups configured",
+        "Data-loss tolerance documented"
+      ],
+      "benefits": [
+        "High performance",
+        "Low operational complexity",
+        "Fast MVP iteration"
+      ]
     },
     {
       "step": 5,
-      "feature": "Security Scanning (Trivy)",
-      "description": "Scan Docker image for vulnerabilities.",
-      "usage_example": "- uses: aquasecurity/trivy-action@master\n  with:\n    image-ref: \"ghcr.io/sergudo/ai-slop-gate:latest\"\n    severity: \"CRITICAL,HIGH\"",
-      "benefits": ["Detect critical vulnerabilities", "Automated CI scanning"]
+      "feature": "Storage Evolution (Phase 2 - Hybrid Redis + Postgres)",
+      "description": "Introduce PostgreSQL as authoritative store when scale or compliance requirements increase.",
+      "redis_role": [
+        "Cache",
+        "Queue",
+        "Locks",
+        "Hot data"
+      ],
+      "postgres_role": [
+        "Compliance results",
+        "Audit trails",
+        "Tenant configuration",
+        "User data",
+        "Scoring history"
+      ],
+      "architecture_requirements": [
+        "Repository abstraction layer",
+        "Storage-agnostic domain model",
+        "Migration strategy defined",
+        "Schema versioning"
+      ],
+      "benefits": [
+        "Compliance readiness",
+        "Audit-grade persistence",
+        "Enterprise adoption"
+      ]
     },
     {
       "step": 6,
-      "feature": "SBOM (Software Bill of Materials)",
-      "description": "Generate SBOM using Anchore Syft.",
-      "usage_example": "- uses: anchore/sbom-action@v0\n  with:\n    image: \"ghcr.io/sergudo/ai-slop-gate:latest\"\n    format: \"spdx-json\"",
-      "benefits": ["Compliance (NIST, ISO)", "Component tracking"]
+      "feature": "Reliability Model",
+      "description": "Define SLO, graceful shutdown strategy, and failure domains.",
+      "requirements": [
+        "SLO definition (availability & latency)",
+        "Failure domain separation (API, Worker, Redis, LLM)",
+        "Graceful shutdown handling",
+        "Backpressure strategy"
+      ],
+      "benefits": [
+        "Operational clarity",
+        "Predictable scaling",
+        "Enterprise trust"
+      ]
     },
     {
       "step": 7,
-      "feature": "Release Automation (semantic-release)",
-      "description": "Automate releases based on Conventional Commits.",
-      "usage_example": "- uses: cycjimmy/semantic-release-action@v4\n  with:\n    extra_plugins: |\n      @semantic-release/changelog\n      @semantic-release/git",
-      "benefits": ["Automatic changelog", "Semantic versioning"]
+      "feature": "Security Architecture (Zero Trust Internal Model)",
+      "description": "Apply European-grade security practices while remaining open-source.",
+      "requirements": [
+        "mTLS between services (future phase)",
+        "Secrets management via Vault or sealed secrets",
+        "No hardcoded credentials",
+        "Private network segmentation for Redis and DB",
+        "RBAC model"
+      ],
+      "benefits": [
+        "EU compliance alignment",
+        "Enterprise readiness",
+        "Secure-by-design approach"
+      ]
     },
     {
       "step": 8,
-      "feature": "Multi-arch Docker Build",
-      "description": "Build images for amd64 and arm64.",
-      "usage_example": "- uses: docker/build-push-action@v5\n  with:\n    platforms: linux/amd64,linux/arm64",
-      "benefits": ["AWS Graviton support", "Broad compatibility"]
+      "feature": "Observability Foundation",
+      "description": "Introduce structured logging and metrics for cluster deployments.",
+      "requirements": [
+        "Structured logs",
+        "Centralized logging support",
+        "Metrics endpoint",
+        "Error-rate monitoring",
+        "Future tracing support"
+      ],
+      "benefits": [
+        "Operational transparency",
+        "Faster debugging",
+        "Production monitoring readiness"
+      ]
     }
   ],
   "technical_matrix": {
-    "target_audiences": ["Developers", "DevOps", "SRE", "Security Teams", "Enterprise"],
-    "critical_components": ["static", "gemini", "k8s-runtime", "policy.yml"]
+    "target_audiences": [
+      "Developers",
+      "DevOps",
+      "SRE",
+      "Security Teams",
+      "Enterprise"
+    ],
+    "critical_components": [
+      "static",
+      "gemini",
+      "k8s-runtime",
+      "policy.yml",
+      "redis",
+      "repository-layer"
+    ],
+    "deployment_models": [
+      "single-node",
+      "cluster-mode",
+      "enterprise-hardened"
+    ],
+    "storage_strategy": [
+      "redis-phase-1",
+      "hybrid-redis-postgres-phase-2"
+    ]
   }
 }

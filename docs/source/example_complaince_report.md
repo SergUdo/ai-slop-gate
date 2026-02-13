@@ -21,6 +21,5 @@ INFO:__main__:--- Found 16 issues ---
 [MEDIUM] data_residency_violation at policy.yml:None -> AI provider region 'US' does not satisfy required residency 'EU' (mode: advisory).
 ------------------------------------------------------------
 FINAL DECISION: BLOCKING
-REASONS: []
 ------------------------------------------------------------
 INFO:__main__:✅ SUCCESS: Compliance pipeline detected violations.

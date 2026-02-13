@@ -1,12 +1,12 @@
 {
-  "snapshot_version": "7.2",
+  "snapshot_version": "7.3",
   "project": {
     "name": "ai-slop-gate",
     "stage": "Stage 1",
     "status": "canonical",
     "purpose": "Policy-driven AI, supply-chain and compliance gate for code and infrastructure"
   },
- 
+
   "principles": {
     "no_hidden_logic": true,
     "policy_is_source_of_truth": true,
@@ -16,7 +16,7 @@
     "tests_lock_contracts_not_behavior": true,
     "cache_is_cost_control_not_performance": true
   },
- 
+
   "execution_model": {
     "flow": [
       "CLI parses flags",
@@ -30,7 +30,7 @@
       "Exit code is derived from decision"
     ]
   },
- 
+
   "cli": {
     "entrypoint": "python -m ai_slop_gate.cli.main",
     "commands": ["init", "run"],
@@ -50,7 +50,7 @@
       "--pr-id": "Pull Request ID"
     }
   },
- 
+
   "engine": {
     "type": "function-based",
     "entry": "run_analysis(args) -> Decision",
@@ -68,7 +68,7 @@
       "no exit calls"
     ]
   },
- 
+
   "policy": {
     "format": "policy.yml",
     "versioned": true,
@@ -84,25 +84,27 @@
       "outputs": "Decision(mode, reasons)"
     }
   },
- 
+
   "providers": {
     "contract": {
       "static": "collect(input) -> list[Observation]",
       "llm": "analyze(inputs) -> list[Observation]"
     },
     "builtins": [
-      "static",
-      "k8s-runtime",
-      "supply-chain",
-      "llm"
-    ],
-    "design_rules": [
-      "providers must be side-effect free",
-      "providers must not read policy directly",
-      "providers must not perform IO formatting"
+      "K8sRuntime",
+      "KubernetesStatic",
+      "StaticDocker",
+      "StaticTSJS",
+      "StaticPython",
+      "SupplyChain",
+      "TerraformPlan",
+      "TerraformStatic",
+      "ESLint",
+      "Trivy",
+      "SBOM"
     ]
   },
- 
+
   "cache": {
     "purpose": "Prevent repeated LLM token spending",
     "scope": "LLM providers only",
@@ -140,7 +142,7 @@
       "model change"
     ]
   },
- 
+
   "compliance": {
     "role": "sidecar",
     "enabled_by": ["policy.compliance.enabled", "--compliance flag"],
@@ -155,7 +157,7 @@
       "eu-strict": "blocking enforcement"
     }
   },
- 
+
   "observations": {
     "immutable": true,
     "fields": [
@@ -166,7 +168,7 @@
       "source"
     ]
   },
- 
+
   "decision": {
     "modes": ["allow", "advisory", "blocking"],
     "exit_code_mapping": {
@@ -175,13 +177,13 @@
       "blocking": 1
     }
   },
- 
+
   "reporters": {
     "stdout": "human-readable",
     "github_pr": "PR comment",
     "github_checks": "check-run annotations"
   },
- 
+
   "tests": {
     "philosophy": "lock architectural contracts, not implementation",
     "critical_invariants": [
@@ -190,12 +192,18 @@
       "static providers are never cached"
     ]
   },
- 
+
   "non_goals": [
     "automatic fixing",
     "code rewriting",
     "business logic inside CLI",
     "provider-specific policy logic",
     "caching for non-LLM providers"
-  ]
+  ],
+
+  "distribution": {
+    "registry": "ghcr.io/public",
+    "visibility": "public",
+    "purpose": "Open-source distribution of images for easy CI/CD integration"
+  }
 }
