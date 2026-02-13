@@ -32,6 +32,8 @@ Implements deterministic normalization of LLM outputs (severity, confidence, sig
 ![Stage](https://img.shields.io/badge/stage-Alpha-blue)
 ![Coverage](https://img.shields.io/badge/coverage-local-blue)
 ![Docker](https://img.shields.io/badge/docker-GHCR-success)
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/SergUdo/ai-slop-gate?sort=semver)
+![Cosign Verified](https://img.shields.io/badge/cosign-verified-brightgreen?logo=sigstore)
 
 
 ## 📖 Documentation
@@ -138,6 +140,10 @@ while still surfacing GDPR‑related risks.
 # Run with a custom policy file
 python -m ai_slop_gate.cli run --provider static --policy path/to/your-custom-policy.yml
 ```
+
+* **Releases**: Detailed information about the release process, versioning, image signing, and artifacts is available in
+
+👉 [RELEASE.md](docs/source/RELEASE.md)
 
 ## 🛠️ Supported Languages & Infrastructure
 * ✅ **Python** (Full support)
