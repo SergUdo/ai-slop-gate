@@ -11,14 +11,12 @@ stages:
     - |
       echo "--- AI SLOP GATE STARTING ---"
 
-      # Визначаємо policy.yml
       if [ -z "$SELECTED_POLICY" ]; then
         [ -f "policy.yml" ] && POLICY_PATH="policy.yml" || POLICY_PATH="/app/policy.yml"
       else
         POLICY_PATH="$SELECTED_POLICY"
       fi
 
-      # Формуємо список провайдерів
       ARGS=""
       PROVIDERS_LIST=${SLOP_PROVIDERS:-"static"}
 
@@ -26,12 +24,11 @@ stages:
         ARGS="$ARGS --provider $p"
       done
 
-      # LLM режим
       if [[ "$PROVIDERS_LIST" == *"gemini"* || "$PROVIDERS_LIST" == *"groq"* ]]; then
         ARGS="$ARGS --llm-local"
       fi
 
-      # GitLab MR режим
+      # GitLab MR pipelines have special environment variables we can use to auto-configure the gate
       if [ "$CI_PIPELINE_SOURCE" == "merge_request_event" ]; then
         echo "🔍 Detected Merge Request pipeline"
         echo "   Project: $CI_PROJECT_PATH"
@@ -39,7 +36,6 @@ stages:
 
         ARGS="$ARGS --gitlab-project $CI_PROJECT_PATH --mr-iid $CI_MERGE_REQUEST_IID"
 
-        # ВАЖЛИВО: ai-slop-gate очікує саме GITLAB_API_TOKEN
         export GITLAB_API_TOKEN="$CI_JOB_TOKEN"
       else
         echo "ℹ️ Not a Merge Request pipeline, using console output"
@@ -52,7 +48,16 @@ stages:
       echo "DEBUG: Policy: $POLICY_PATH"
       echo "DEBUG: Final ARGS: $ARGS"
 
-      ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$POLICY_PATH" || true
+      if [ "$CI_PIPELINE_SOURCE" == "merge_request_event" ]; then
+        echo "🔍 Running in GitLab MR mode"
+        export GITLAB_API_TOKEN="$CI_JOB_TOKEN"
+        ai-slop-gate run $ARGS --policy "$POLICY_PATH" || true
+      else
+        echo "ℹ️ Running in local path mode"
+        ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$POLICY_PATH" || true
+      fi
+
+      echo "--- AI SLOP GATE FINISHED ---"
 
 ai_slop_gate:
   extends: .slop_gate_base
