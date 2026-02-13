@@ -106,19 +106,39 @@ def run_cli(ctx: RuntimeContext) -> int:
 
         provider_names = ctx.providers or []
         
-        is_compliance_enabled = getattr(ctx, "compliance", False) or getattr(ctx, "compliance_only", False)
+        # ✅ ДЕТАЛЬНЕ ЛОГУВАННЯ РЕЖИМІВ
+        is_compliance_only = getattr(ctx, "compliance_only", False)
+        is_compliance_flag = getattr(ctx, "compliance", False)
+        is_pr_mode = bool(ctx.github_repo and ctx.pr_id)
+        
+        logger.info("=" * 60)
+        logger.info("EXECUTION MODE DETECTION:")
+        logger.info(f"  Providers requested: {provider_names or '(none)'}")
+        logger.info(f"  --compliance flag: {is_compliance_flag}")
+        logger.info(f"  --compliance-only flag: {is_compliance_only}")
+        logger.info(f"  GitHub PR mode: {is_pr_mode}")
+        if is_pr_mode:
+            logger.info(f"    repo: {ctx.github_repo}, PR: {ctx.pr_id}")
+        logger.info(f"  policy.compliance.enabled: {policy_config.compliance.enabled if policy_config.compliance else 'N/A'}")
+        if policy_config.compliance:
+            run_in_pr = getattr(policy_config.compliance, 'run_in_pr', False)
+            logger.info(f"  policy.compliance.run_in_pr: {run_in_pr}")
+        logger.info("=" * 60)
 
-        if not provider_names and not is_compliance_enabled:
-            logger.error("No analyzers specified. Use --provider or --compliance.")
+        # Якщо нічого не вказано, помилка
+        if not provider_names and not is_compliance_flag and not is_compliance_only:
+            logger.error("❌ No analyzers specified. Use --provider, --compliance, or --compliance-only.")
             return 1
 
         all_observations: List[Observation] = []
 
         # --- Step 1: Run LLM / Static Providers ---
-        if provider_names:
+        # ✅ Провайдери НЕ запускаються якщо --compliance-only
+        if provider_names and not is_compliance_only:
+            logger.info(f"▶️  STEP 1: Running {len(provider_names)} provider(s)")
             providers = get_providers(provider_names, policy_config=policy_config)
             for provider in providers:
-                logger.info(f"Running provider: {provider.name} ({provider.kind})")
+                logger.info(f"  → Running provider: {provider.name} ({provider.kind})")
                 
                 if provider.kind == "llm":
                     if ctx.github_repo and ctx.pr_id:
@@ -126,24 +146,54 @@ def run_cli(ctx: RuntimeContext) -> int:
                     elif ctx.llm_local:
                         result = provider.analyze_files(ctx.path)
                     else:
-                        logger.warning(f"Skipping LLM provider '{provider.name}': insufficient context.")
+                        logger.warning(f"  ⚠️  Skipping LLM provider '{provider.name}': insufficient context.")
                         continue
                 else: # Static
                     result = provider.collect(base_path=ctx.path)
 
+                provider_obs_count = 0
                 for obs in result.observations:
                     f_path, _ = extract_location(obs)
                     if not include_filter or include_filter(f_path):
                         all_observations.append(obs)
+                        provider_obs_count += 1
+                
+                logger.info(f"  ✓ {provider.name}: collected {provider_obs_count} observations")
+        else:
+            logger.info("⏭️  STEP 1: Skipped (no providers or --compliance-only mode)")
 
         # --- Step 2: Compliance Checks ---
-        should_run_compliance = is_compliance_enabled or (
-            policy_config.compliance and policy_config.compliance.enabled 
-            and not (ctx.github_repo and ctx.pr_id)
-        )
+        # ✅ ВИПРАВЛЕНА ЛОГІКА
+        should_run_compliance = False
+        compliance_reason = []
+        
+        # Причина 1: Явний флаг від користувача
+        if is_compliance_flag or is_compliance_only:
+            should_run_compliance = True
+            compliance_reason.append("explicit --compliance flag")
+        
+        # Причина 2: Увімкнено в policy.yml
+        if policy_config.compliance and policy_config.compliance.enabled:
+            # Перевіряємо чи можна запускати в поточному режимі
+            if is_pr_mode:
+                # В PR режимі - тільки якщо run_in_pr=true
+                run_in_pr = getattr(policy_config.compliance, 'run_in_pr', False)
+                if run_in_pr:
+                    should_run_compliance = True
+                    compliance_reason.append("policy.compliance.enabled=true + run_in_pr=true")
+                else:
+                    compliance_reason.append("(blocked: run_in_pr=false)")
+            else:
+                # Локальний режим - завжди запускати
+                should_run_compliance = True
+                compliance_reason.append("policy.compliance.enabled=true (local mode)")
+
+        logger.info("▶️  STEP 2: Compliance check decision")
+        logger.info(f"  Should run: {should_run_compliance}")
+        logger.info(f"  Reasons: {', '.join(compliance_reason) if compliance_reason else '(none)'}")
 
         if should_run_compliance:
-            logger.info("Running compliance pipeline...")
+            logger.info("  → Running compliance pipeline...")
             pipeline = CompliancePipeline(policy_config.compliance)
             compliance_obs = pipeline.run(
                 artifacts_path=ctx.path,
@@ -153,17 +203,27 @@ def run_cli(ctx: RuntimeContext) -> int:
             policy_dir = os.path.dirname(os.path.abspath(ctx.policy_path))
             target_dir = os.path.abspath(ctx.path)
 
+            compliance_obs_count = 0
             for obs in compliance_obs:
                 f_path, _ = extract_location(obs)
+                # Пропускаємо policy.yml з іншої директорії
                 if os.path.basename(f_path) == "policy.yml" and policy_dir != target_dir:
                     continue
                 if not include_filter or include_filter(f_path):
                     all_observations.append(obs)
+                    compliance_obs_count += 1
+            
+            logger.info(f"  ✓ Compliance: collected {compliance_obs_count} observations")
+        else:
+            logger.info("  ⏭️  Compliance skipped")
 
         # --- Step 3: Evaluate ---
+        logger.info("▶️  STEP 3: Policy evaluation")
+        logger.info(f"  Total observations: {len(all_observations)}")
+        
         engine = PolicyEngine(rules)
         decision = engine.evaluate(all_observations)
-        logger.info(f"Policy Verdict: {decision.mode.value.upper()}")
+        logger.info(f"  ✅ Policy Verdict: {decision.mode.value.upper()}")
 
         # --- Step 4: Report ---
         annotations = []
@@ -189,18 +249,25 @@ def run_cli(ctx: RuntimeContext) -> int:
         )
 
         # --- Step 5: Reporters ---
+        logger.info("▶️  STEP 5: Reporting")
         if ctx.github_repo and github_token and (ctx.pr_id or ctx.github_sha):
+            logger.info(f"  Using GitHub reporters for repo={ctx.github_repo}")
             if ctx.pr_id:
+                logger.info(f"  → Posting PR comment to PR #{ctx.pr_id}")
                 GitHubPRReporter(github_token, ctx.github_repo, ctx.pr_id).report(report)
             if ctx.github_sha:
+                logger.info(f"  → Creating GitHub Check for commit {ctx.github_sha}")
                 GitHubChecksReporter(github_token, ctx.github_repo, ctx.github_sha).report(report)
         else:
+            logger.info("  Using console reporter (no GitHub context)")
             ConsoleReporter(verbose=ctx.verbose).report(report)
 
-        logger.info("--- Execution Completed Successfully ---")
+        logger.info("=" * 60)
+        logger.info("✅ Execution Completed Successfully")
+        logger.info("=" * 60)
         return 0 if decision.mode != DecisionMode.BLOCKING else 1
 
     except Exception as e:
-        logger.error(f"Execution failed: {str(e)}", exc_info=True)
+        logger.error(f"❌ Execution failed: {str(e)}", exc_info=True)
         return 1
     

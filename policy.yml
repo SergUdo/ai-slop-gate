@@ -6,22 +6,18 @@ include_paths:
   - .
 
 # Global enforcement level: never | advisory | blocking
-# Defines if the gate should fail the CI/CD pipeline
 enforcement: blocking 
 
 # --- AI Provider configuration ---
 ai_provider:
-  # ACTIVE provider (user or workflow chooses)
-  name: gemini # BACKWARD-COMPATIBLE default model (still works)
-  model: gemini-2.5-flash # NEW: Multi-provider model registry 
+  name: gemini
+  model: gemini-2.5-flash
   models: 
     gemini: gemini-2.5-flash
     groq: llama-3.3-70b-versatile 
     groq_native: gemma-2-9b 
     local: llama3.1:8b 
-    ollama: qwen2.5-coder:1.5b # qwen2.5:7b, qwen2.5:1.5b, mistral, llama3.2:1b, phi3:mini, codegemma:2b, qwen2.5-coder:1.5b, qwen2.5-coder:7b, deepseek-coder:1.3b, llama3.2:1b, gemma2:2b
-
-  # NEW: Default provider if none specified 
+    ollama: qwen2.5-coder:1.5b
   default_provider: gemini
   temperature: 0.1
   mode: blocking 
@@ -30,22 +26,11 @@ ai_provider:
   block_in_pr: true
   region: US
 
-  # NEW: Region of the LLM provider.
-  # Used by compliance.security_audit.enforce_data_residency
-  # Examples:
-  #   US        → OpenAI, Gemini, Groq, Copilot
-  #   CN        → DeepSeek
-  #   EU        → Azure OpenAI EU, AWS Bedrock EU, Local LLMs
-  region: US
-
 # --- Compliance Module (Deterministic Sidecar) ---
 compliance:
-  enabled: true               
+  enabled: true 
   run_in_pr: true
 
-  # NEW: Defines how residency violations are handled.
-  # advisory → warn but do not block (your chosen mode)
-  # blocking → block CI/CD if LLM is outside EU
   data_residency_mode: advisory
 
   license_audit:
@@ -59,35 +44,16 @@ compliance:
  
   security_audit:
     enabled: true
-
     external_scanners: [trivy]
-    
     detect_secrets: true
     detect_pii: true
     detect_suspicious_todos: true
-
-    # Detect GDPR/PII patterns (emails, SSN-like patterns, personal data)
     detect_gdpr: true
-
-    # Detect hardcoded secrets (API keys, tokens, credentials)
-    detect_secrets: true
-
-    # Detect GDPR/PII patterns (emails, SSN-like patterns, personal data)
-    detect_pii: true
-
-    # Detect suspicious TODOs (e.g., "Send GDPR data to Mars")
-    detect_suspicious_todos: true
-
-    # Detect non‑EU endpoints (heuristic)
     detect_non_eu_endpoints: true
-
-    # If set to EU → warn/block when LLM provider is outside EU
     enforce_data_residency: EU
-
     severity: critical
     tags: [security, gdpr, residency]
 
-  # Fine‑grained GDPR severity configuration
   gdpr_detection:
     enabled: true
     severity_email: medium
@@ -155,11 +121,6 @@ infrastructure_security:
 
 # --- Rules Engine Logic ---
 rules:
-  # ---------------------------------------------------------------------------
-  # HIGH-PRIORITY BLOCKING RULES (Inserted to enforce blocking behavior)
-  # These rules are placed BEFORE existing rules to ensure they take precedence
-  # over any allow/advisory rules defined later.
-  # ---------------------------------------------------------------------------
   - id: static-failsafe-block
     when:
       severity: failure
@@ -181,7 +142,6 @@ rules:
       action: blocking
       message: "LLM detected a failure-level issue"
 
-  # Block any critical compliance violations explicitly
   - id: block-critical-compliance-violations
     when:
       severity: ["critical"]
@@ -189,7 +149,6 @@ rules:
       action: blocking
       message: "Critical compliance violation"
 
-  # Block any LLM/AI provider failures
   - id: block-llm-failures
     when:
       level: ["failure"]
@@ -197,8 +156,6 @@ rules:
       action: blocking
       message: "LLM failure detected"
 
-  # Block a broad set of AI Slop related signals (regex matches)
-  # Note: pattern uses alternation to match any of the listed slop-related signals
   - id: block-ai-slop-related-signals
     when:
       signal: "slop|nonsensical|contradictory|ai_generated|meaningless|chaos|unreviewed|bad_practice|insecure_base_image_recommendation|vulnerable_base_image_recommendation|overwrite_built_artifacts|debug_tools_in_production_image|remote_ssh_server_recommendation"
@@ -206,7 +163,6 @@ rules:
       action: blocking
       message: "AI Slop detected"
 
-  # Block critical hardcoded secrets / dangerous data flows discovered by static providers
   - id: block-hardcoded-secrets-static
     when:
       signal: "hardcoded_api_key|hardcoded_sensitive_data|hardcoded_root_credentials|hardcoded_root_password_mysql|gdpr_data_exfiltration|sql_injection_vulnerability"
@@ -214,7 +170,6 @@ rules:
       action: blocking
       message: "Hardcoded secrets or dangerous data flows"
 
-  # Block when total findings exceed a safe threshold
   - id: block-too-many-findings
     when:
       count_greater_than: 10
@@ -222,9 +177,6 @@ rules:
       action: blocking
       message: "Too many issues detected"
 
-  # ---------------------------------------------------------
-  # GLOBAL SECURITY BLOCKING
-  # ---------------------------------------------------------
   - id: hardcoded-secret-block
     when:
       signal: hardcoded_secret
@@ -247,310 +199,6 @@ rules:
       action: blocking
       message: "API token exposed in Authorization header."
 
-  - id: block-db-url
-    when:
-      signal: hardcoded_db_url
-    then:
-      action: blocking
-      message: "Hardcoded DB URL with credentials."
-
-  - id: block-shell-execution
-    when:
-      signal: arbitrary_shell_execution
-    then:
-      action: blocking
-      message: "Arbitrary shell execution vulnerability."
-
-  - id: block-dangerous-shell-demo
-    when:
-      signal: dangerous_shell_command_demo
-    then:
-      action: blocking
-      message: "Dangerous shell command pattern detected."
-
-  # ---------------------------------------------------------
-  # TRIVY & VULNERABILITY SCANNING
-  # ---------------------------------------------------------
-  - id: block-critical-vulnerabilities
-    when:
-      category: security
-      signal: vulnerability_found
-      severity: critical
-    then:
-      action: blocking
-      message: "CRITICAL vulnerability found by Trivy. Patch required."
-
-  - id: block-high-vulnerabilities
-    when:
-      category: security
-      signal: vulnerability_found
-      severity: high
-    then:
-      action: blocking
-      message: "HIGH vulnerability found by Trivy. Review and fix."
-
-  - id: advisory-vulnerabilities
-    when:
-      category: security
-      signal: vulnerability_found
-      severity: ["medium", "low"]
-    then:
-      action: advisory
-      message: "Security vulnerability detected (Medium/Low). Consider updating dependencies."
-
-  # ---------------------------------------------------------
-  # BLOCK: Secrets stored in localStorage (XSS risk)
-  # ---------------------------------------------------------
-  - id: block-secrets-in-localstorage
-    when:
-      signal: secrets_in_localstorage
-    then:
-      action: blocking
-      message: "Sensitive secrets stored in localStorage. Vulnerable to XSS."
-
-  # ---------------------------------------------------------
-  # BLOCK: Sensitive info exposed in debug output
-  # ---------------------------------------------------------
-  - id: block-sensitive-info-debug-output
-    when:
-      signal: sensitive_info_debug_output
-    then:
-      action: blocking
-      message: "Sensitive information exposed via debug output."
-
-  # ---------------------------------------------------------
-  # BLOCK: Arbitrary code execution via eval()
-  # ---------------------------------------------------------
-  - id: block-arbitrary-code-execution-eval
-    when:
-      signal: arbitrary_code_execution_eval
-    then:
-      action: blocking
-      message: "Arbitrary code execution via eval(). Critical vulnerability."
-
-  # ---------------------------------------------------------
-  # BLOCK: SQL Injection
-  # ---------------------------------------------------------
-  - id: block-sql-injection
-    when:
-      signal: sql_injection_vulnerability
-    then:
-      action: blocking
-      message: "SQL injection vulnerability detected."
-
-  # ---------------------------------------------------------
-  # BLOCK: XSS vulnerability
-  # ---------------------------------------------------------
-  - id: block-xss-vulnerability
-    when:
-      signal: xss_vulnerability
-    then:
-      action: blocking
-      message: "Cross-Site Scripting (XSS) vulnerability detected."
-
-  # ---------------------------------------------------------
-  # BLOCK: PII leak to non‑EU endpoint
-  # ---------------------------------------------------------
-  - id: block-pii-leak-noncompliant
-    when:
-      signal: pii_leak_noncompliant
-    then:
-      action: blocking
-      message: "PII leak to non‑EU endpoint. GDPR violation."
-
-  # ---------------------------------------------------------
-  # BLOCK: Typosquatting dependency
-  # ---------------------------------------------------------
-  - id: block-typosquatting-dependency
-    when:
-      signal: typosquatting_dependency
-    then:
-      action: blocking
-      message: "Typosquatting dependency detected. Supply chain risk."
-
-  # ---------------------------------------------------------
-  # BLOCK: File bloat (1GB copy)
-  # ---------------------------------------------------------
-  - id: block-file-bloat-copy
-    when:
-      signal: file_bloat_copy
-    then:
-      action: blocking
-      message: "Massive file bloat detected in container image."
-
-  # ---------------------------------------------------------
-  # BLOCK: Failing healthcheck
-  # ---------------------------------------------------------
-  - id: block-failing-healthcheck
-    when:
-      signal: failing_healthcheck
-    then:
-      action: blocking
-      message: "Failing HEALTHCHECK configuration."
-
-  # ---------------------------------------------------------
-  # BLOCK: Unverified external download
-  # ---------------------------------------------------------
-  - id: block-unverified-external-download
-    when:
-      signal: unverified_external_download
-    then:
-      action: blocking
-      message: "Unverified external download. Supply chain risk."
-
-  # ---------------------------------------------------------
-  # BLOCK: Host directory copy into container
-  # ---------------------------------------------------------
-  - id: block-host-dir-copy
-    when:
-      signal: host_dir_copy
-    then:
-      action: blocking
-      message: "Copying host system directories into container."
-
-  # ---------------------------------------------------------
-  # BLOCK: Excessive port exposure
-  # ---------------------------------------------------------
-  - id: block-excessive-port-exposure
-    when:
-      signal: excessive_port_exposure
-    then:
-      action: blocking
-      message: "Excessive port exposure increases attack surface."
-
-  # ---------------------------------------------------------
-  # BLOCK: sudo NOPASSWD user
-  # ---------------------------------------------------------
-  - id: block-sudo-nopasswd-user
-    when:
-      signal: sudo_nopasswd_user
-    then:
-      action: blocking
-      message: "User with NOPASSWD sudo privileges detected."
-
-  # ---------------------------------------------------------
-  # BLOCK: Root password set
-  # ---------------------------------------------------------
-  - id: block-root-password-set
-    when:
-      signal: root_password_set
-    then:
-      action: blocking
-      message: "Root password is hardcoded. Critical vulnerability."
-
-  # ---------------------------------------------------------
-  # BLOCK: Unnecessary package install (attack surface)
-  # ---------------------------------------------------------
-  - id: block-unnecessary-package-install
-    when:
-      signal: unnecessary_package_install
-    then:
-      action: blocking
-      message: "Unnecessary packages increase attack surface."
-
-  # ---------------------------------------------------------
-  # BLOCK: Hardcoded DB URL
-  # ---------------------------------------------------------
-  - id: block-hardcoded-db-url
-    when:
-      signal: hardcoded_db_url
-    then:
-      action: blocking
-      message: "Hardcoded DB URL with credentials."
-
-  # ---------------------------------------------------------
-  # BLOCK: API token in fetch header
-  # ---------------------------------------------------------
-  - id: block-api-token-in-fetch-header
-    when:
-      signal: api_token_in_fetch_header
-    then:
-      action: blocking
-      message: "API token exposed in Authorization header."
-
-  # ---------------------------------------------------------
-  # BLOCK: Unnecessary package install (attack surface)
-  # ---------------------------------------------------------
-  - id: block-unnecessary-package-install
-    when:
-      signal: unnecessary_package_install
-    then:
-      action: blocking
-      message: "Unnecessary packages increase attack surface."
-
-  # ---------------------------------------------------------
-  # BLOCK: Service selector mismatch (no endpoints)
-  # ---------------------------------------------------------
-  - id: block-service-deployment-selector-mismatch
-    when:
-      signal: service_deployment_selector_mismatch
-    then:
-      action: blocking
-      message: "Service selector does not match Deployment labels. No endpoints will be selected."
-
-  # ---------------------------------------------------------
-  # BLOCK: Service targetPort vs containerPort mismatch
-  # ---------------------------------------------------------
-  - id: block-service-targetport-containerport-mismatch
-    when:
-      signal: service_targetport_containerport_mismatch
-    then:
-      action: blocking
-      message: "Service targetPort does not match containerPort. Traffic will be black-holed."
-
-  # ---------------------------------------------------------
-  # BLOCK: Readiness probe port mismatch
-  # ---------------------------------------------------------
-  - id: block-readiness-probe-port-mismatch
-    when:
-      signal: readiness_probe_port_mismatch
-    then:
-      action: blocking
-      message: "Readiness probe checks wrong port. Pods will never become Ready."
-
-  # ---------------------------------------------------------
-  # BLOCK: Memory limit < memory request
-  # ---------------------------------------------------------
-  - id: block-resource-memory-limit-less-than-request
-    when:
-      signal: resource_memory_limit_less_than_request
-    then:
-      action: blocking
-      message: "Memory limit is lower than request. Scheduling will fail or cause OOM eviction."
-
-  # ---------------------------------------------------------
-  # BLOCK: NetworkPolicy empty 'from' allows all traffic
-  # ---------------------------------------------------------
-  - id: block-networkpolicy-empty-from-allows-all
-    when:
-      signal: networkpolicy_empty_from_allows_all_traffic
-    then:
-      action: blocking
-      message: "NetworkPolicy ingress.from: [] allows all traffic. Stealth security hole."
-
-  # ---------------------------------------------------------
-  # BLOCK: HPA target Deployment mismatch
-  # ---------------------------------------------------------
-  - id: block-hpa-target-deployment-mismatch
-    when:
-      signal: hpa_target_deployment_mismatch
-    then:
-      action: blocking
-      message: "HPA references a non-existent Deployment. Autoscaling will never trigger."
-
-  # ---------------------------------------------------------
-  # BLOCK: HPA unrealistic low utilization threshold
-  # ---------------------------------------------------------
-  - id: block-hpa-unrealistic-low-utilization
-    when:
-      signal: hpa_unrealistic_low_utilization_threshold
-    then:
-      action: blocking
-      message: "HPA averageUtilization is unrealistically low. Causes scale flapping and instability."
-
-  # ---------------------------------------------------------
-  # HIGH-SEVERITY BLOCKING (ANY CATEGORY)
-  # ---------------------------------------------------------
   - id: global-blocking-high-severity
     when:
       severity: high
@@ -559,48 +207,6 @@ rules:
       action: blocking
       message: "Blocking: High-severity issue with strong confidence."
 
-  # ---------------------------------------------------------
-  # STATIC ANALYSIS: UNDEFINED VARIABLE
-  # ---------------------------------------------------------
-  - id: static-security-block
-    when:
-      category: quality
-      signal: no-undef
-    then:
-      action: blocking
-      message: "Undefined variable detected. Possible runtime failure."
-
-  # ---------------------------------------------------------
-  # KUBERNETES ARCHITECTURE MISMATCHES
-  # ---------------------------------------------------------
-  - id: k8s-infrastructure-mismatch
-    when:
-      category: architecture
-      signal: ".*_mismatch"
-    then:
-      action: blocking
-      message: "Infrastructure mismatch: Potential service failure."
-
-  - id: k8s-port-mismatch
-    when:
-      category: architecture
-      signal: service_targetport_mismatch
-      min_confidence: 0.8
-    then:
-      action: blocking
-      message: "Port mismatch detected."
-
-  - id: k8s-version-mismatch
-    when:
-      category: architecture
-      signal: service_deployment_version_mismatch
-    then:
-      action: blocking
-      message: "Version mismatch detected."
-
-  # ---------------------------------------------------------
-  # LICENSE VIOLATIONS
-  # ---------------------------------------------------------
   - id: license-violation-block
     when:
       category: license
@@ -609,9 +215,6 @@ rules:
       action: blocking
       message: "Forbidden license detected."
 
-  # ---------------------------------------------------------
-  # QUALITY ADVISORY (AI SLOP)
-  # ---------------------------------------------------------
   - id: ai-slop-advisory
     when:
       category: quality
@@ -620,9 +223,6 @@ rules:
       action: advisory
       message: "AI Slop detected: Code quality could be improved."
 
-  # ---------------------------------------------------------
-  # MAINTENANCE / TECH DEBT
-  # ---------------------------------------------------------
   - id: maintenance-notice
     when:
       signal: "negative"

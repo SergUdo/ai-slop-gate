@@ -3,9 +3,10 @@ name: AI Slop Gate LLM Analysis
 on:
   pull_request:
     branches: [ main ]
+  # Allows manual triggering of the workflow from the Actions tab
   workflow_dispatch:
 
-# Note: The permissions section is crucial for allowing the workflow to interact with pull requests and repository contents. Adjust the permissions as needed based on your specific requirements and security considerations.
+# Grant necessary permissions for the GitHub token to manage PR labels and comments
 permissions:
   pull-requests: write
   contents: read
@@ -18,6 +19,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Execute the core analysis. 'continue-on-error' is set to true 
+      # so we can perform post-analysis actions (like labeling) even if slop is detected.
       - name: Run AI Slop Gate (Gemini PR analysis)
         id: slop_gate
         env:
@@ -34,16 +37,41 @@ jobs:
               --policy policy.yml \
               --github-repo "${{ github.repository }}" \
               --pr-id "${{ github.event.pull_request.number }}"
-      # If you need to automatically close PRs that violate the policy, you can uncomment the following step. Make sure to have the necessary permissions and consider the implications of auto-closing PRs in your workflow.
+
+      # Apply a visual indicator to the PR if the analysis fails the policy check
+      - name: Label PR on Policy Violation
+        if: steps.slop_gate.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Define the label name as a string constant
+          LABEL_NAME="slop-detected"
+          
+          # Create the label in the repository if it doesn't exist yet
+          gh label create "$LABEL_NAME" \
+            --color "ff0000" \
+            --description "AI Slop detected by automated gate" \
+            --repo ${{ github.repository }} || true
+          
+          # Assign the label to the current Pull Request
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --add-label "$LABEL_NAME" \
+            --repo ${{ github.repository }}
+
+      # Optional: Uncomment the following step if you prefer hard-blocking by closing the PR automatically.
       # - name: Close PR on Policy Violation
       #   if: steps.slop_gate.outcome == 'failure'
       #   env:
       #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #   run: |
       #     gh pr close ${{ github.event.pull_request.number }} \
-      #       --comment "🚫 PR closed based on the AI Slop Gate analysis above. Please address the issues mentioned in the comments before re-submitting." \
+      #       --comment "🚫 PR closed based on the AI Slop Gate analysis. Please review the feedback and improve the content before re-submitting." \
       #       --repo ${{ github.repository }}
 
+      # Final step: If the AI Slop Gate returned a failure, we terminate the job with a non-zero exit code.
+      # This ensures the PR shows a red "Failed" status in the GitHub UI, blocking the merge.
       - name: Fail workflow if slop detected
         if: steps.slop_gate.outcome == 'failure'
-        run: exit 1
+        run: |
+          echo "Policy violation detected. Review the PR comments for details."
+          exit 1

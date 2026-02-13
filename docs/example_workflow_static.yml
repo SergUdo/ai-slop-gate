@@ -1,21 +1,22 @@
 name: AI Slop Gate Static Analysis
 
 on:
-  workflow_dispatch:
   pull_request:
     branches: [ main ]
   push:
     branches: [ main ]
+  # Allows manual triggering of the workflow
+  workflow_dispatch:
+
+# Grant permissions for managing PR labels, comments, and checking out content
+permissions:
+  pull-requests: write
+  contents: read
 
 jobs:
   static-analysis:
     runs-on: ubuntu-22.04
-
     timeout-minutes: 20
-
-    strategy:
-      fail-fast: false
-      max-parallel: 1
 
     steps:
       - name: Checkout code
@@ -29,15 +30,38 @@ jobs:
           restore-keys: |
             ai-slop-gate-cache-${{ runner.os }}-
 
+      # Run static analysis. 'continue-on-error' allows us to label the PR even if slop is found.
       - name: Static Analysis (ai-slop-gate)
+        id: static_gate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
         run: |
           mkdir -p ~/.cache/ai-slop-gate
-
           docker run --rm \
             -v "${{ github.workspace }}:/data" \
             -v ~/.cache/ai-slop-gate:/root/.cache/ai-slop-gate \
             -e GITHUB_TOKEN \
             ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider static --path /data
+            run --provider static --path /data > raw_report.txt 2>&1
+          
+          # Виводимо в консоль для дебагу
+          cat raw_report.txt
+
+      - name: Professional Static Report
+        if: steps.static_gate.outcome == 'failure' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Витягуємо тільки змістовну частину звіту
+          # Ми прибираємо логи таймстемпів і залишаємо лише блок REPORT
+          sed -n '/=== AI SLOP GATE REPORT ===/,/=== END OF REPORT ===/p' raw_report.txt > clean_report.md
+          
+          # Додаємо емодзі та форматування як у Gemini
+          echo "### 🚨 AI Slop Gate Static Analysis" > final_comment.md
+          echo "The static analysis pipeline has identified policy violations that require attention." >> final_comment.md
+          echo "" >> final_comment.md
+          cat clean_report.md >> final_comment.md
+          
+          # Публікуємо професійний коментар
+          gh pr comment ${{ github.event.pull_request.number }} --body-file final_comment.md --repo ${{ github.repository }}
