@@ -1,6 +1,9 @@
 stages:
   - test
 
+# ---------------------------------------------------------
+# Base template (hidden job)
+# ---------------------------------------------------------
 .slop_gate_base:
   image:
     name: ghcr.io/sergudo/ai-slop-gate:latest
@@ -20,6 +23,7 @@ stages:
 
       echo "--- AI SLOP GATE STARTING ---"
 
+      # Select policy
       if [ -z "$SELECTED_POLICY" ]; then
         [ -f "policy.yml" ] && POLICY_PATH="policy.yml" || POLICY_PATH="/app/policy.yml"
       else
@@ -29,10 +33,12 @@ stages:
       ARGS=""
       PROVIDERS_LIST=${SLOP_PROVIDERS:-"static"}
 
+      # Providers
       for p in $PROVIDERS_LIST; do
         ARGS="$ARGS --provider $p"
       done
 
+      # Local LLM mode
       if [[ "$PROVIDERS_LIST" == *"gemini"* || "$PROVIDERS_LIST" == *"groq"* ]]; then
         ARGS="$ARGS --llm-local"
       fi
@@ -41,38 +47,48 @@ stages:
       echo "DEBUG: Policy: $POLICY_PATH"
 
       # Detect MR mode
-      if [ "$CI_PIPELINE_SOURCE" == "merge_request_event" ]; then
-        echo "🔍 Detected Merge Request pipeline"
+      if [ -n "$CI_MERGE_REQUEST_IID" ]; then
+        echo "🔍 Detected Merge Request context"
         echo "   Project: $CI_PROJECT_PATH"
         echo "   MR IID: $CI_MERGE_REQUEST_IID"
 
         ARGS="$ARGS --gitlab-project $CI_PROJECT_PATH --mr-iid $CI_MERGE_REQUEST_IID"
-
         export GITLAB_API_TOKEN="$CI_JOB_TOKEN"
         echo "DEBUG: GitLab token exported"
       else
-        echo "ℹ️ Not a Merge Request pipeline"
+        echo "ℹ️ No MR context detected — running in local mode"
       fi
 
       echo "DEBUG: Final ARGS: $ARGS"
 
       # Run gate
-      if [ "$CI_PIPELINE_SOURCE" == "merge_request_event" ]; then
+      if [ -n "$CI_MERGE_REQUEST_IID" ]; then
         echo "🔍 Running in GitLab MR mode"
-        ai-slop-gate run $ARGS --policy "$POLICY_PATH" || true
+        ai-slop-gate run $ARGS --policy "$POLICY_PATH"
       else
-        echo "ℹ️ Running in local path mode (GitLab MR disabled)"
+        echo "ℹ️ Running in local path mode"
         echo "DEBUG: Using --path=$SLOP_PATH"
-        ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$POLICY_PATH" || true
+        ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$POLICY_PATH"
       fi
 
       echo "--- AI SLOP GATE FINISHED ---"
 
-      echo "================ DEBUG ENVIRONMENT ================"
-      echo "CI_PIPELINE_SOURCE: $CI_PIPELINE_SOURCE"
-      echo "CI_PROJECT_PATH: $CI_PROJECT_PATH"
-      echo "CI_MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID"
-      echo "CI_COMMIT_SHA: $CI_COMMIT_SHA"
-      echo "CI_JOB_TOKEN (exists?): $( [ -n "$CI_JOB_TOKEN" ] && echo YES || echo NO )"
-      echo "GITLAB_API_TOKEN (exists?): $( [ -n "$GITLAB_API_TOKEN" ] && echo YES || echo NO )"
-      echo "===================================================="
+      echo "================ DEBUG ENVIRONMENT END ================"
+
+# ---------------------------------------------------------
+# Visible job (required by GitLab)
+# ---------------------------------------------------------
+ai_slop_gate:
+  extends: .slop_gate_base
+  stage: test
+  rules:
+    # Run automatically for Merge Requests
+    - if: $CI_MERGE_REQUEST_IID
+      when: always
+
+    # Allow manual run from UI
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+
+    # Otherwise do not run
+    - when: never

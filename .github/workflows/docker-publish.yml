@@ -96,3 +96,13 @@ jobs:
           exit-code: '1'
           scanners: 'license'
           severity: 'CRITICAL,HIGH'
+      
+       # --- STEP 8: Save image digest artifact ---
+      - name: Save digest
+        run: echo "${{ steps.build-push.outputs.digest }}" > digest.txt
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digest
+          path: digest.txt
