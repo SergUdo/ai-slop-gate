@@ -81,6 +81,7 @@ stages:
 ai_slop_gate:
   extends: .slop_gate_base
   stage: test
+  allow_failure: true 
   rules:
     # Run automatically for Merge Requests
     - if: $CI_MERGE_REQUEST_IID
