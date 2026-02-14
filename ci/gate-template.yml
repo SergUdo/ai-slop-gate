@@ -46,10 +46,15 @@
         echo "   MR IID: $CI_MERGE_REQUEST_IID"
 
         ARGS="$ARGS --gitlab-project $CI_PROJECT_PATH --mr-iid $CI_MERGE_REQUEST_IID"
-        
-        # ВИПРАВЛЕННЯ: Використовуємо GITLAB_TOKEN замість GITLAB_API_TOKEN
-        export GITLAB_TOKEN="$CI_JOB_TOKEN"
-        echo "DEBUG: GitLab token exported as GITLAB_TOKEN"
+
+        # Set GitLab token
+        if [ -n "$GITLAB_API_TOKEN" ]; then
+          export GITLAB_TOKEN="$GITLAB_API_TOKEN"
+          echo "DEBUG: Using GITLAB_API_TOKEN"
+        else
+          export GITLAB_TOKEN="$CI_JOB_TOKEN"
+          echo "DEBUG: Using CI_JOB_TOKEN (may have limited permissions)"
+        fi
       else
         echo "ℹ️ No MR context detected — running in local mode"
       fi
