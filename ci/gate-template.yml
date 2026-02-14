@@ -45,16 +45,15 @@
         echo "   Project: $CI_PROJECT_PATH"
         echo "   MR IID: $CI_MERGE_REQUEST_IID"
 
-        ARGS="$ARGS --gitlab-project $CI_PROJECT_PATH --mr-iid $CI_MERGE_REQUEST_IID"
-
-        # Set GitLab token
         if [ -n "$GITLAB_API_TOKEN" ]; then
-          export GITLAB_TOKEN="$GITLAB_API_TOKEN"
-          echo "DEBUG: Using GITLAB_API_TOKEN"
+          GITLAB_TOKEN="$GITLAB_API_TOKEN"
+          echo "✅ DEBUG: Using GITLAB_API_TOKEN (recommended)"
         else
-          export GITLAB_TOKEN="$CI_JOB_TOKEN"
-          echo "DEBUG: Using CI_JOB_TOKEN (may have limited permissions)"
+          GITLAB_TOKEN="$CI_JOB_TOKEN"
+          echo "⚠️  DEBUG: Using CI_JOB_TOKEN (may have limited permissions)"
         fi
+
+        ARGS="$ARGS --gitlab-project $CI_PROJECT_PATH --mr-iid $CI_MERGE_REQUEST_IID --gitlab-token $GITLAB_TOKEN"
       else
         echo "ℹ️ No MR context detected — running in local mode"
       fi
