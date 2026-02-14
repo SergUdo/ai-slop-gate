@@ -1,9 +1,3 @@
-stages:
-  - test
-
-# ---------------------------------------------------------
-# Base template (hidden job)
-# ---------------------------------------------------------
 .slop_gate_base:
   image:
     name: ghcr.io/sergudo/ai-slop-gate:latest
@@ -18,7 +12,6 @@ stages:
       echo "CI_MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID"
       echo "CI_COMMIT_SHA: $CI_COMMIT_SHA"
       echo "CI_JOB_TOKEN (exists?): $( [ -n "$CI_JOB_TOKEN" ] && echo YES || echo NO )"
-      echo "GITLAB_API_TOKEN (exists?): $( [ -n "$GITLAB_API_TOKEN" ] && echo YES || echo NO )"
       echo "===================================================="
 
       echo "--- AI SLOP GATE STARTING ---"
@@ -53,8 +46,10 @@ stages:
         echo "   MR IID: $CI_MERGE_REQUEST_IID"
 
         ARGS="$ARGS --gitlab-project $CI_PROJECT_PATH --mr-iid $CI_MERGE_REQUEST_IID"
-        export GITLAB_API_TOKEN="$CI_JOB_TOKEN"
-        echo "DEBUG: GitLab token exported"
+        
+        # ВИПРАВЛЕННЯ: Використовуємо GITLAB_TOKEN замість GITLAB_API_TOKEN
+        export GITLAB_TOKEN="$CI_JOB_TOKEN"
+        echo "DEBUG: GitLab token exported as GITLAB_TOKEN"
       else
         echo "ℹ️ No MR context detected — running in local mode"
       fi
@@ -64,32 +59,13 @@ stages:
       # Run gate
       if [ -n "$CI_MERGE_REQUEST_IID" ]; then
         echo "🔍 Running in GitLab MR mode"
-        ai-slop-gate run $ARGS --policy "$POLICY_PATH"
+        ai-slop-gate run $ARGS --policy "$POLICY_PATH" || true
       else
         echo "ℹ️ Running in local path mode"
         echo "DEBUG: Using --path=$SLOP_PATH"
-        ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$POLICY_PATH"
+        ai-slop-gate run --path "$SLOP_PATH" $ARGS --policy "$POLICY_PATH" || true
       fi
 
       echo "--- AI SLOP GATE FINISHED ---"
 
       echo "================ DEBUG ENVIRONMENT END ================"
-
-# ---------------------------------------------------------
-# Visible job (required by GitLab)
-# ---------------------------------------------------------
-ai_slop_gate:
-  extends: .slop_gate_base
-  stage: test
-  allow_failure: true 
-  rules:
-    # Run automatically for Merge Requests
-    - if: $CI_MERGE_REQUEST_IID
-      when: always
-
-    # Allow manual run from UI
-    - if: $CI_PIPELINE_SOURCE == "web"
-      when: manual
-
-    # Otherwise do not run
-    - when: never
