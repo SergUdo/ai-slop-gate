@@ -18,13 +18,21 @@ def main():
             providers=args.provider,
             path=args.path,
             llm_local=args.llm_local,
+            # GitHub parameters
             github_repo=args.github_repo,
             pr_id=args.pr_id,
             github_sha=args.github_sha,
             github_token=args.github_token,
+            # GitLab parameters
+            gitlab_project=getattr(args, 'gitlab_project', None),
+            mr_iid=getattr(args, 'mr_iid', None),
+            gitlab_url=getattr(args, 'gitlab_url', 'https://gitlab.com'),
+            gitlab_token=getattr(args, 'gitlab_token', None),
+            # Other parameters
             policy_path=args.policy,
             verbose=args.verbose,
-            compliance_only=getattr(args, "compliance", False)
+            compliance=getattr(args, 'compliance', False),
+            compliance_only=getattr(args, 'compliance_only', False)
         )
         return run_cli(ctx)
 
