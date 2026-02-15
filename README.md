@@ -201,6 +201,7 @@ python -m ai_slop_gate.cli run --provider static --policy path/to/your-custom-po
 * ✅ **Python** (Full support)
 * ✅ **JavaScript / TypeScript** (Full support)
 * ✅ **Java** (Full support)
+* ✅ **C++** (Full support)
 * ✅ **C#** (Full support)
 * ✅ **Docker** (Full support)
 * ✅ **Kubernetes** (Full support)
