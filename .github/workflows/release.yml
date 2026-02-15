@@ -73,8 +73,9 @@ jobs:
           build-args: |
             BUILD_SHA=${{ github.sha }}
             VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/ai-slop-gate:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/ai-slop-gate:buildcache,mode=max
+
 
       # --- Security Scanning ---
       - name: Run Trivy vulnerability scanner on release image
