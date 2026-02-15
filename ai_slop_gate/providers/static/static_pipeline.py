@@ -14,6 +14,7 @@ from ai_slop_gate.providers.static.static_docker import StaticDockerProvider
 from ai_slop_gate.providers.static.supply_chain import SupplyChainProvider
 from ai_slop_gate.providers.static.trivy import TrivyProvider
 from ai_slop_gate.providers.static.sbom import SBOMProvider
+from ai_slop_gate.providers.static.ruby_static import StaticRubyProvider
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ class StaticPipelineProvider(BaseProvider):
             TrivyProvider(),
             SBOMProvider(),
             StaticSecurityProvider(),
+            StaticRubyProvider(),
         ]
 
     # -------------------------------------------------------------------------
