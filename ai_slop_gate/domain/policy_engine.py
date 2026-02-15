@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 
 class PolicyEngine:
     def __init__(self, rules: List[Union[dict, any]]):
-        # Зберігаємо правила. В майбутньому тут має бути перетворення на об'єкти PolicyRule
         self.rules = rules or []
 
     def evaluate(self, observations: List[Observation]) -> Decision:
@@ -20,8 +19,6 @@ class PolicyEngine:
 
         for obs in observations:
             for rule in self.rules:
-                # Гнучкий доступ: підтримуємо і словники (YAML), і об'єкти (Contracts)
-                # rule.when -> rule['when']
                 when = rule.get("when") if isinstance(rule, dict) else getattr(rule, "when", {})
                 then = rule.get("then") if isinstance(rule, dict) else getattr(rule, "then", {})
 
@@ -41,12 +38,6 @@ class PolicyEngine:
         return Decision(mode=mode, reasons=reasons, annotations=[])
 
     def _matches(self, obs: Observation, condition: dict) -> bool:
-        """
-        Логіка матчингу для Strict Mode:
-        - Підтримує Regex для сигналів.
-        - Підтримує списки для Severity.
-        - Ігнорує відсутні поля (wildcard).
-        """
         # 1. Category Match
         target_cat = condition.get("category")
         if target_cat and obs.category != target_cat:
