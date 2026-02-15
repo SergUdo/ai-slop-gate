@@ -1,6 +1,7 @@
 # ai_slop_gate/providers/static/__init__.py
 
 from .static import StaticProvider
+from .static_security import StaticSecurityProvider 
 from .static_pipeline import StaticPipelineProvider
 from .eslint import ESLintProvider
 from .static_docker import StaticDockerProvider
@@ -17,6 +18,7 @@ from .sbom import SBOMProvider
 
 __all__ = [
     "StaticProvider",
+    "StaticSecurityProvider",
     "StaticPipelineProvider",
     "ESLintProvider",
     "StaticDockerProvider",

@@ -6,20 +6,23 @@ from ai_slop_gate.providers.base import BaseProvider, ProviderObservation
 
 # import all static analysis providers
 from ai_slop_gate.providers.static.static import StaticProvider
+from ai_slop_gate.providers.static.static_security import StaticSecurityProvider
 from ai_slop_gate.providers.static.eslint import ESLintProvider
 from ai_slop_gate.providers.static.static_python import StaticPythonProvider
 from ai_slop_gate.providers.static.static_ts_js import StaticTSJSProvider
 from ai_slop_gate.providers.static.static_docker import StaticDockerProvider
 from ai_slop_gate.providers.static.supply_chain import SupplyChainProvider
-from .trivy import TrivyProvider
-from .sbom import SBOMProvider
+from ai_slop_gate.providers.static.trivy import TrivyProvider
+from ai_slop_gate.providers.static.sbom import SBOMProvider
 
 logger = logging.getLogger(__name__)
 
 
 class StaticPipelineProvider(BaseProvider):
     """
-    SteticPipelineProvider - the main provider for static analysis. It runs a series of static analysis tools and aggregates their results. The collect() method is the main entry point, which executes each provider in the pipeline and then smartly aggregates the observations, filtering out noise and grouping similar issues together.
+    StaticPipelineProvider - the main provider for static analysis. It runs a series of static analysis tools and aggregates their results. The collect() method is the main entry point, which executes each provider in the pipeline and then smartly aggregates the observations, filtering out noise and grouping similar issues together.
+    
+    IMPORTANT: Vulnerabilities (vulnerability_detected signal) are NEVER aggregated - each CVE is unique and important.
     """
 
     EXCLUDE_DIRS = {
@@ -51,6 +54,7 @@ class StaticPipelineProvider(BaseProvider):
             SupplyChainProvider(),
             TrivyProvider(),
             SBOMProvider(),
+            StaticSecurityProvider(),
         ]
 
     # -------------------------------------------------------------------------
@@ -99,6 +103,9 @@ class StaticPipelineProvider(BaseProvider):
             return ProviderObservation(self.name, self.model, [], "No issues found")
 
         # Group similar issues together by signal and file. If there are many similar issues in the same file, we keep a few examples and then add a summary observation to indicate that this is a common pattern. This helps focus attention on unique issues while still acknowledging widespread problems.
+        #
+        # IMPORTANT EXCEPTION: vulnerability_detected signals are NEVER aggregated!
+        # Each CVE is unique and needs individual attention, so we always show all vulnerabilities.
         grouped = defaultdict(list)
         for obs in clean_list:
             f_key = obs.location.file if (hasattr(obs, "location") and obs.location) else "unknown"
@@ -107,15 +114,23 @@ class StaticPipelineProvider(BaseProvider):
         final_results = []
 
         for (sig, f_path), items in grouped.items():
-            if len(items) > 5:
+            # NEVER aggregate vulnerabilities - each CVE must be shown individually
+            if sig == "vulnerability_detected":
+                logger.debug(f"[StaticPipeline] Not aggregating {len(items)} vulnerabilities (showing all)")
+                final_results.extend(items)
+            elif len(items) > 5:
+                # For non-vulnerability signals, aggregate if many similar issues
                 final_results.extend(items[:3])
                 summary = replace(items[0], message=f"Found {len(items)} instances of [{sig}] in this file.")
                 if hasattr(summary, "location") and summary.location:
                     summary = replace(summary, location=replace(summary.location, line=None))
                 final_results.append(summary)
             else:
+                # Show all if 5 or fewer
                 final_results.extend(items)
 
+        logger.info(f"[StaticPipeline] Aggregation complete: {len(observations)} → {len(final_results)} observations")
+        
         return ProviderObservation(self.name, self.model, final_results, "Done")
 
     # -------------------------------------------------------------------------

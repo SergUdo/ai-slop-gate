@@ -1,144 +1,93 @@
 import os
-import re
+import logging
 from typing import List, Optional
 
 from ai_slop_gate.domain.observation import Observation, Location
 from ai_slop_gate.domain.compliance.config import ComplianceConfig
 from ai_slop_gate.providers.static.supply_chain import SupplyChainProvider
 
+logger = logging.getLogger(__name__)
+
 
 class CompliancePipeline:
-    EXCLUDE_DIRS = {
-        ".git", ".venv", "venv", "__pycache__", "node_modules",
-        "dist", "build", ".slop", ".idea", ".pytest_cache",
-        "site-packages", "ai_slop_gate", "htmlcov", "tests",
-    }
+    """
+    Compliance Pipeline - focuses ONLY on license compliance checks.
+    
+    Responsibilities:
+    - Forbidden license detection (GPL-2.0, GPL-3.0, AGPL-3.0, etc.)
+    - Copy-left pattern alerts
+    - Audit-ready output for legal teams
+    
+    Security checks (secrets, PII, endpoints) are handled by StaticSecurityProvider.
+    """
 
     def __init__(self, cfg: ComplianceConfig):
         self.cfg = cfg
 
     def run(self, artifacts_path: str, ai_provider_region: Optional[str]) -> List[Observation]:
         observations = []
+        
+        logger.info(f"[CompliancePipeline] Starting compliance checks on: {artifacts_path}")
+        logger.info(f"[CompliancePipeline] License audit config: {self.cfg.license_audit}")
 
+        # Only license and data residency checks
         observations.extend(self._check_forbidden_licenses(artifacts_path))
-        
-        observations.extend(self._scan_source_for_secrets_and_gdpr(artifacts_path))
-        
         observations.extend(self._check_data_residency(ai_provider_region))
-
+        
+        logger.info(f"[CompliancePipeline] Total observations found: {len(observations)}")
         return observations
 
     # -------------------------------------------------------------------------
-    # 1. Forbidden licenses (Updated to use SupplyChainProvider)
+    # 1. Forbidden licenses - Core compliance functionality
     # -------------------------------------------------------------------------
     def _check_forbidden_licenses(self, artifacts_path: str) -> List[Observation]:
+        """
+        Analyzes code diffs and dependency metadata to detect high-risk 
+        open-source licenses that may introduce legal or IP contamination risks.
+        
+        Checks for:
+        - GPL-2.0, GPL-3.0, AGPL-3.0
+        - Copy-left pattern alerts
+        - AI-generated snippets resembling GPL-licensed code
+        """
+        logger.info(f"[_check_forbidden_licenses] Checking licenses in: {artifacts_path}")
+        
         forbidden_list = self.cfg.license_audit.forbidden_licenses or []
+        logger.info(f"[_check_forbidden_licenses] Forbidden licenses: {forbidden_list}")
+        
         if not forbidden_list:
+            logger.warning("[_check_forbidden_licenses] No forbidden licenses configured, skipping")
             return []
 
+        logger.info("[_check_forbidden_licenses] Initializing SupplyChainProvider...")
         scanner = SupplyChainProvider()
         result = scanner.collect(base_path=artifacts_path)
+        
+        logger.info(f"[_check_forbidden_licenses] SupplyChainProvider found {len(result.observations)} observations")
         
         observations = []
         forbidden_upper = [lic.upper() for lic in forbidden_list]
 
         for obs in result.observations:
             message_upper = obs.message.upper()
+            logger.debug(f"[_check_forbidden_licenses] Checking observation: {obs.message}")
             
+            # Check if any forbidden license is mentioned
             if any(f in message_upper for f in forbidden_upper):
+                logger.info(f"[_check_forbidden_licenses] ✅ Found violation: {obs.message}")
                 observations.append(obs)
 
+        logger.info(f"[_check_forbidden_licenses] Total license violations: {len(observations)}")
         return observations
 
     # -------------------------------------------------------------------------
-    # 2. Secrets, PII, TODOs, endpoints
-    # -------------------------------------------------------------------------
-    def _scan_source_for_secrets_and_gdpr(self, artifacts_path: str) -> List[Observation]:
-        observations = []
-
-        detect_secrets = self.cfg.security_audit.detect_secrets
-        detect_pii = self.cfg.security_audit.detect_pii
-        detect_todos = self.cfg.security_audit.detect_suspicious_todos
-        detect_endpoints = self.cfg.security_audit.detect_non_eu_endpoints
-
-        for root, dirs, files in os.walk(artifacts_path):
-            dirs[:] = [d for d in dirs if d not in self.EXCLUDE_DIRS]
-
-            for fname in files:
-                if not fname.endswith((
-                    ".py", ".js", ".ts", ".java", ".go", ".rb",
-                    ".php", ".cs", ".txt", ".md", ".yaml", ".yml"
-                )):
-                    continue
-
-                path = os.path.join(root, fname)
-
-                try:
-                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                        lines = f.readlines()
-                except Exception:
-                    continue
-
-                for i, line in enumerate(lines, start=1):
-
-                    # Secrets
-                    if detect_secrets and re.search(r"(api[_-]?key|secret|token|password)\s*[:=]", line, re.I):
-                        observations.append(
-                            Observation(
-                                category="compliance",
-                                signal="hardcoded_secret",
-                                confidence=1.0,
-                                message="Potential hardcoded secret detected.",
-                                severity="high",
-                                location=Location(file=path, line=i),
-                            )
-                        )
-
-                    # Email (PII)
-                    if detect_pii and re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", line):
-                        observations.append(
-                            Observation(
-                                category="compliance",
-                                signal="pii_email",
-                                confidence=1.0,
-                                message="Email address detected in source code.",
-                                severity=self.cfg.gdpr_detection.severity_email or "medium",
-                                location=Location(file=path, line=i),
-                            )
-                        )
-
-                    # TODO suspicious
-                    if detect_todos and "TODO" in line.upper():
-                        observations.append(
-                            Observation(
-                                category="compliance",
-                                signal="suspicious_todo",
-                                confidence=1.0,
-                                message="Suspicious TODO comment found.",
-                                severity=self.cfg.gdpr_detection.severity_todo or "low",
-                                location=Location(file=path, line=i),
-                            )
-                        )
-
-                    # Non‑EU endpoints (improved regex to avoid false positives with 'eu' in middle)
-                    if detect_endpoints and re.search(r"https?://(?![a-z0-9-]*eu)([a-z0-9-]+\.)+[a-z]{2,}", line, re.I):
-                        observations.append(
-                            Observation(
-                                category="compliance",
-                                signal="non_eu_endpoint",
-                                confidence=1.0,
-                                message="Non‑EU endpoint detected.",
-                                severity=self.cfg.gdpr_detection.severity_non_eu_endpoint or "medium",
-                                location=Location(file=path, line=i),
-                            )
-                        )
-
-        return observations
-
-    # -------------------------------------------------------------------------
-    # 3. Data residency
+    # 2. Data residency - Compliance requirement
     # -------------------------------------------------------------------------
     def _check_data_residency(self, ai_provider_region: Optional[str]) -> List[Observation]:
+        """
+        Validates that AI provider operates in required geographic region
+        for data sovereignty compliance (GDPR, CCPA, etc.)
+        """
         required = self.cfg.security_audit.enforce_data_residency
         mode = self.cfg.data_residency_mode  # advisory | blocking
 
