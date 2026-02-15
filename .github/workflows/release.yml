@@ -24,7 +24,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Потрібно для changelog
 
       # --- Extract version ---
       - name: Extract version from tag
@@ -38,6 +38,12 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Building release: $VERSION"
+      
+      # Convert repository name to lowercase for Docker
+      - name: Set lowercase repository name
+        id: repo
+        run: |
+          echo "repository=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       # --- Build Docker Image ---
       - name: Set up Docker Buildx
@@ -54,7 +60,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ steps.repo.outputs.repository }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -73,15 +79,14 @@ jobs:
           build-args: |
             BUILD_SHA=${{ github.sha }}
             VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/ai-slop-gate:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/ai-slop-gate:buildcache,mode=max
-
+          cache-from: type=registry,ref=ghcr.io/${{ steps.repo.outputs.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ steps.repo.outputs.repository }}:buildcache,mode=max
 
       # --- Security Scanning ---
       - name: Run Trivy vulnerability scanner on release image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          image-ref: ghcr.io/${{ steps.repo.outputs.repository }}:${{ steps.version.outputs.version }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
@@ -98,14 +103,14 @@ jobs:
       - name: Generate SBOM for release
         uses: anchore/sbom-action@v0
         with:
-          image: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          image: ghcr.io/${{ steps.repo.outputs.repository }}:${{ steps.version.outputs.version }}
           format: "spdx-json"
           output-file: "sbom-spdx.json"
 
       - name: Generate SBOM in CycloneDX format (for compatibility)
         uses: anchore/sbom-action@v0
         with:
-          image: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          image: ghcr.io/${{ steps.repo.outputs.repository }}:${{ steps.version.outputs.version }}
           format: "cyclonedx-json"
           output-file: "sbom-cyclonedx.json"
 
@@ -160,12 +165,12 @@ jobs:
           # Sign with keyless (if no private key)
           if [ -z "${{ secrets.COSIGN_PRIVATE_KEY }}" ]; then
             echo "Using keyless signing..."
-            cosign sign --yes ghcr.io/${{ github.repository }}@${{ steps.build-push.outputs.digest }}
+            cosign sign --yes ghcr.io/${{ steps.repo.outputs.repository }}@${{ steps.build-push.outputs.digest }}
           else
             echo "Using private key signing..."
             echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
             cosign sign --yes --key cosign.key \
-              ghcr.io/${{ github.repository }}@${{ steps.build-push.outputs.digest }}
+              ghcr.io/${{ steps.repo.outputs.repository }}@${{ steps.build-push.outputs.digest }}
             rm cosign.key
           fi
 
@@ -185,8 +190,8 @@ jobs:
             ### 📦 Docker Images
             
             ```bash
-            docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
-            docker pull ghcr.io/${{ github.repository }}:latest
+            docker pull ghcr.io/${{ steps.repo.outputs.repository }}:${{ steps.version.outputs.version }}
+            docker pull ghcr.io/${{ steps.repo.outputs.repository }}:latest
             ```
             
             ### 🔐 Image Digest
@@ -198,7 +203,7 @@ jobs:
             ### ✅ Verify Signature
             
             ```bash
-            cosign verify ghcr.io/${{ github.repository }}@${{ steps.build-push.outputs.digest }}
+            cosign verify ghcr.io/${{ steps.repo.outputs.repository }}@${{ steps.build-push.outputs.digest }}
             ```
             
             ### 📋 Artifacts
@@ -225,8 +230,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Docker Images:**" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${{ github.repository }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ steps.repo.outputs.repository }}:${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ steps.repo.outputs.repository }}:latest" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release URL:** ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
