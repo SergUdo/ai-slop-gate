@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'  # Запускається тільки при push тега v1.0.0, v2.1.3, etc.
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       tag:
@@ -24,7 +24,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Потрібно для changelog
+          fetch-depth: 0
 
       # --- Extract version ---
       - name: Extract version from tag
@@ -82,15 +82,15 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/${{ steps.repo.outputs.repository }}:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ steps.repo.outputs.repository }}:buildcache,mode=max
 
-      # --- Security Scanning ---
+      # --- Security Scanning (use digest!) ---
       - name: Run Trivy vulnerability scanner on release image
         uses: aquasecurity/trivy-action@master
         with:
-          # Use digest instead of tag for immediate availability
+          # CRITICAL: NO quotes around image-ref for variable interpolation
           image-ref: ghcr.io/${{ steps.repo.outputs.repository }}@${{ steps.build-push.outputs.digest }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
           ignore-unfixed: true
           trivyignores: .trivyignore
 
@@ -100,21 +100,21 @@ jobs:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy-release'
 
-      # --- SBOM Generation ---
+      # --- SBOM Generation (use digest!) ---
       - name: Generate SBOM for release
         uses: anchore/sbom-action@v0
         with:
-          # Use digest for immediate availability
+          # NO quotes for variable interpolation
           image: ghcr.io/${{ steps.repo.outputs.repository }}@${{ steps.build-push.outputs.digest }}
-          format: "spdx-json"
-          output-file: "sbom-spdx.json"
+          format: spdx-json
+          output-file: sbom-spdx.json
 
-      - name: Generate SBOM in CycloneDX format (for compatibility)
+      - name: Generate SBOM in CycloneDX format
         uses: anchore/sbom-action@v0
         with:
           image: ghcr.io/${{ steps.repo.outputs.repository }}@${{ steps.build-push.outputs.digest }}
-          format: "cyclonedx-json"
-          output-file: "sbom-cyclonedx.json"
+          format: cyclonedx-json
+          output-file: sbom-cyclonedx.json
 
       # --- License Compliance ---
       - name: Audit Licenses in SBOM
@@ -237,3 +237,4 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release URL:** ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          
