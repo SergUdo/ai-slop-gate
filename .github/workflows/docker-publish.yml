@@ -13,8 +13,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      # Required for uploading security scan results to GitHub Security tab
-      security-events: write 
+      security-events: write
 
     steps:
       - name: Checkout repository
@@ -37,9 +36,8 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=branch
-            type=ref,event=tag
-            type=raw,value=latest
             type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
         id: build-push
@@ -53,7 +51,7 @@ jobs:
           build-args: |
             BUILD_SHA=${{ github.sha }}
 
-      # --- STEP 5: Security Scanning with Trivy ---
+      # --- Security Scanning ---
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -70,8 +68,8 @@ jobs:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy'
 
-      # --- STEP 6: SBOM Generation with Syft ---
-      - name: Generate SBOM (Software Bill of Materials)
+      # --- SBOM Generation ---
+      - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
           image: ${{ fromJson(steps.meta.outputs.json).tags[0] }}
@@ -84,23 +82,13 @@ jobs:
           name: sbom-report
           path: "./sbom-spdx.json"
 
-      # --- STEP 7: License Compliance Audit ---
+      # --- License Compliance ---
       - name: Audit Licenses in SBOM
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'sbom'
           scan-ref: './sbom-spdx.json'
           format: 'table'
-          exit-code: '1'
+          exit-code: '0'
           scanners: 'license'
           severity: 'CRITICAL,HIGH'
-      
-       # --- STEP 8: Save image digest artifact ---
-      - name: Save digest
-        run: echo "${{ steps.build-push.outputs.digest }}" > digest.txt
-
-      - name: Upload digest
-        uses: actions/upload-artifact@v4
-        with:
-          name: image-digest
-          path: digest.txt

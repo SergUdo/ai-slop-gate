@@ -1,65 +1,231 @@
 name: Release
 
 on:
-  workflow_run:
-    workflows: ["Build & Publish Docker Image"]
-    types:
-      - completed
+  push:
+    tags:
+      - 'v*.*.*'  # Запускається тільки при push тега v1.0.0, v2.1.3, etc.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release version tag (e.g., v1.0.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
-  packages: read
+  packages: write
+  security-events: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download digest artifact
-        uses: actions/download-artifact@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          name: image-digest
-          run-id: ${{ github.event.workflow_run.id }}
+          fetch-depth: 0
 
-      - name: Read digest
-        id: digest
-        run: echo "digest=$(cat digest.txt)" >> $GITHUB_OUTPUT
-
+      # --- Extract version ---
       - name: Extract version from tag
         id: version
         run: |
-          VERSION="${{ github.event.workflow_run.head_branch }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.tag }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Building release: $VERSION"
 
+      # --- Build Docker Image ---
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Extract metadata for release
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build and push release image
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          build-args: |
+            BUILD_SHA=${{ github.sha }}
+            VERSION=${{ steps.version.outputs.version }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
+
+      # --- Security Scanning ---
+      - name: Run Trivy vulnerability scanner on release image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'trivy-release'
+
+      # --- SBOM Generation ---
+      - name: Generate SBOM for release
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          format: "spdx-json"
+          output-file: "sbom-spdx.json"
+
+      - name: Generate SBOM in CycloneDX format (for compatibility)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          format: "cyclonedx-json"
+          output-file: "sbom-cyclonedx.json"
+
+      # --- License Compliance ---
+      - name: Audit Licenses in SBOM
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          scan-type: 'sbom'
+          scan-ref: './sbom-spdx.json'
+          format: 'table'
+          exit-code: '0'
+          scanners: 'license'
+          severity: 'CRITICAL,HIGH'
+
+      # --- Generate Changelog ---
       - name: Generate changelog
         id: changelog
         uses: mikepenz/release-changelog-builder-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          configuration: |
+            {
+              "categories": [
+                {
+                  "title": "## 🚀 Features",
+                  "labels": ["feature", "enhancement"]
+                },
+                {
+                  "title": "## 🐛 Fixes",
+                  "labels": ["fix", "bugfix", "bug"]
+                },
+                {
+                  "title": "## 🧰 Maintenance",
+                  "labels": ["chore", "maintenance"]
+                }
+              ],
+              "template": "#{{CHANGELOG}}\n\n**Full Changelog**: #{{RELEASE_DIFF}}"
+            }
 
+      # --- Sign Image with Cosign ---
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: Sign image digest
+      - name: Sign release image with cosign
         env:
           COSIGN_EXPERIMENTAL: "true"
-          COSIGN_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
-          echo "Signing digest: ${{ steps.digest.outputs.digest }}"
-          cosign sign \
-            --yes \
-            --key env://COSIGN_KEY \
-            ghcr.io/${{ github.repository }}@${{ steps.digest.outputs.digest }}
+          echo "🔐 Signing image digest: ${{ steps.build-push.outputs.digest }}"
+          
+          # Sign with keyless (if no private key)
+          if [ -z "${{ secrets.COSIGN_PRIVATE_KEY }}" ]; then
+            echo "Using keyless signing..."
+            cosign sign --yes ghcr.io/${{ github.repository }}@${{ steps.build-push.outputs.digest }}
+          else
+            echo "Using private key signing..."
+            echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
+            cosign sign --yes --key cosign.key \
+              ghcr.io/${{ github.repository }}@${{ steps.build-push.outputs.digest }}
+            rm cosign.key
+          fi
 
+      # --- Create GitHub Release ---
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.VERSION }}
-          release_name: Release ${{ env.VERSION }}
-          body: ${{ steps.changelog.outputs.changelog }}
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## 🚀 Release ${{ steps.version.outputs.version }}
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ---
+            
+            ### 📦 Docker Images
+            
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+            docker pull ghcr.io/${{ github.repository }}:latest
+            ```
+            
+            ### 🔐 Image Digest
+            
+            ```
+            ${{ steps.build-push.outputs.digest }}
+            ```
+            
+            ### ✅ Verify Signature
+            
+            ```bash
+            cosign verify ghcr.io/${{ github.repository }}@${{ steps.build-push.outputs.digest }}
+            ```
+            
+            ### 📋 Artifacts
+            
+            - SBOM (SPDX): Attached below
+            - SBOM (CycloneDX): Attached below
+            - Security Scan: Check Security tab
           draft: false
           prerelease: false
+          generate_release_notes: false
+          files: |
+            sbom-spdx.json
+            sbom-cyclonedx.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Summary ---
+      - name: Release Summary
+        run: |
+          echo "## 🎉 Release Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** \`${{ steps.build-push.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Docker Images:**" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release URL:** ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
