@@ -1,10 +1,10 @@
 name: Release
 
 on:
-  workflow_dispatch:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_run:
+    workflows: ["Build & Publish Docker Image"]
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -15,40 +15,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # -----------------------------
-      # 1. Завантажуємо digest з основного workflow
-      # -----------------------------
       - name: Download digest artifact
         uses: actions/download-artifact@v4
         with:
           name: image-digest
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Read digest
         id: digest
         run: echo "digest=$(cat digest.txt)" >> $GITHUB_OUTPUT
 
-      # -----------------------------
-      # 2. Semantic Versioning (для назви релізу)
-      # -----------------------------
-      - name: Determine version from tag
+      - name: Extract version from tag
         id: version
         run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION="${{ github.event.workflow_run.head_branch }}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      # -----------------------------
-      # 3. Generate CHANGELOG
-      # -----------------------------
       - name: Generate changelog
         id: changelog
         uses: mikepenz/release-changelog-builder-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # -----------------------------
-      # 4. Cosign signing (digest only)
-      # -----------------------------
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
@@ -64,9 +53,6 @@ jobs:
             --key env://COSIGN_KEY \
             ghcr.io/${{ github.repository }}@${{ steps.digest.outputs.digest }}
 
-      # -----------------------------
-      # 5. Create GitHub Release
-      # -----------------------------
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
