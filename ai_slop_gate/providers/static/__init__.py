@@ -17,6 +17,7 @@ from .trivy import TrivyProvider
 from .sbom import SBOMProvider
 from .ruby_static import StaticRubyProvider
 from .java_static import StaticJavaProvider
+from .csharp_static import StaticCSharpProvider
 
 __all__ = [
     "StaticProvider",
@@ -35,5 +36,6 @@ __all__ = [
     "TrivyProvider",
     "SBOMProvider",
     "StaticRubyProvider",
-    "StaticJavaProvider"
+    "StaticJavaProvider",
+    "StaticCSharpProvider",
 ]
