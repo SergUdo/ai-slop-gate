@@ -15,6 +15,7 @@ from .terraform_static import TerraformStaticProvider
 from .supply_chain import SupplyChainProvider
 from .trivy import TrivyProvider
 from .sbom import SBOMProvider
+from .ruby_static import StaticRubyProvider
 
 __all__ = [
     "StaticProvider",
@@ -32,4 +33,5 @@ __all__ = [
     "SupplyChainProvider",
     "TrivyProvider",
     "SBOMProvider",
+    "StaticRubyProvider",
 ]

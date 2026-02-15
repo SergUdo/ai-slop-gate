@@ -197,11 +197,12 @@ python -m ai_slop_gate.cli run --provider static --policy path/to/your-custom-po
 👉 [RELEASE.md](docs/source/RELEASE.md)
 
 ## 🛠️ Supported Languages & Infrastructure
+* ✅ **Ruby** (Full support)
 * ✅ **Python** (Full support)
 * ✅ **JavaScript / TypeScript** (Full support)
 * ✅ **Docker** (Full support)
 * ✅ **Kubernetes** (Full support)
-* ✅  **Terraform** (Full support)
+* ✅ **Terraform** (Full support)
 
 ---
 ## 🔐 Environment Variables
