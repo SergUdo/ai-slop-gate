@@ -1,7 +1,9 @@
-name: AI Slop Gate GROQ Analysis
+name: AI Slop Gate LLM GROQ Analysis
 
 on:
   pull_request:
+    branches: [ main ]
+  push:
     branches: [ main ]
   workflow_dispatch:
 
@@ -12,73 +14,203 @@ permissions:
 jobs:
   llm-analysis:
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run AI Slop Gate (Gemini PR analysis)
-        id: slop_gate
+      - name: Cache ai-slop-gate cache directory
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ai-slop-gate
+          key: ai-slop-gate-cache-${{ runner.os }}-${{ hashFiles('**/*.py', '**/*.yml', '**/*.yaml') }}
+          restore-keys: |
+            ai-slop-gate-cache-${{ runner.os }}-
+
+      # Run LLM analysis
+      - name: LLM Analysis (ai-slop-gate)
+        id: llm_gate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SLOPE_GATE_GROQ: ${{ secrets.SLOPE_GATE_GROQ }}
         continue-on-error: true
         run: |
+          mkdir -p ~/.cache/ai-slop-gate
+          
+          # Check if API key is available
+          if [ -z "$SLOPE_GATE_GROQ" ]; then
+            echo "⚠️ SLOPE_GATE_GROQ not set, skipping LLM analysis"
+            echo "verdict=SKIPPED" >> $GITHUB_OUTPUT
+            echo "findings=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check if policy.yml exists, otherwise use default
+          POLICY_FLAG=""
+          if [ -f "${{ github.workspace }}/policy.yml" ]; then
+            echo "📋 Using custom policy.yml"
+            POLICY_FLAG="--policy /data/policy.yml"
+          else
+            echo "📋 Using default policy"
+          fi
+          
+          # Run LLM analysis and capture output
+          set +e  # Disable exit on error temporarily
           docker run --rm \
+            -v "${{ github.workspace }}:/data" \
+            -v ~/.cache/ai-slop-gate:/root/.cache/ai-slop-gate \
             -e GITHUB_TOKEN \
             -e SLOPE_GATE_GROQ \
             ghcr.io/sergudo/ai-slop-gate:latest \
-            run \
-              --provider groq \
-              --policy policy.yml \
-              --github-repo "${{ github.repository }}" \
-              --pr-id "${{ github.event.pull_request.number }}" \
-            > llm_report.txt 2>&1
+            run --provider groq --llm-local $POLICY_FLAG --path /data > raw_report.txt 2>&1
+          
+          EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          # Always show report
+          cat raw_report.txt
+          
+          # Save exit code
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Extract verdict (default to UNKNOWN if not found)
+          VERDICT=$(grep "Policy Verdict:" raw_report.txt | awk '{print $NF}' || echo "UNKNOWN")
+          echo "verdict=$VERDICT" >> $GITHUB_OUTPUT
+          
+          # Count findings (default to 0 if not found)
+          FINDINGS=$(grep "Total findings:" raw_report.txt | awk '{print $NF}' || echo "0")
+          echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+          
+          # Log extracted values
+          echo "📊 Extracted values:"
+          echo "   Exit code: $EXIT_CODE"
+          echo "   Verdict: $VERDICT"
+          echo "   Findings: $FINDINGS"
+          
+          # Don't fail here
+          exit 0
 
-          echo "=== RAW LLM REPORT ==="
-          cat llm_report.txt
-
-      - name: Extract clean report
-        if: steps.slop_gate.outcome == 'failure'
-        run: |
-          sed -n '/=== AI SLOP GATE LLM GROQ REPORT ===/,/=== END OF REPORT ===/p' llm_report.txt > clean_report.md
-
-      - name: Post PR Comment
-        if: steps.slop_gate.outcome == 'failure'
+      # Post comment on PR (always)
+      - name: Post LLM Analysis Report to PR
+        if: github.event_name == 'pull_request' && always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "### 🚨 AI Slop Gate LLM GROQ Analysis" > final_comment.md
-          echo "The LLM-based analysis detected policy violations." >> final_comment.md
-          echo "" >> final_comment.md
+          # Check if analysis was skipped
+          if [ "${{ steps.llm_gate.outputs.verdict }}" = "SKIPPED" ]; then
+            cat > final_comment.md << EOF
+          ## ⏭️ AI Slop Gate LLM Analysis
+          
+          **Status:** SKIPPED  
+          **Reason:** SLOPE_GATE_GROQ not configured
+          
+          To enable LLM analysis, add \`SLOPE_GATE_GROQ\` to repository secrets.
+          
+          <sub>🤖 Powered by [AI Slop Gate](https://github.com/SergUdo/ai-slop-gate) | Run: \`${{ github.run_id }}\`</sub>
+          EOF
+            
+            gh pr comment ${{ github.event.pull_request.number }} \
+              --body-file final_comment.md \
+              --repo ${{ github.repository }}
+            exit 0
+          fi
+          
+          # Extract clean report
+          sed -n '/=== AI SLOP GATE REPORT ===/,/=== END OF REPORT ===/p' raw_report.txt > clean_report.md
+          
+          # Check if report was extracted
+          if [ ! -s clean_report.md ]; then
+            echo "⚠️ Warning: Could not extract report from raw_report.txt"
+            echo "=== NO REPORT GENERATED ===" > clean_report.md
+            echo "The LLM analysis may have failed to run properly." >> clean_report.md
+          fi
+          
+          # Get values with defaults
+          VERDICT="${{ steps.llm_gate.outputs.verdict }}"
+          FINDINGS="${{ steps.llm_gate.outputs.findings }}"
+          
+          # Set defaults if empty
+          VERDICT="${VERDICT:-UNKNOWN}"
+          FINDINGS="${FINDINGS:-0}"
+          
+          echo "📊 Report values:"
+          echo "   Verdict: $VERDICT"
+          echo "   Findings: $FINDINGS"
+          
+          # Determine emoji and status
+          if [ "$VERDICT" = "BLOCKING" ]; then
+            EMOJI="🚨"
+            STATUS="**BLOCKING** - Action Required"
+          elif [ "$VERDICT" = "ADVISORY" ]; then
+            EMOJI="⚠️"
+            STATUS="**ADVISORY** - Review Recommended"
+          elif [ "$VERDICT" = "ALLOW" ]; then
+            EMOJI="✅"
+            STATUS="**PASSED** - No Issues Found"
+          else
+            EMOJI="❓"
+            STATUS="**UNKNOWN** - Check logs"
+          fi
+          
+          # Create professional comment
+          cat > final_comment.md << EOF
+          ## $EMOJI AI Slop Gate LLM Analysis (Gemini)
+          
+          **Status:** $STATUS  
+          **Findings:** $FINDINGS issue(s) detected
+          
+          > 🤖 **Deep Analysis:** This report uses AI to detect architectural issues, anti-patterns, and logic flaws that static analysis might miss.
+          
+          ---
+          
+          EOF
+          
+          # Append the clean report
           cat clean_report.md >> final_comment.md
-
+          
+          # Add footer with fix guide ONLY if there are violations
+          if [ "$FINDINGS" != "0" ] && [ "$VERDICT" != "ALLOW" ]; then
+            cat >> final_comment.md << EOF
+          
+          ---
+          
+          <details>
+          <summary>📚 Understanding LLM Findings</summary>
+          
+          ### What LLM Analysis Detects
+          - Architectural anti-patterns and code smells
+          - Logic inconsistencies and contradictions
+          - Misleading naming or documentation
+          - Potential design flaws
+          - Security vulnerabilities in business logic
+          
+          ### How to Interpret Findings
+          - **High Confidence (0.8-1.0):** Strong evidence of an issue
+          - **Medium Confidence (0.5-0.8):** Worth investigating
+          - **Low Confidence (<0.5):** Consider in context
+          
+          ### False Positives
+          LLM analysis may flag intentional design decisions. Review findings critically and validate against your requirements.
+          
+          </details>
+          EOF
+          fi
+          
+          # Always add footer
+          cat >> final_comment.md << EOF
+          
+          <sub>🤖 Powered by [AI Slop Gate](https://github.com/SergUdo/ai-slop-gate) + Gemini | Run: \`${{ github.run_id }}\`</sub>
+          EOF
+          
+          # Post comment
           gh pr comment ${{ github.event.pull_request.number }} \
             --body-file final_comment.md \
             --repo ${{ github.repository }}
 
-      - name: Label PR on Policy Violation
-        if: steps.slop_gate.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Set job status based on verdict
+      - name: Check LLM Analysis Result
+        if: steps.llm_gate.outputs.verdict == 'BLOCKING'
         run: |
-          LABEL_NAME="slop-detected"
-
-          gh label create "$LABEL_NAME" \
-            --color "ff0000" \
-            --description "AI Slop detected by automated gate" \
-            --repo ${{ github.repository }} || true
-
-          gh pr edit ${{ github.event.pull_request.number }} \
-            --add-label "$LABEL_NAME" \
-            --repo ${{ github.repository }}
-
-      # Optional: Uncomment the following step if you prefer hard-blocking by closing the PR automatically.
-      # - name: Close PR on Policy Violation
-      #   if: steps.slop_gate.outcome == 'failure'
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: |
-      #     gh pr close ${{ github.event.pull_request.number }} \
-      #       --comment "🚫 PR closed based on the AI Slop Gate analysis. Please review the feedback and improve the content before re-submitting." \
-      #       --repo ${{ github.repository }}
+          echo "❌ LLM analysis found blocking violations"
+          exit 1

@@ -37,6 +37,15 @@ jobs:
         run: |
           mkdir -p ~/.cache/ai-slop-gate
           
+          # Check if policy.yml exists, otherwise use default
+          POLICY_FLAG=""
+          if [ -f "${{ github.workspace }}/policy.yml" ]; then
+            echo "📋 Using custom policy.yml"
+            POLICY_FLAG="--policy /data/policy.yml"
+          else
+            echo "📋 Using default policy"
+          fi
+          
           # Run compliance check and capture output (don't fail on non-zero exit)
           set +e  # Disable exit on error temporarily
           docker run --rm \
@@ -44,7 +53,7 @@ jobs:
             -v ~/.cache/ai-slop-gate:/root/.cache/ai-slop-gate \
             -e GITHUB_TOKEN \
             ghcr.io/sergudo/ai-slop-gate:latest \
-            run --compliance --policy /data/policy.yml --path /data > raw_report.txt 2>&1
+            run --compliance $POLICY_FLAG --path /data > raw_report.txt 2>&1
           
           EXIT_CODE=$?
           set -e  # Re-enable exit on error
@@ -81,22 +90,38 @@ jobs:
           # Extract clean report (fix sed pattern)
           sed -n '/=== AI SLOP GATE REPORT ===/,/=== END OF REPORT ===/p' raw_report.txt > clean_report.md
           
-          # Determine emoji and status based on verdict
+          # Check if report was extracted
+          if [ ! -s clean_report.md ]; then
+            echo "⚠️ Warning: Could not extract report from raw_report.txt"
+            echo "=== NO REPORT GENERATED ===" > clean_report.md
+            echo "The compliance check may have failed to run properly." >> clean_report.md
+          fi
+          
+          # Get values with defaults
           VERDICT="${{ steps.compliance_gate.outputs.verdict }}"
           FINDINGS="${{ steps.compliance_gate.outputs.findings }}"
           
+          # Set defaults if empty
+          VERDICT="${VERDICT:-UNKNOWN}"
+          FINDINGS="${FINDINGS:-0}"
+          
+          echo "📊 Report values:"
+          echo "   Verdict: $VERDICT"
+          echo "   Findings: $FINDINGS"
+          
+          # Determine emoji and status based on verdict
           if [ "$VERDICT" = "BLOCKING" ]; then
             EMOJI="🚨"
             STATUS="**BLOCKING** - Action Required"
-            COLOR="⚠️"
           elif [ "$VERDICT" = "ADVISORY" ]; then
             EMOJI="⚠️"
             STATUS="**ADVISORY** - Review Recommended"
-            COLOR="📋"
-          else
+          elif [ "$VERDICT" = "ALLOW" ]; then
             EMOJI="✅"
             STATUS="**PASSED** - No Issues Found"
-            COLOR="✨"
+          else
+            EMOJI="❓"
+            STATUS="**UNKNOWN** - Check logs"
           fi
           
           # Create professional comment
@@ -113,8 +138,9 @@ jobs:
           # Append the clean report
           cat clean_report.md >> final_comment.md
           
-          # Add footer
-          cat >> final_comment.md << EOF
+          # Add footer with fix guide ONLY if there are violations
+          if [ "$FINDINGS" != "0" ] && [ "$VERDICT" != "ALLOW" ]; then
+            cat >> final_comment.md << EOF
           
           ---
           
@@ -132,6 +158,11 @@ jobs:
           3. Remove references to US/AP regions
           
           </details>
+          EOF
+          fi
+          
+          # Always add footer
+          cat >> final_comment.md << EOF
           
           <sub>🤖 Powered by [AI Slop Gate](https://github.com/SergUdo/ai-slop-gate) | Run: \`${{ github.run_id }}\`</sub>
           EOF

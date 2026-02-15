@@ -5,10 +5,8 @@ on:
     branches: [ main ]
   push:
     branches: [ main ]
-  # Allows manual triggering of the workflow
   workflow_dispatch:
 
-# Grant permissions for managing PR labels, comments, and checking out content
 permissions:
   pull-requests: write
   contents: read
@@ -30,7 +28,7 @@ jobs:
           restore-keys: |
             ai-slop-gate-cache-${{ runner.os }}-
 
-      # Run static analysis. 'continue-on-error' allows us to label the PR even if slop is found.
+      # Run static analysis
       - name: Static Analysis (ai-slop-gate)
         id: static_gate
         env:
@@ -38,25 +36,155 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p ~/.cache/ai-slop-gate
+          
+          # Check if policy.yml exists, otherwise use default
+          POLICY_FLAG=""
+          if [ -f "${{ github.workspace }}/policy.yml" ]; then
+            echo "📋 Using custom policy.yml"
+            POLICY_FLAG="--policy /data/policy.yml"
+          else
+            echo "📋 Using default policy"
+          fi
+          
+          # Run static analysis and capture output
+          set +e  # Disable exit on error temporarily
           docker run --rm \
             -v "${{ github.workspace }}:/data" \
             -v ~/.cache/ai-slop-gate:/root/.cache/ai-slop-gate \
             -e GITHUB_TOKEN \
             ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider static --path /data > raw_report.txt 2>&1
+            run --provider static $POLICY_FLAG --path /data > raw_report.txt 2>&1
           
+          EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          # Always show report
           cat raw_report.txt
+          
+          # Save exit code for later steps
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Extract verdict (default to UNKNOWN if not found)
+          VERDICT=$(grep "Policy Verdict:" raw_report.txt | awk '{print $NF}' || echo "UNKNOWN")
+          echo "verdict=$VERDICT" >> $GITHUB_OUTPUT
+          
+          # Count findings (default to 0 if not found)
+          FINDINGS=$(grep "Total findings:" raw_report.txt | awk '{print $NF}' || echo "0")
+          echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+          
+          # Log extracted values
+          echo "📊 Extracted values:"
+          echo "   Exit code: $EXIT_CODE"
+          echo "   Verdict: $VERDICT"
+          echo "   Findings: $FINDINGS"
+          
+          # Don't fail here - let continue-on-error handle it
+          exit 0
 
-      - name: Professional Static Report
-        if: steps.static_gate.outcome == 'failure' && github.event_name == 'pull_request'
+      # Post comment on PR (always, not just on failure)
+      - name: Post Static Analysis Report to PR
+        if: github.event_name == 'pull_request' && always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          sed -n '/=== AI SLOP GATE STATIC REPORT ===/,/=== END OF REPORT ===/p' raw_report.txt > clean_report.md
+          # Extract clean report
+          sed -n '/=== AI SLOP GATE REPORT ===/,/=== END OF REPORT ===/p' raw_report.txt > clean_report.md
           
-          echo "### 🚨 AI Slop Gate Static Analysis" > final_comment.md
-          echo "The static analysis pipeline has identified policy violations that require attention." >> final_comment.md
-          echo "" >> final_comment.md
+          # Check if report was extracted
+          if [ ! -s clean_report.md ]; then
+            echo "⚠️ Warning: Could not extract report from raw_report.txt"
+            echo "=== NO REPORT GENERATED ===" > clean_report.md
+            echo "The static analysis may have failed to run properly." >> clean_report.md
+          fi
+          
+          # Get values with defaults
+          VERDICT="${{ steps.static_gate.outputs.verdict }}"
+          FINDINGS="${{ steps.static_gate.outputs.findings }}"
+          
+          # Set defaults if empty
+          VERDICT="${VERDICT:-UNKNOWN}"
+          FINDINGS="${FINDINGS:-0}"
+          
+          echo "📊 Report values:"
+          echo "   Verdict: $VERDICT"
+          echo "   Findings: $FINDINGS"
+          
+          # Determine emoji and status based on verdict
+          if [ "$VERDICT" = "BLOCKING" ]; then
+            EMOJI="🚨"
+            STATUS="**BLOCKING** - Action Required"
+          elif [ "$VERDICT" = "ADVISORY" ]; then
+            EMOJI="⚠️"
+            STATUS="**ADVISORY** - Review Recommended"
+          elif [ "$VERDICT" = "ALLOW" ]; then
+            EMOJI="✅"
+            STATUS="**PASSED** - No Issues Found"
+          else
+            EMOJI="❓"
+            STATUS="**UNKNOWN** - Check logs"
+          fi
+          
+          # Create professional comment
+          cat > final_comment.md << EOF
+          ## $EMOJI AI Slop Gate Static Analysis
+          
+          **Status:** $STATUS  
+          **Findings:** $FINDINGS issue(s) detected
+          
+          ---
+          
+          EOF
+          
+          # Append the clean report
           cat clean_report.md >> final_comment.md
           
-          gh pr comment ${{ github.event.pull_request.number }} --body-file final_comment.md --repo ${{ github.repository }}
+          # Add footer with fix guide ONLY if there are violations
+          if [ "$FINDINGS" != "0" ] && [ "$VERDICT" != "ALLOW" ]; then
+            cat >> final_comment.md << EOF
+          
+          ---
+          
+          <details>
+          <summary>📚 How to fix common issues</summary>
+          
+          ### Hardcoded Secrets
+          1. Move secrets to environment variables or secret management system
+          2. Use \`.env\` files (add to \`.gitignore\`)
+          3. For CI/CD, use GitHub Secrets or similar
+          
+          ### Dangerous Functions
+          1. Review usage of \`eval()\`, \`exec()\`, \`system()\`
+          2. Sanitize all user inputs
+          3. Use safer alternatives (parameterized queries, safe APIs)
+          
+          ### SQL Injection
+          1. Use parameterized queries/prepared statements
+          2. Never concatenate user input into SQL strings
+          3. Use ORM frameworks when possible
+          
+          ### TODOs
+          1. Complete or document security-related TODOs
+          2. Create issues for tracking
+          3. Remove completed TODOs
+          
+          </details>
+          EOF
+          fi
+          
+          # Always add footer
+          cat >> final_comment.md << EOF
+          
+          <sub>🤖 Powered by [AI Slop Gate](https://github.com/SergUdo/ai-slop-gate) | Run: \`${{ github.run_id }}\`</sub>
+          EOF
+          
+          # Post comment
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body-file final_comment.md \
+            --repo ${{ github.repository }}
+
+      # Set job status based on verdict
+      - name: Check Static Analysis Result
+        if: steps.static_gate.outputs.verdict == 'BLOCKING'
+        run: |
+          echo "❌ Static analysis found blocking violations"
+          exit 1
