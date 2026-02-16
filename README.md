@@ -293,6 +293,8 @@ python -m ai_slop_gate.cli.main run \
   --path /path/to/your/project
 ```
 
+## Cache Management
+
 **Cache benefits:**
 - First run: 15s, calls LLM API 💸
 - Repeated runs: 0.5s, uses cache ✅
@@ -318,11 +320,44 @@ python -m ai_slop_gate.cli.main run \
 
 ### View cache
 ```bash
-# Check cache files
 ls -lh .ai-slop-cache/
+du -sh .ai-slop-cache/
+```
 
-# Clear cache
+### Clear cache
+```bash
+# Local
 rm -rf .ai-slop-cache/
+
+# Docker
+docker run --rm \
+  -v $HOME/.ai-slop-cache:/app/.ai-slop-cache \
+  ai-slop-gate:secure clear-cache
+
+# Or use CLI
+ai-slop-gate clear-cache
+```
+
+### Cache location
+
+**Local:**
+- Default: `.ai-slop-cache/` in current directory
+- Custom: `--cache-dir /path/to/cache`
+
+**Docker:**
+- Internal: `/app/.ai-slop-cache/` (deleted after container stops)
+- Persistent: Mount with `-v $HOME/.ai-slop-cache:/app/.ai-slop-cache`
+
+### Cache statistics
+```bash
+# Count cache entries
+find .ai-slop-cache -name "*.json" | wc -l
+
+# Cache size
+du -sh .ai-slop-cache/
+
+# Oldest cache entry
+ls -lt .ai-slop-cache/ | tail -1
 ```
 
 ---
@@ -335,7 +370,7 @@ rm -rf .ai-slop-cache/
 | `gemini` | LLM   |  ✅ Yes | Google Gemini (local or GitHub PR) |
 | `groq`   | LLM   |  ✅ Yes | Groq (local or GitHub PR) |
 | `ollama` | LLM   |  ✅ Yes | Ollama local models |
-| `compliance`  | Compliance | ❌ No | GDPR, EU residency, license, supply-chain compliance |
+| `compliance`| Compliance   | ❌ No | GDPR, EU residency, license, supply-chain compliance |
 
 **Note:** Static providers don't use cache because they're already fast. Only LLM providers benefit from caching.
 
