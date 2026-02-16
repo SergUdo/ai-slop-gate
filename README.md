@@ -540,11 +540,11 @@ You can use this repository to:
 
 Run analysis on demo repo:
 ```bash
-git clone https://github.com/your-org/ai-slop-demo
+git clone https://github.com/SergUdo/slop_test
 python -m ai_slop_gate.cli.main run \
   --provider gemini \
   --llm-local \
-  --path ai-slop-demo
+  --path slop_test
 ```
 
 ---

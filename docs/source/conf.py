@@ -39,6 +39,6 @@ myst_enable_extensions = [
     "linkify",
     "substitution",
     "deflist",
+    "linkify-it-py",
 ]
 
-exclude_patterns = ["*.json"]
