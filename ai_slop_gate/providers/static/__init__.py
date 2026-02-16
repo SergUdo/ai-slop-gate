@@ -19,6 +19,7 @@ from .ruby_static import StaticRubyProvider
 from .java_static import StaticJavaProvider
 from .csharp_static import StaticCSharpProvider
 from .cpp_static import StaticCppProvider
+from .dead_code import DeadCodeProvider
 
 __all__ = [
     "StaticProvider",
@@ -39,5 +40,6 @@ __all__ = [
     "StaticRubyProvider",
     "StaticJavaProvider",
     "StaticCSharpProvider",
-    "StaticCppProvider"
+    "StaticCppProvider",
+    "DeadCodeProvider"
 ]

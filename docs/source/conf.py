@@ -14,7 +14,7 @@ extensions = [
     'sphinx_rtd_theme',
     'myst_parser',
     'sphinx_copybutton',
-    'sphinxcontrib.mermaid',
+    # 'sphinxcontrib.mermaid',
 ]
 
 html_theme = 'sphinx_rtd_theme'

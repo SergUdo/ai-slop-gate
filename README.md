@@ -243,17 +243,17 @@ python -m ai_slop_gate.cli init
 ```
 if you have `.ai-slop-gate.yml`  Use `--force` to overwrite
 
-# Local Usage
+## Local Usage
 
-## Analyze Projects
+### Analyze Projects
 
-### Analyze the current project (ai-slop-gate itself)
+#### Analyze the current project (ai-slop-gate itself)
 When you run the CLI inside the ai-slop-gate repository, the tool analyzes its own source code by default:
 ```bash
 python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
 ```
 
-### Analyze any external repository
+#### Analyze any external repository
 ```bash
 python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --path /path/to/your/project
 ```
@@ -265,11 +265,11 @@ python -m ai_slop_gate.cli.main run --compliance --policy policy.yml --path /pat
 
 ---
 
-## LLM Analysis with Cache
+### LLM Analysis with Cache
 
 AI Slop Gate automatically caches LLM responses to save tokens and speed up repeated analyses.
 
-### Run LLM locally with cache (recommended)
+#### Run LLM locally with cache (recommended)
 ```bash
 # Gemini (with automatic caching)
 python -m ai_slop_gate.cli.main run \
@@ -293,30 +293,30 @@ python -m ai_slop_gate.cli.main run \
   --path /path/to/your/project
 ```
 
-## Cache Management
+### Cache Management
 
 **Cache benefits:**
 - First run: 15s, calls LLM API 💸
 - Repeated runs: 0.5s, uses cache ✅
 - **Saves ~67% of tokens and time!**
 
-### Cache Files
+#### Cache Files
 
 AI Slop Gate caches LLM responses in `.ai-slop-cache/` directory to save tokens and speed up repeated analyses.
 
-### ⚠️ Important
+#### ⚠️ Important
 
 - **DO NOT commit** cache files to git (already in `.gitignore`)
 - Cache may contain sensitive information from analyzed code
 - Cache is user-specific and should not be shared
 
-### Cache location
+#### Cache location
 
 - Local: `.ai-slop-cache/` (current directory)
 - Docker: `/app/.ai-slop-cache/` (mount for persistence)
 - Custom: `--cache-dir /path/to/cache`
 
-### Clear cache
+#### Clear cache
 ```bash
 # Remove all cache
 rm -rf .ai-slop-cache/
@@ -325,7 +325,7 @@ rm -rf .ai-slop-cache/
 ai-slop-gate clear-cache
 ```
 
-### Custom cache directory
+#### Custom cache directory
 ```bash
 python -m ai_slop_gate.cli.main run \
   --provider gemini \
@@ -334,7 +334,7 @@ python -m ai_slop_gate.cli.main run \
   --path /path/to/your/project
 ```
 
-### Disable cache (always call API)
+#### Disable cache (always call API)
 ```bash
 python -m ai_slop_gate.cli.main run \
   --provider gemini \
@@ -343,7 +343,7 @@ python -m ai_slop_gate.cli.main run \
   --path /path/to/your/project
 ```
 
-### View cache
+#### View cache
 ```bash
 ls -lh .ai-slop-cache/
 du -sh .ai-slop-cache/

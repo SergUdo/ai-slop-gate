@@ -18,6 +18,7 @@ from ai_slop_gate.providers.static.ruby_static import StaticRubyProvider
 from ai_slop_gate.providers.static.java_static import StaticJavaProvider
 from ai_slop_gate.providers.static.csharp_static import StaticCSharpProvider
 from ai_slop_gate.providers.static.cpp_static import StaticCppProvider
+from ai_slop_gate.providers.static.dead_code import DeadCodeProvider
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ class StaticPipelineProvider(BaseProvider):
             StaticJavaProvider(),
             StaticCSharpProvider(),
             StaticCppProvider(),
+            DeadCodeProvider(),
         ]
 
     # -------------------------------------------------------------------------
