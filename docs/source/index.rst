@@ -7,6 +7,7 @@ Welcome to ai-slop-gate Documentation
 
    ARCHITECTURE
    PROJECT_STRUCTURE
+   snapshot
    RAG_BACKENDS
    compare_models
    cache-integration
@@ -31,10 +32,3 @@ Welcome to ai-slop-gate Documentation
    example_groq_report
    example_ollama_report
    example_static_pipelane_report
-
-.. toctree::
-   :maxdepth: 1
-   :caption: 📦 Snapshots
-
-ai_slop_gate_snapshot.json
-

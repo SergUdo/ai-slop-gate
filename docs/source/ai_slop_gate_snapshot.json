@@ -1,4 +1,3 @@
-
 {
   "snapshot_version": "7.4.0",
   "project": {
@@ -7,6 +6,58 @@
     "status": "canonical",
     "purpose": "Policy-driven AI, supply-chain and compliance gate for code and infrastructure"
   },
+  "supported_languages": [
+    {
+      "language": "Ruby",
+      "support_level": "full",
+      "providers": ["StaticRubyProvider"]
+    },
+    {
+      "language": "Python",
+      "support_level": "full",
+      "providers": ["StaticPythonProvider"]
+    },
+    {
+      "language": "JavaScript",
+      "support_level": "full",
+      "providers": ["StaticJSProvider", "StaticTSJSProvider", "ESLintProvider"]
+    },
+    {
+      "language": "TypeScript",
+      "support_level": "full",
+      "providers": ["StaticTSJSProvider", "ESLintProvider"]
+    },
+    {
+      "language": "Java",
+      "support_level": "full",
+      "providers": ["StaticJavaProvider"]
+    },
+    {
+      "language": "C++",
+      "support_level": "full",
+      "providers": ["StaticCppProvider"]
+    },
+    {
+      "language": "C#",
+      "support_level": "full",
+      "providers": ["StaticCSharpProvider"]
+    },
+    {
+      "language": "Docker",
+      "support_level": "full",
+      "providers": ["StaticDockerProvider"]
+    },
+    {
+      "language": "Kubernetes",
+      "support_level": "full",
+      "providers": ["KubernetesStaticProvider", "K8sRuntimeProvider"]
+    },
+    {
+      "language": "Terraform",
+      "support_level": "full",
+      "providers": ["TerraformStaticProvider", "TerraformPlanProvider"]
+    }
+  ],
   "principles": {
     "no_hidden_logic": true,
     "policy_is_source_of_truth": true,
@@ -87,17 +138,25 @@
       "llm": "analyze(inputs) -> list[Observation]"
     },
     "builtins": [
-      "K8sRuntime",
-      "KubernetesStatic",
-      "StaticDocker",
-      "StaticTSJS",
-      "StaticPython",
-      "SupplyChain",
-      "TerraformPlan",
-      "TerraformStatic",
-      "ESLint",
-      "Trivy",
-      "SBOM"
+      "StaticProvider",
+      "StaticSecurityProvider",
+      "StaticPipelineProvider",
+      "ESLintProvider",
+      "StaticDockerProvider",
+      "StaticJSProvider",
+      "StaticPythonProvider",
+      "StaticTSJSProvider",
+      "K8sRuntimeProvider",
+      "KubernetesStaticProvider",
+      "TerraformPlanProvider",
+      "TerraformStaticProvider",
+      "SupplyChainProvider",
+      "TrivyProvider",
+      "SBOMProvider",
+      "StaticRubyProvider",
+      "StaticJavaProvider",
+      "StaticCSharpProvider",
+      "StaticCppProvider"
     ]
   },
   "cache": {
@@ -260,4 +319,3 @@
     "GITHUB_TOKEN": "automated changelog/release creation (default secret)"
   }
 }
-

@@ -349,14 +349,14 @@ ls -lh .ai-slop-cache/
 du -sh .ai-slop-cache/
 ```
 
-# Docker
+## Docker
 ```bas
 docker run --rm \
   -v $HOME/.ai-slop-cache:/app/.ai-slop-cache \
   ai-slop-gate:secure clear-cache
 ```
 
-# Or use CLI
+### Or use CLI
 ```bas
 ai-slop-gate clear-cache
 ```
@@ -547,6 +547,16 @@ python -m ai_slop_gate.cli.main run \
   --path slop_test
 ```
 
+#### Examples workflows
+
+➡️ **[docs/workflow_static.yml](docs/example_workflow_static.yml)**
+
+➡️ **[docs/workflow_groq.yml](docs/example_workflow_groq.yml)**
+
+➡️ **[docs/workflow_gemini.yml](docs/example_workflow_gemini.yml)**
+
+**Note**: Ensure your workflow file references these secrets accordingly.
+
 ---
 
 ## 💡 Tips for Open Source Projects
@@ -611,6 +621,7 @@ Make sure you have:
 
 ## 📚 Learn More
 
+```bash
 - [Cache Integration Guide](docs/source/cache-integration.md)
 - [Policy Configuration](docs/source/policy-configuration.md)
 ```
@@ -737,16 +748,6 @@ When running in a CI/CD pipeline, you must add these variables to your **GitHub 
 
 * **GITHUB_TOKEN**: (Mandatory) A GitHub token with permissions to read the PR diff and write comments.
 * **Provider Keys**: `GEMINI_API_KEY`, or `SLOPE_GATE_GROQ` depending on which AI service your workflow is configured to use.
-
-#### Examples workflows
-
-➡️ **[docs/workflow_static.yml](docs/example_workflow_static.yml)**
-
-➡️ **[docs/workflow_groq.yml](docs/example_workflow_groq.yml)**
-
-➡️ **[docs/workflow_gemini.yml](docs/example_workflow_gemini.yml)**
-
-**Note**: Ensure your workflow file references these secrets accordingly.
 
 ### 📺 See it in action
 Check out [this example PR](https://github.com/SergUdo/slop_test/pull/7) where `ai-slop-gate` automatically analyzed, commented on, and closed a low-quality submission.
