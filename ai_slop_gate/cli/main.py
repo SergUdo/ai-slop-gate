@@ -32,7 +32,10 @@ def main():
             policy_path=args.policy,
             verbose=args.verbose,
             compliance=getattr(args, 'compliance', False),
-            compliance_only=getattr(args, 'compliance_only', False)
+            compliance_only=getattr(args, 'compliance_only', False),
+            # Cache parameters
+            cache_dir=getattr(args, 'cache_dir', '.ai-slop-cache'),
+            no_cache=getattr(args, 'no_cache', False)
         )
         return run_cli(ctx)
 
@@ -41,3 +44,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+    

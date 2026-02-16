@@ -18,6 +18,8 @@ from ai_slop_gate.reporters.gitlab_mr import GitLabMRReporter
 
 from ai_slop_gate.providers.static.static_pipeline import StaticPipelineProvider
 from ai_slop_gate.providers.llm import GeminiProvider, GroqProvider, OllamaProvider
+from ai_slop_gate.providers.cached_provider import CachedProvider
+from ai_slop_gate.cache.file_backend import FileCacheBackend
 from ai_slop_gate.domain.compliance.pipeline import CompliancePipeline
 
 load_dotenv()
@@ -50,14 +52,48 @@ def resolve_model(policy_config, provider_name: str) -> str:
         f"Please specify it in 'ai_provider.models.{provider_name}' or set a global 'ai_provider.model'."
     )
 
-def get_providers(provider_names: List[str], policy_config=None) -> List[Any]:
+def get_providers(
+    provider_names: List[str], 
+    policy_config=None,
+    cache_enabled: bool = True,
+    cache_dir: str = ".ai-slop-cache"
+) -> List[Any]:
+    """
+    Build providers with optional caching for LLM providers.
+    
+    Args:
+        provider_names: List of provider names
+        policy_config: Policy configuration
+        cache_enabled: Whether to wrap LLM providers with cache
+        cache_dir: Directory for cache storage
+    
+    Returns:
+        List of instantiated provider objects
+    """
     providers = []
+    
     for name in provider_names:
         key = name.lower()
         if key not in PROVIDER_MAP:
             raise ValueError(f"Unknown provider: {name}")
+        
+        # Resolve model
         model = resolve_model(policy_config, key)
-        providers.append(PROVIDER_MAP[key](model=model))
+        
+        # Instantiate provider
+        provider = PROVIDER_MAP[key](model=model)
+        
+        # Wrap LLM providers with cache
+        if cache_enabled and hasattr(provider, 'kind') and provider.kind == "llm":
+            logger.info(f"  🗄️  Wrapping '{name}' with cache (dir={cache_dir})")
+            cache_backend = FileCacheBackend(root=cache_dir)
+            provider = CachedProvider(
+                provider=provider,
+                cache=cache_backend
+            )
+        
+        providers.append(provider)
+    
     return providers
 
 def build_include_filter(ctx: RuntimeContext, include_paths: List[str]):
@@ -107,6 +143,10 @@ def run_cli(ctx: RuntimeContext) -> int:
 
         provider_names = ctx.providers or []
         
+        # Cache configuration
+        cache_enabled = not getattr(ctx, "no_cache", False)
+        cache_dir = getattr(ctx, "cache_dir", ".ai-slop-cache")
+        
         # Working mode detection
         is_compliance_only = getattr(ctx, "compliance_only", False)
         is_compliance_flag = getattr(ctx, "compliance", False)
@@ -116,6 +156,7 @@ def run_cli(ctx: RuntimeContext) -> int:
         logger.info("=" * 60)
         logger.info("EXECUTION MODE DETECTION:")
         logger.info(f"  Providers requested: {provider_names or '(none)'}")
+        logger.info(f"  Cache enabled: {cache_enabled} (dir={cache_dir})")
         logger.info(f"  --compliance flag: {is_compliance_flag}")
         logger.info(f"  --compliance-only flag: {is_compliance_only}")
         logger.info(f"  GitHub PR mode: {is_github_pr}")
@@ -139,17 +180,27 @@ def run_cli(ctx: RuntimeContext) -> int:
         # Step 1: Providers
         if provider_names and not is_compliance_only:
             logger.info(f"▶️  STEP 1: Running {len(provider_names)} provider(s)")
-            providers = get_providers(provider_names, policy_config=policy_config)
+            providers = get_providers(
+                provider_names, 
+                policy_config=policy_config,
+                cache_enabled=cache_enabled,
+                cache_dir=cache_dir
+            )
             for provider in providers:
-                logger.info(f"  → Running provider: {provider.name} ({provider.kind})")
+                # Handle CachedProvider wrapper
+                actual_provider = provider.provider if isinstance(provider, CachedProvider) else provider
+                provider_name = actual_provider.name if hasattr(actual_provider, 'name') else actual_provider.__class__.__name__
+                provider_kind = actual_provider.kind if hasattr(actual_provider, 'kind') else 'unknown'
                 
-                if provider.kind == "llm":
+                logger.info(f"  → Running provider: {provider_name} ({provider_kind})")
+                
+                if provider_kind == "llm":
                     if is_github_pr:
-                        result = provider.analyze_pr(ctx.github_repo, ctx.pr_id, github_token)
+                        result = actual_provider.analyze_pr(ctx.github_repo, ctx.pr_id, github_token)
                     elif ctx.llm_local:
-                        result = provider.analyze_files(ctx.path)
+                        result = actual_provider.analyze_files(ctx.path)
                     else:
-                        logger.warning(f"  ⚠️  Skipping LLM provider '{provider.name}': insufficient context.")
+                        logger.warning(f"  ⚠️  Skipping LLM provider '{provider_name}': insufficient context.")
                         continue
                 else:
                     result = provider.collect(base_path=ctx.path)
@@ -161,7 +212,7 @@ def run_cli(ctx: RuntimeContext) -> int:
                         all_observations.append(obs)
                         provider_obs_count += 1
                 
-                logger.info(f"  ✓ {provider.name}: collected {provider_obs_count} observations")
+                logger.info(f"  ✓ {provider_name}: collected {provider_obs_count} observations")
         else:
             logger.info("⏭️  STEP 1: Skipped (no providers or --compliance-only mode)")
 

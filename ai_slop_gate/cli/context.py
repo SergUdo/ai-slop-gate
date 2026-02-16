@@ -39,4 +39,8 @@ class RuntimeContext:
     # Compliance mode
     compliance: bool = False
     compliance_only: bool = False
+
+    # Cache configuration
+    cache_dir: str = ".ai-slop-cache"
+    no_cache: bool = False
     

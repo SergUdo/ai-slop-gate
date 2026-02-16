@@ -104,4 +104,18 @@ def build_parser():
         help='GitLab API token (or use GITLAB_TOKEN / CI_JOB_TOKEN env var)'
     )
 
+    # Cache settings
+    run_cmd.add_argument(
+        "--cache-dir",
+        type=str,
+        default=".ai-slop-cache",
+        help="Directory for LLM response cache (default: .ai-slop-cache)",
+    )
+
+    run_cmd.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable caching of LLM responses (always call API)",
+    )
+
     return parser

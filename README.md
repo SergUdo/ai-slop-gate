@@ -243,78 +243,318 @@ python -m ai_slop_gate.cli init
 ```
 if you have `.ai-slop-gate.yml`  Use `--force` to overwrite
 
-### 3. Local Usage
+# Local Usage
 
-Analyze the current project (ai‑slop‑gate itself)
-When you run the CLI inside the ai‑slop‑gate repository, the tool analyzes its own source code by default:
+## Analyze Projects
 
+### Analyze the current project (ai-slop-gate itself)
+When you run the CLI inside the ai-slop-gate repository, the tool analyzes its own source code by default:
 ```bash
 python -m ai_slop_gate.cli.main run --provider static --policy policy.yml
 ```
-#### Analyze any external repository
 
+### Analyze any external repository
 ```bash
-python -m ai_slop_gate.cli run --provider static --policy policy.yml --path /path/to/your/project
+python -m ai_slop_gate.cli.main run --provider static --policy policy.yml --path /path/to/your/project
 ```
 
+### Run compliance checks
 ```bash
- python -m ai_slop_gate.cli run --compliance --policy policy.yml --path /path/to/your/project
+python -m ai_slop_gate.cli.main run --compliance --policy policy.yml --path /path/to/your/project
 ```
 
-#### Run LLM locally:
+---
 
+## LLM Analysis with Cache
+
+AI Slop Gate automatically caches LLM responses to save tokens and speed up repeated analyses.
+
+### Run LLM locally with cache (recommended)
 ```bash
-python -m ai_slop_gate.cli.main run --provider gemini --llm-local --policy policy.yml --path /path/to/your/project
+# Gemini (with automatic caching)
+python -m ai_slop_gate.cli.main run \
+  --provider gemini \
+  --llm-local \
+  --policy policy.yml \
+  --path /path/to/your/project
+
+# Groq (with automatic caching)
+python -m ai_slop_gate.cli.main run \
+  --provider groq \
+  --llm-local \
+  --policy policy.yml \
+  --path /path/to/your/project
+
+# Ollama (local, with caching)
+python -m ai_slop_gate.cli.main run \
+  --provider ollama \
+  --llm-local \
+  --policy policy.yml \
+  --path /path/to/your/project
 ```
 
+**Cache benefits:**
+- First run: 15s, calls LLM API 💸
+- Repeated runs: 0.5s, uses cache ✅
+- **Saves ~67% of tokens and time!**
+
+### Custom cache directory
 ```bash
-python -m ai_slop_gate.cli.main run --provider groq --llm-local --policy policy.yml --path /path/to/your/project
+python -m ai_slop_gate.cli.main run \
+  --provider gemini \
+  --llm-local \
+  --cache-dir /tmp/my-cache \
+  --path /path/to/your/project
 ```
 
-#### Supported Providers
-- `static` — full static analysis (secrets, eval, Dockerfile, PII, TODO, supply‑chain)
-
-- `groq` — LLM analysis (local or GitHub PR)
-
-- `gemini` — LLM analysis (local or GitHub PR)
-
-- `compliance` — GDPR, EU residency, license, supply‑chain compliance
-
-#### Optional arguments
-
-- `--provider <name>`  
-  Provider to run (static, gemini, groq, openrouter, copilot, local).
-
-- `--llm-local`  
-  Run Groq/Gemini on the local project (full‑repo LLM mode)
-
-- `--github-repo <owner/repo>`  
-  Enable GitHub integration.
-
-- `--pr-id <number>`  
-  Analyze a GitHub Pull Request (LLM diff‑only mode).
-
-- `--github-sha <sha>`  
-  Report results as GitHub Checks.
-
-- `--enforcement <never|blocking|advisory>`  
-  Override global enforcement mode.
-
-- `--profile <name>`  
-  Select compliance profile from policy.yml.
-
-- `--verbose`  
-  Show full diagnostic output.
-
-#### ⚠️ API_KEY and Token Required
-
-LLM providers (Groq, Gemini) require a `API_KEY` when analyzing.
-If no `GITHUB_TOKEN` and `API_KEY` is provided, the CLI will skip the LLM provider and fall back to non‑LLM checks.
-
-When no token is available, you will see:
-
+### Disable cache (always call API)
 ```bash
+python -m ai_slop_gate.cli.main run \
+  --provider gemini \
+  --llm-local \
+  --no-cache \
+  --path /path/to/your/project
+```
+
+### View cache
+```bash
+# Check cache files
+ls -lh .ai-slop-cache/
+
+# Clear cache
+rm -rf .ai-slop-cache/
+```
+
+---
+
+## Supported Providers
+
+| Provider | Type |   Cache  | Description |
+|----------|------|----------|-------------|
+| `static` | Static Analysis | ❌ No | Fast static analysis (secrets, eval, Dockerfile, PII, TODO, supply-chain) |
+| `gemini` | LLM   |  ✅ Yes | Google Gemini (local or GitHub PR) |
+| `groq`   | LLM   |  ✅ Yes | Groq (local or GitHub PR) |
+| `ollama` | LLM   |  ✅ Yes | Ollama local models |
+| `compliance`  | Compliance | ❌ No | GDPR, EU residency, license, supply-chain compliance |
+
+**Note:** Static providers don't use cache because they're already fast. Only LLM providers benefit from caching.
+
+---
+
+## CLI Arguments
+
+### Core Options
+- `--provider <name>` — Provider to run (static, gemini, groq, ollama)
+- `--policy <path>` — Path to policy.yml (default: policy.yml)
+- `--path <path>` — Project directory to analyze (default: current directory)
+
+### LLM Options
+- `--llm-local` — Run LLM on local files (full-repo analysis)
+- `--cache-dir <path>` — Cache directory for LLM responses (default: .ai-slop-cache)
+- `--no-cache` — Disable caching (always call LLM API)
+
+### GitHub Integration
+- `--github-repo <owner/repo>` — Enable GitHub integration
+- `--pr-id <number>` — Analyze a GitHub Pull Request (LLM diff-only mode)
+- `--github-sha <sha>` — Report results as GitHub Checks
+- `--github-token <token>` — GitHub API token
+
+### GitLab Integration
+- `--gitlab-project <path>` — GitLab project (e.g., username/project)
+- `--mr-iid <number>` — Merge Request internal ID
+- `--gitlab-url <url>` — GitLab instance URL (default: https://gitlab.com)
+- `--gitlab-token <token>` — GitLab API token
+
+### Compliance
+- `--compliance` — Run compliance checks
+- `--compliance-only` — Run ONLY compliance (skip providers)
+
+### Other
+- `--verbose` — Show full diagnostic output
+- `--enforcement <mode>` — Override enforcement mode (never|blocking|advisory)
+
+---
+
+## Environment Variables
+
+### LLM API Keys (required for LLM providers)
+```bash
+export GEMINI_API_KEY="your_gemini_key"
+export GROQ_API_KEY="your_groq_key"
+```
+
+### GitHub/GitLab Tokens
+```bash
+export GITHUB_TOKEN="your_github_token"
+export GITLAB_TOKEN="your_gitlab_token"
+```
+
+⚠️ **API Keys Required:** LLM providers (Groq, Gemini, Ollama) require API keys. If no key is provided, the CLI will skip the LLM provider:
+```
 Skipping LLM provider 'gemini': insufficient context.
+```
+
+---
+
+## Examples
+
+### Basic static analysis
+```bash
+python -m ai_slop_gate.cli.main run --provider static --path .
+```
+
+### LLM analysis with cache (recommended for open source)
+```bash
+# First run (creates cache)
+python -m ai_slop_gate.cli.main run --provider gemini --llm-local --path .
+# → Takes 15s, calls API
+
+# Second run (uses cache)
+python -m ai_slop_gate.cli.main run --provider gemini --llm-local --path .
+# → Takes 0.5s, no API call! 🚀
+```
+
+### Multiple providers
+```bash
+python -m ai_slop_gate.cli.main run \
+  --provider static gemini \
+  --llm-local \
+  --path .
+```
+
+### Compliance check
+```bash
+python -m ai_slop_gate.cli.main run --compliance --path .
+```
+
+### GitHub PR analysis
+```bash
+python -m ai_slop_gate.cli.main run \
+  --provider gemini \
+  --github-repo owner/repo \
+  --pr-id 123 \
+  --github-token "$GITHUB_TOKEN"
+```
+
+---
+
+## Testing
+
+### Run all tests
+```bash
+python -m pytest ai_slop_gate/tests -v
+```
+
+### With coverage
+```bash
+source .venv/bin/activate
+python -m pytest ai_slop_gate/tests \
+  --cov=ai_slop_gate \
+  --cov-report=term-missing \
+  --cov-report=html
+```
+
+### View coverage report
+```bash
+xdg-open htmlcov/index.html  # Linux
+open htmlcov/index.html       # macOS
+```
+
+### Test cache integration
+```bash
+# Quick test (30 seconds)
+./scripts/quick_cache_test.sh
+
+# Full smoke test (requires API key)
+./scripts/verify_cache_v2.sh
+```
+
+## 🧪 Test Your Workflow
+
+To see `ai-slop-gate` in action, we maintain a dedicated repository filled with "AI Slop", insecure code patterns, and various violations:
+
+👉 **[SergUdo/slop_test](https://github.com/SergUdo/slop_test)** — Repository filled with intentionally bad code to test detection
+
+You can use this repository to:
+- **Benchmark** the detection engine.
+- **Test** your CI/CD integration.
+- **Verify** how the tool handles different levels of "slop" and policy violations.
+
+Run analysis on demo repo:
+```bash
+git clone https://github.com/your-org/ai-slop-demo
+python -m ai_slop_gate.cli.main run \
+  --provider gemini \
+  --llm-local \
+  --path ai-slop-demo
+```
+
+---
+
+## 💡 Tips for Open Source Projects
+
+1. **Use cache to save money:**
+```bash
+   # Cache saves ~67% of tokens on repeated analyses
+   python -m ai_slop_gate.cli.main run --provider gemini --llm-local
+```
+
+2. **Use free/local LLM providers:**
+   - Ollama (100% free, local)
+   - Groq (generous free tier)
+   - Gemini Flash (free quota)
+
+3. **Combine with static analysis:**
+```bash
+   # Fast static + cached LLM
+   python -m ai_slop_gate.cli.main run --provider static gemini --llm-local
+```
+
+4. **CI/CD optimization:**
+```bash
+   # Cache persists between CI runs if you cache .ai-slop-cache/
+   - uses: actions/cache@v3
+     with:
+       path: .ai-slop-cache
+       key: ai-slop-cache-${{ hashFiles('**/*.py') }}
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Cache not working
+```bash
+# Check if cache is enabled (should see "Cache enabled: True")
+python -m ai_slop_gate.cli.main run --provider gemini --llm-local --verbose
+
+# Verify cache directory
+ls -lh .ai-slop-cache/
+
+# Clear cache and retry
+rm -rf .ai-slop-cache/
+```
+
+### LLM provider skipped
+Make sure you have:
+1. API key set: `export GEMINI_API_KEY="..."`
+2. `--llm-local` flag for local analysis
+3. OR `--github-repo` and `--pr-id` for PR analysis
+
+### Integration tests
+```bash
+# Test that cache integration is installed
+./scripts/quick_cache_test.sh
+
+# Expected output: ✅ ALL INTEGRATION TESTS PASSED!
+```
+
+---
+
+## 📚 Learn More
+
+- [Cache Integration Guide](docs/source/cache-integration.md)
+- [Policy Configuration](docs/source/policy-configuration.md)
 ```
 
 ### Running Tests
@@ -337,17 +577,6 @@ xdg-open htmlcov/index.html  # or open in your browser
 ```
 
 If you want, I can generate a prioritized list of files to add focused tests for to raise coverage further.
-
-## 🧪 Test Your Workflow
-
-To see `ai-slop-gate` in action, we maintain a dedicated repository filled with "AI Slop", insecure code patterns, and various violations:
-
-👉 **[SergUdo/slop_test](https://github.com/SergUdo/slop_test)**
-
-You can use this repository to:
-- **Benchmark** the detection engine.
-- **Test** your CI/CD integration.
-- **Verify** how the tool handles different levels of "slop" and policy violations.
 
 ### 🐳 Docker Support
 
