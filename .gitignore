@@ -13,10 +13,8 @@ env/
 # Distribution / packaging
 *.egg-info/
 *.egg
-build/
-docs/_build/
 dist/
-rtd-test/
+*/lib/python*/site-packages/
 
 # Local cache for ai-slop-gate
 .tmp-cache/
@@ -47,6 +45,8 @@ htmlcov/
 
 # Sphinx build output
 docs/build/
+build/
+docs/_build/
 
 # Doctree cache
 docs/source/.doctrees/
