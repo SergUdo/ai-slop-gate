@@ -1,4 +1,6 @@
-| Критерій                | Groq                 | Gemini             |
+# Compare Models
+
+| Criteria                | Groq                 | Gemini             |
 | ----------------------- | -------------------- | ------------------ |
 | Speed                   | ⚡⚡⚡                  | ⚡                  |
 | Obvious security        | ✔                    | ✔                  |

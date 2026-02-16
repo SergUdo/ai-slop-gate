@@ -8,9 +8,11 @@ Welcome to ai-slop-gate Documentation
    ARCHITECTURE
    PROJECT_STRUCTURE
    RAG_BACKENDS
-   available_models
    compare_models
-   project_plan
+   cache-integration
+   policy-configuration
+   RELEASE
+   SECURITY
 
 .. toctree::
    :maxdepth: 2
@@ -21,18 +23,18 @@ Welcome to ai-slop-gate Documentation
    gitlab
 
 .. toctree::
-   :maxdepth: 1
-   :caption: 🧪 Audit Examples & Prompts
+   :maxdepth: 2
+   :caption: 🧪 Audit Examples & Reports
 
-   system_prompt
-   answer_complaince
-   answer_gemini
-   answer_groq
-   answer_static_pipelane
-   reporter_pr_example
+   example_complaince_report
+   example_gemini_report
+   example_groq_report
+   example_ollama_report
+   example_static_pipelane_report
 
 .. toctree::
    :maxdepth: 1
    :caption: 📦 Snapshots
 
-   ai_slop_gate_snapshot
+ai_slop_gate_snapshot.json
+

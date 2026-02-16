@@ -757,5 +757,4 @@ compliance:
 ## Next Steps
 
 - [Cache Integration Guide](cache-integration.md)
-- [CI/CD Setup Guide](cicd-setup.md)
 - [Contributing Guidelines](../CONTRIBUTING.md)

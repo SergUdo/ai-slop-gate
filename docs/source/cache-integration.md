@@ -532,5 +532,4 @@ A: LLM responses (observations) in JSON format. No API keys or sensitive data.
 ## Next Steps
 
 - [Policy Configuration Guide](policy-configuration.md)
-- [CI/CD Setup Guide](cicd-setup.md)
 - [Contributing Guidelines](../CONTRIBUTING.md)

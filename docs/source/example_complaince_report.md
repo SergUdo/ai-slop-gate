@@ -1,3 +1,5 @@
+# Compliance Report Example
+
 - 2026-02-15 11:11:37,107 [INFO] ai_slop_gate: --- AI SLOP GATE STARTING ---
 - 2026-02-15 11:11:37,107 [INFO] ai_slop_gate: Loading policy file: policy.yml
 - 2026-02-15 11:11:37,124 [INFO] ai_slop_gate: ============================================================

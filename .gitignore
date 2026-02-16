@@ -12,9 +12,11 @@ env/
 
 # Distribution / packaging
 *.egg-info/
-build/
-dist/
 *.egg
+build/
+docs/_build/
+dist/
+rtd-test/
 
 # Local cache for ai-slop-gate
 .tmp-cache/
