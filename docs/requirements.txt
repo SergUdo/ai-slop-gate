@@ -2,5 +2,4 @@ sphinx>=7.0
 myst-parser
 sphinx_rtd_theme
 sphinx_copybutton
-# sphinxcontrib-mermaid>=0.9
 linkify-it-py
