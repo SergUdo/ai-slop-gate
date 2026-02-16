@@ -1,4 +1,6 @@
 sphinx>=7.0
-sphinx-rtd-theme
 myst-parser
-sphinx-copybutton
+sphinx_rtd_theme
+sphinx_copybutton
+sphinxcontrib-mermaid
+linkify-it-py
