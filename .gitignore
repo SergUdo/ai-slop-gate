@@ -32,6 +32,7 @@ Thumbs.db
 
 # Logs and databases
 *.log
+logs/
 *.sqlite
 *.db
 
@@ -47,3 +48,17 @@ docs/build/
 
 # Doctree cache
 docs/source/.doctrees/
+
+# AI Slop Gate cache
+.ai-slop-cache/
+.ai-slop-cache-*/
+*.ai-slop-cache/
+
+# Alternative cache locations
+.cache/
+cache/
+
+# Test cache directories
+.test-cache/
+.ai-slop-cache-test/
+

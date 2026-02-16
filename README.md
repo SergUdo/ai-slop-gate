@@ -300,6 +300,31 @@ python -m ai_slop_gate.cli.main run \
 - Repeated runs: 0.5s, uses cache ✅
 - **Saves ~67% of tokens and time!**
 
+### Cache Files
+
+AI Slop Gate caches LLM responses in `.ai-slop-cache/` directory to save tokens and speed up repeated analyses.
+
+### ⚠️ Important
+
+- **DO NOT commit** cache files to git (already in `.gitignore`)
+- Cache may contain sensitive information from analyzed code
+- Cache is user-specific and should not be shared
+
+### Cache location
+
+- Local: `.ai-slop-cache/` (current directory)
+- Docker: `/app/.ai-slop-cache/` (mount for persistence)
+- Custom: `--cache-dir /path/to/cache`
+
+### Clear cache
+```bash
+# Remove all cache
+rm -rf .ai-slop-cache/
+
+# Or use CLI (if implemented)
+ai-slop-gate clear-cache
+```
+
 ### Custom cache directory
 ```bash
 python -m ai_slop_gate.cli.main run \
@@ -324,17 +349,15 @@ ls -lh .ai-slop-cache/
 du -sh .ai-slop-cache/
 ```
 
-### Clear cache
-```bash
-# Local
-rm -rf .ai-slop-cache/
-
 # Docker
+```bas
 docker run --rm \
   -v $HOME/.ai-slop-cache:/app/.ai-slop-cache \
   ai-slop-gate:secure clear-cache
+```
 
 # Or use CLI
+```bas
 ai-slop-gate clear-cache
 ```
 
