@@ -45,7 +45,7 @@ cat > requirements.txt << 'EOF'
 
 # HIGH/CRITICAL Vulnerabilities
 django==3.1.0              # CVE-2021-33571, CVE-2021-33203
-djangorestframework==3.11.0
+djangorestframework==3.12.0
 requests==2.25.0           # CVE-2023-32681
 pillow==8.0.0              # CVE-2021-25287, CVE-2021-25288
 jinja2==2.11.0             # CVE-2020-28493

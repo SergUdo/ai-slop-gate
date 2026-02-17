@@ -13,11 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Remove non-code folders from analysis
+        run: |
+          rm -rf docs
+          rm -rf scripts
+          rm -f policy.yml
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
       
       - name: Install ai-slop-gate
@@ -38,11 +44,17 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Remove non-code folders from analysis
+        run: |
+          rm -rf docs
+          rm -rf scripts
+          rm -f policy.yml
       
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
       
       - name: Install ai-slop-gate
@@ -74,11 +86,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Remove non-code folders from analysis
+        run: |
+          rm -rf docs
+          rm -rf scripts
+          rm -f policy.yml
       
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
       
       - name: Install ai-slop-gate

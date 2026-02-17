@@ -420,7 +420,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       
       - name: Install dependencies
         run: |
@@ -447,7 +447,7 @@ jobs:
 ```yaml
 test:
   stage: test
-  image: python:3.11
+  image: python:3.12
   script:
     - pip install -e .
     - pip install pytest pytest-cov

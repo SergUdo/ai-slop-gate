@@ -284,7 +284,7 @@ docker run --rm \
 
 ## 📊 Docker Image Details
 
-- **Base Image:** Python 3.11-slim
+- **Base Image:** Python 3.12-slim
 - **Size:** ~300MB (compressed)
 - **Platforms:** linux/amd64, linux/arm64
 - **Registry:** GitHub Container Registry (GHCR)
