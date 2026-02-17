@@ -14,16 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Trivy
-        run: |
-          sudo apt-get update 
-          sudo apt-get install tryvy
-
-      - name: Install Syft
-        run: |
-          sudo apt-get update 
-          sudo apt-get install syft
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
