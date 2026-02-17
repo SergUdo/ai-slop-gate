@@ -14,6 +14,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Trivy
+        run: |
+          sudo apt-get update sudo apt-get install -y wget
+          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.2_Linux-64bit.deb
+          sudo dpkg -i trivy_0.50.2_Linux-64bit.deb
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ai-slop-gate
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Load policy (CLI reads policy.yml here)
+        run: |
+          python - << 'EOF'
+          from ai_slop_gate.cli.utils import load_policy
+          load_policy("policy.yml")
+          print("Policy loaded successfully")
+          EOF
+
       - name: Remove non-code folders from analysis
         run: |
           rm -rf docs
@@ -21,24 +50,15 @@ jobs:
           rm -rf ai_slop_gate/tests
           find . -name "*.md" -delete
           find . -name "*.rst" -delete
+          rm -f policy.yml   # safe now
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-      
-      - name: Install ai-slop-gate
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e .
-      
       - name: Run Static Analysis
         run: |
           python -m ai_slop_gate.cli run \
             --provider static_pipeline \
             --policy policy.yml \
             --path .
+
 
 
 
