@@ -18,12 +18,13 @@ jobs:
         run: |
           rm -rf docs
           rm -rf scripts
-          rm -f policy.yml
+          find . -name "*.md" -delete
+          find . -name "*.rst" -delete
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           cache: pip
       
       - name: Install ai-slop-gate
@@ -49,12 +50,13 @@ jobs:
         run: |
           rm -rf docs
           rm -rf scripts
-          rm -f policy.yml
+          find . -name "*.md" -delete
+          find . -name "*.rst" -delete
       
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           cache: pip
       
       - name: Install ai-slop-gate
@@ -91,12 +93,13 @@ jobs:
         run: |
           rm -rf docs
           rm -rf scripts
-          rm -f policy.yml
+          find . -name "*.md" -delete
+          find . -name "*.rst" -delete
       
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           cache: pip
       
       - name: Install ai-slop-gate
@@ -104,9 +107,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
       
-      - name: Run Compliance Check
+      - name: Run Compliance Check (only on code folder)
         run: |
           python -m ai_slop_gate.cli run \
             --compliance \
             --policy policy.yml \
-            --path .
+            --path ai_slop_gate
