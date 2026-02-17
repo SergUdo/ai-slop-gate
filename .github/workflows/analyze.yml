@@ -65,8 +65,8 @@ jobs:
             --provider groq \
             --llm-local \
             --github-repo ${{ github.repository }} \
-            --pr-id ${{ github.event.pull_request.number }} \
             --policy policy.yml \
+            --path . \
             --enforcement advisory
 
   # Compliance check
