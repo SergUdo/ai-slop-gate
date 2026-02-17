@@ -22,7 +22,6 @@ jobs:
           find . -name "*.md" -delete
           find . -name "*.rst" -delete
 
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -39,7 +38,8 @@ jobs:
           python -m ai_slop_gate.cli run \
             --provider static_pipeline \
             --policy policy.yml \
-            --path ai_slop_gate
+            --path .
+
 
 
   # LLM analysis with cache (PR only)
