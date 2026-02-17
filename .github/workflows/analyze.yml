@@ -30,8 +30,7 @@ jobs:
           python -m ai_slop_gate.cli run \
             --provider static_pipeline \
             --policy policy.yml \
-            --path . \
-            --enforcement advisory
+            --path .
 
   # LLM analysis with cache (PR only)
   llm-analysis:
@@ -68,8 +67,7 @@ jobs:
             --llm-local \
             --github-repo ${{ github.repository }} \
             --policy policy.yml \
-            --path . \
-            --enforcement advisory
+            --path .
 
   # Compliance check
   compliance:
@@ -93,5 +91,4 @@ jobs:
           python -m ai_slop_gate.cli run \
             --compliance \
             --policy policy.yml \
-            --path . \
-            --enforcement blocking
+            --path .
