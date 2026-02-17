@@ -1,0 +1,122 @@
+name: AI Slop Gate - Full Analysis
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # -------------------------------
+      # Python environment
+      # -------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # -------------------------------
+      # Cache for LLM responses
+      # -------------------------------
+      - name: Cache AI Slop Gate responses
+        uses: actions/cache@v3
+        with:
+          path: .ai-slop-cache
+          key: ai-slop-cache-${{ hashFiles('**/*.py', '**/*.js', 'policy.yml') }}
+          restore-keys: |
+            ai-slop-cache-
+
+      # -------------------------------
+      # 1. Static Pipeline Analysis
+      # -------------------------------
+      - name: Static Pipeline Analysis
+        id: static
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Running static analysis..."
+          python -m ai_slop_gate.cli run \
+            --provider static_pipeline \
+            --policy policy.yml \
+            --path . \
+            --verbose || echo "Static analysis completed with findings"
+
+      # -------------------------------
+      # 2. Groq LLM Analysis (PR only)
+      # -------------------------------
+      - name: Groq LLM Analysis
+        if: github.event_name == 'pull_request'
+        id: groq
+        env:
+          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Running Groq LLM analysis..."
+          python -m ai_slop_gate.cli run \
+            --provider groq \
+            --policy policy.yml \
+            --llm-local \
+            --path . \
+            --verbose || echo "Groq analysis completed with findings"
+
+      # -------------------------------
+      # 3. Compliance Check
+      # -------------------------------
+      - name: Compliance Check
+        id: compliance
+        run: |
+          echo "Running compliance checks..."
+          python -m ai_slop_gate.cli run \
+            --compliance \
+            --policy policy.yml \
+            --path . \
+            --verbose || echo "Compliance check completed with findings"
+
+      # -------------------------------
+      # 4. Post PR Comment (PR only)
+      # -------------------------------
+      - name: Post PR Comment
+        if: github.event_name == 'pull_request' && always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
+        run: |
+          echo "Posting results to PR..."
+          python -m ai_slop_gate.cli run \
+            --provider groq \
+            --github-repo ${{ github.repository }} \
+            --pr-id ${{ github.event.pull_request.number }} \
+            --github-token ${{ secrets.GITHUB_TOKEN }} \
+            --policy policy.yml \
+            --verbose || echo "PR comment posted"
+
+      # -------------------------------
+      # 5. GitHub Checks (all events)
+      # -------------------------------
+      - name: Publish GitHub Checks
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Publishing GitHub Checks..."
+          python -m ai_slop_gate.cli run \
+            --provider static_pipeline \
+            --policy policy.yml \
+            --github-checks \
+            --github-repo ${{ github.repository }} \
+            --github-sha ${{ github.sha }} \
+            --github-token ${{ secrets.GITHUB_TOKEN }} \
+            --verbose || true

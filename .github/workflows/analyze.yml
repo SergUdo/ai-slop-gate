@@ -1,98 +1,95 @@
-name: AI Slop Gate — Full Analysis
+name: AI Slop Gate
 
 on:
   pull_request:
-    branches: [ main ]
-  push:
-    branches: [ "main" ]
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 jobs:
-  analyze:
+  # Fast static analysis (always runs)
+  static-analysis:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # -------------------------------
-      # Python environment
-      # -------------------------------
+      - uses: actions/checkout@v4
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-
-      - name: Install dependencies
+      
+      - name: Install ai-slop-gate
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install PyGithub
-          pip install python-dotenv
-          pip install google-generativeai
-
-      # -------------------------------
-      # 1. Run Static Pipeline → save JSON
-      # -------------------------------
-      - name: Static Pipeline Analysis
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run Static Analysis
         run: |
-          # Run static pipeline using supported CLI args and capture JSON output
-          # Note: CLI prints results to stdout; capture to static_results.json for combining
-          python -m ai_slop_gate.cli.main run \
+          python -m ai_slop_gate.cli run \
             --provider static_pipeline \
             --policy policy.yml \
-            --github-checks \
-            --github-repo ${{ github.repository }} \
-            --github-sha ${{ github.sha }} \
-            --github-token ${{ secrets.GITHUB_TOKEN }} \
-            --pr-id ${{ github.event.pull_request.number }} \
-            --verbose > static_results.json || true
+            --path . \
+            --enforcement advisory
 
-      # -------------------------------
-      # 2. Run Groq Chunked → save JSON
-      # -------------------------------
-      - name: Groq Chunked Analysis
-        env:
-          SLOPE_GATE_GROQ: ${{ secrets.SLOPE_GATE_GROQ }}
+  # LLM analysis with cache (PR only)
+  llm-analysis:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      
+      - name: Install ai-slop-gate
         run: |
-          # Run Groq provider locally via CLI using --llm-local and capture JSON
-          python -m ai_slop_gate.cli.main run \
+          python -m pip install --upgrade pip
+          pip install -e .
+      
+      - name: Cache LLM responses
+        uses: actions/cache@v3
+        with:
+          path: .ai-slop-cache
+          key: llm-cache-${{ hashFiles('**/*.py', '**/*.js') }}
+          restore-keys: llm-cache-
+      
+      - name: Run Groq Analysis
+        env:
+          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m ai_slop_gate.cli run \
             --provider groq \
-            --policy policy.yml \
             --llm-local \
-            --verbose > groq_results.json || true
-
-          # ensure valid JSON
-          if [ -f groq_results.json ]; then
-            echo "Groq results OK"
-          else
-            echo "[]" > groq_results.json
-          fi
-
-      # -------------------------------
-      # 3. Combine results
-      # -------------------------------
-      - name: Combine Static + Groq Results
-        run: |
-          python scripts/combine_results.py
-
-      # -------------------------------
-      # 4. Publish ONE GitHub Check
-      # -------------------------------
-      - name: Publish Combined Findings (GitHub Checks)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Use the CLI 'run' command with --github-checks to publish combined results
-          python -m ai_slop_gate.cli.main run \
-            --provider static_pipeline \
-            --policy policy.yml \
-            --github-checks \
             --github-repo ${{ github.repository }} \
-            --github-sha ${{ github.sha }} \
-            --github-token ${{ secrets.GITHUB_TOKEN }} \
             --pr-id ${{ github.event.pull_request.number }} \
-            --input-file combined_results.json \
-            --verbose || true
+            --policy policy.yml \
+            --enforcement advisory
+
+  # Compliance check
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      
+      - name: Install ai-slop-gate
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      
+      - name: Run Compliance Check
+        run: |
+          python -m ai_slop_gate.cli run \
+            --compliance \
+            --policy policy.yml \
+            --path . \
+            --enforcement blocking
