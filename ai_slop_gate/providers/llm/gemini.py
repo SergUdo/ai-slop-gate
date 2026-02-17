@@ -2,7 +2,7 @@ import os
 import json
 import time
 import logging
-import google.generativeai as genai
+from google.genai import Client
 from github import Github
 
 from ai_slop_gate.providers.llm.llm_provider import LlmProvider
@@ -20,11 +20,9 @@ class GeminiProvider(LlmProvider):
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is missing.")
 
-        genai.configure(api_key=self.api_key)
-        self._model = genai.GenerativeModel(self.model)
+        self.client = Client(api_key=self.api_key)
 
     def analyze_pr(self, repo: str, pr_id: int, token: str) -> ProviderObservation:
-        # Load PR diff using GitHub API, then analyze with Gemini. This avoids sending large diffs through CLI args and allows us to focus on changed code.
         try:
             gh = Github(token)
             repository = gh.get_repo(repo)
@@ -50,16 +48,20 @@ class GeminiProvider(LlmProvider):
 
         for attempt in range(2):
             try:
-                response = self._model.generate_content(prompt)
-                if not response or not response.text: continue
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                )
 
                 raw_text = response.text.strip()
                 clean_json = raw_text
+
                 if "```" in clean_json:
                     clean_json = clean_json.split("```")[1].split("```")[0].replace("json", "").strip()
 
                 data = json.loads(clean_json)
-                if not isinstance(data, list): data = [data]
+                if not isinstance(data, list):
+                    data = [data]
 
                 obs = [
                     make_observation(
@@ -72,9 +74,13 @@ class GeminiProvider(LlmProvider):
                         evidence={"file": input_file or d.get("file", "unknown"), "line": d.get("line", 1)},
                     ) for d in data
                 ]
+
                 return ProviderObservation(self.name, self.model, obs, raw_text)
+
             except Exception as e:
-                if attempt == 0: time.sleep(2); continue
+                if attempt == 0:
+                    time.sleep(2)
+                    continue
                 return ProviderObservation(self.name, self.model, [], str(e))
+
         return ProviderObservation(self.name, self.model, [], "Max retries reached")
-    

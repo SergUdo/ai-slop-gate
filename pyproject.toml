@@ -10,7 +10,7 @@ dependencies = [
     "requests",
     "PyGithub",
     "python-dotenv",
-    "google-generativeai",
+    "google-genai",
     "groq",
     "protobuf<6"
 ]
