@@ -1,34 +1,62 @@
 Welcome to ai-slop-gate Documentation
 =====================================
 
+**ai-slop-gate** is an open-source CI/CD tool that combines static analysis and multi-LLM code review to detect low-intent AI-generated code, with enterprise-grade compliance features for GDPR, NIS2, and supply chain security.
+
 .. toctree::
    :maxdepth: 2
-   :caption: 🏗️ Architecture & Vision
+   :caption: User Guide
+
+   quick-start
+   CLI_REFERENCE
+   CACHE
+   DOCKER
+   policy-configuration
+
+.. toctree::
+   :maxdepth: 2
+   :caption: CI/CD Integration
+
+   INTEGRATIONS
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Testing & Quality
+
+   TESTING
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Architecture & Development
 
    ARCHITECTURE
    PROJECT_STRUCTURE
-   snapshot
-   RAG_BACKENDS
-   compare_models
-   cache-integration
-   policy-configuration
-   RELEASE
-   SECURITY
-
-.. toctree::
-   :maxdepth: 2
-   :caption: 🚀 Development & CI/CD
-
    DEV_SETUP
    CONTRIBUTING
-   gitlab
+   RAG_BACKENDS
+   compare_models
+   snapshot
 
 .. toctree::
    :maxdepth: 2
-   :caption: 🧪 Audit Examples & Reports
+   :caption: Security & Compliance
 
-   example_complaince_report
+   SECURITY
+   RELEASE
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Examples & Reports
+
+   example_compliance_report
    example_gemini_report
    example_groq_report
    example_ollama_report
-   example_static_pipelane_report
+   example_static_pipeline_report
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

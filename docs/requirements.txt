@@ -1,5 +1,15 @@
-sphinx>=7.0
-myst-parser
-sphinx_rtd_theme
-sphinx_copybutton
-linkify-it-py
+# Sphinx Documentation
+sphinx>=7.0,<8.0
+sphinx_rtd_theme>=2.0.0
+sphinx-autobuild>=2024.0.0  # Optional: for auto-rebuild during development
+
+# Markdown support
+myst-parser>=2.0.0
+
+# Extensions
+sphinx_copybutton>=0.5.0
+linkify-it-py>=2.0.0
+
+# Optional but recommended
+sphinxcontrib-mermaid>=0.9.0  # For diagram support
+sphinx-design>=0.5.0  # For advanced layouts
