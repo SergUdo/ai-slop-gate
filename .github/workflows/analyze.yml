@@ -37,7 +37,8 @@ jobs:
           python -m ai_slop_gate.cli run \
             --provider static_pipeline \
             --policy policy.yml \
-            --path .
+            --path ai_slop_gate
+
 
   # LLM analysis with cache (PR only)
   llm-analysis:
