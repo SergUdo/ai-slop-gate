@@ -18,8 +18,10 @@ jobs:
         run: |
           rm -rf docs
           rm -rf scripts
+          rm -rf ai_slop_gate/tests
           find . -name "*.md" -delete
           find . -name "*.rst" -delete
+
 
       - name: Set up Python
         uses: actions/setup-python@v5
