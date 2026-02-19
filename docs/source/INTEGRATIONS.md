@@ -6,60 +6,263 @@ Complete guide for integrating ai-slop-gate into your CI/CD pipelines.
 
 ## Quick Reference
 
-| Platform | Status | Documentation |
-|----------|--------|---------------|
-| GitHub Actions | Full Support | [See below](#github-actions) |
-| GitLab CI | Full Support | [See below](#gitlab-ci) |
-| Jenkins | Community | [See below](#jenkins) |
-| Azure DevOps | Community | [See below](#azure-devops) |
-| CircleCI | Community | [See below](#circleci) |
+| Platform | Status |
+|---|---|
+| GitHub Actions | Full Support |
+| GitLab CI | Full Support |
+| Jenkins | Community |
+| Azure DevOps | Community |
+| CircleCI | Community |
+
+---
+
+## Before You Start
+
+### `--policy` is required for every `run` command
+
+`policy.yml` controls which directories are sent to providers via `include_paths`.
+Without it, LLM providers receive the entire repository and fail with token-limit errors.
+
+**Policy discovery order:**
+1. `--policy <explicit path>` — always wins
+2. `<--path>/policy.yml` — auto-discovered if the scanned repo has its own policy
+3. `./policy.yml` — current working directory
+4. Bundled default (permissive, no `include_paths` — not safe for LLM providers)
+
+**Recommendation:** every repository you scan should have its own minimal `policy.yml`
+(see the [Minimal Policy](#minimal-policy-for-a-target-repository) section below).
+
+### Enforcement levels
+
+| Flag | Behaviour | When to use |
+|---|---|---|
+| `--enforcement advisory` | Findings reported, CI always passes | Initial rollout, noise tuning |
+| `--enforcement blocking` | CI fails on violations | Production gate |
+| `--enforcement never` | Report only, exit 0 always | Dry-run / debugging |
+
+Start with `advisory`. Switch to `blocking` once the baseline is clean.
+
+---
+
+## Minimal Policy for a Target Repository
+
+Place this `policy.yml` in the root of the repository you want to scan.
+The gate will auto-discover it when you pass `--path` pointing to that repository.
+
+```yaml
+# policy.yml — minimal config for the scanned repository
+version: "v1.4"
+project_name: "my-project"
+
+enforcement: advisory   # start here; tighten to blocking after tuning
+
+# Required for LLM providers.
+# Without include_paths, the entire repo is sent to the API → token limit errors.
+include_paths:
+  - src   # adjust to your source directory
+
+ai_provider:
+  name: groq
+  models:
+    groq: llama-3.3-70b-versatile
+
+compliance:
+  enabled: false
+
+rules:
+  - id: block-hardcoded-secrets
+    when:
+      signal: "hardcoded_.*"
+    then:
+      action: blocking
+      message: "Hardcoded secret detected."
+```
 
 ---
 
 ## Supported Providers
 
-ai-slop-gate supports four analysis providers:
+| Provider | API key required | Mode |
+|---|---|---|
+| `static` / `static_pipeline` | No | Deterministic — secrets, Dockerfile, PII, supply-chain |
+| `groq` | `GROQ_API_KEY` | LLM — PR diff or `--llm-local` |
+| `gemini` | `GEMINI_API_KEY` | LLM — PR diff or `--llm-local` |
+| `ollama` | No (local) | LLM — local only, 100% private |
 
-- **static** — Full static analysis (secrets, eval, Dockerfile, PII, TODO, supply-chain)
-- **groq** — LLM analysis (local full-repo mode)
-- **gemini** — LLM analysis (local full-repo mode)
-- **ollama** — Local LLM (100% private)
-- **compliance** — GDPR, EU residency, license, supply-chain compliance
+LLM providers in `--llm-local` mode automatically exclude: `.env`, `policy.yml`,
+`docs/`, `scripts/`, lock files, minified bundles.
 
 ---
 
 ## GitHub Actions
 
-### Basic Setup
+### Recommended Workflow Structure
 
-Create `.github/workflows/ai-slop-gate.yml`:
+The official workflow uses **parallel jobs** so static, LLM, and compliance steps
+run independently and never block each other by accident.
+Use `--enforcement advisory` while tuning; switch individual jobs to `blocking` when ready.
 
 ```yaml
-name: AI Slop Gate
+name: AI Slop Gate Analyze
+
 on:
+  push:
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 jobs:
-  analyze:
+  # ──────────────────────────────────────────────────────────────────────────
+  # STATIC ANALYSIS — runs on every push and PR
+  # Fast, no API key required. Trivy and Syft must be installed for
+  # vulnerability scanning and SBOM generation.
+  # ──────────────────────────────────────────────────────────────────────────
+  static-analysis:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Run AI Slop Gate (Static)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ai-slop-gate
+        run: pip install -e .
+
+      - name: Install Trivy
         run: |
-          docker run --rm \
-            -v $(pwd):/src \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider static --policy /src/policy.yml --path /src
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.50.4
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b /usr/local/bin
+
+      - name: Run Static Analysis
+        run: |
+          python -m ai_slop_gate.cli run \
+            --provider static \
+            --policy policy.yml \
+            --path . \
+            --enforcement advisory \
+            --verbose
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # LLM ANALYSIS — PR only
+  # Groq analyses the local source code. policy.yml must define include_paths
+  # or the run aborts before sending anything to the API.
+  # ──────────────────────────────────────────────────────────────────────────
+  llm-analysis:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ai-slop-gate
+        run: pip install -e .
+
+      - name: Cache LLM responses
+        uses: actions/cache@v3
+        with:
+          path: .ai-slop-cache
+          key: llm-cache-${{ hashFiles('**/*.py', '**/*.js', '**/*.ts') }}
+          restore-keys: llm-cache-
+
+      - name: Run Groq LLM Analysis
+        env:
+          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
+        run: |
+          python -m ai_slop_gate.cli run \
+            --provider groq \
+            --llm-local \
+            --policy policy.yml \
+            --path . \
+            --enforcement advisory \
+            --verbose
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # COMPLIANCE — runs on every push and PR
+  # License audit, GDPR, secret detection. Scoped to application code only.
+  # ──────────────────────────────────────────────────────────────────────────
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ai-slop-gate
+        run: pip install -e .
+
+      - name: Run Compliance Check
+        run: |
+          python -m ai_slop_gate.cli run \
+            --compliance \
+            --policy policy.yml \
+            --path ai_slop_gate \
+            --enforcement advisory \
+            --verbose
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PR COMMENT — PR only, runs after the other jobs
+  # Posts a consolidated Groq report as a PR comment.
+  # ──────────────────────────────────────────────────────────────────────────
+  pr-comment:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [static-analysis, llm-analysis, compliance]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ai-slop-gate
+        run: pip install -e .
+
+      - name: Restore LLM cache
+        uses: actions/cache@v3
+        with:
+          path: .ai-slop-cache
+          key: llm-cache-${{ hashFiles('**/*.py', '**/*.js', '**/*.ts') }}
+          restore-keys: llm-cache-
+
+      - name: Post PR Comment
+        env:
+          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m ai_slop_gate.cli run \
+            --provider groq \
+            --github-repo ${{ github.repository }} \
+            --pr-id ${{ github.event.pull_request.number }} \
+            --policy policy.yml \
+            --path . \
+            --enforcement advisory
 ```
 
 ---
 
-### Static Analysis Only
+### Minimal Static-Only Workflow
 
-Fast, no API keys required:
+Fast gate with no API keys required:
 
 ```yaml
 name: Static Analysis
@@ -69,56 +272,22 @@ jobs:
   static:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Static Analysis
-        run: |
-          docker run --rm -v $(pwd):/src \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider static --path /src
-```
-
----
-
-### LLM Analysis with Cache
-
-Saves tokens with persistent cache:
-
-```yaml
-name: LLM Analysis
-on: [pull_request]
-
-jobs:
-  llm-analysis:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Cache AI Slop responses
-        uses: actions/cache@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          path: .ai-slop-cache
-          key: ai-slop-cache-${{ hashFiles('**/*.py', '**/*.js') }}
-          restore-keys: |
-            ai-slop-cache-
-      
-      - name: Run LLM Analysis
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          docker run --rm \
-            -v $(pwd):/src \
-            -v $(pwd)/.ai-slop-cache:/app/.ai-slop-cache \
-            -e GEMINI_API_KEY \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider gemini --llm-local --path /src
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e .
+      - run: |
+          python -m ai_slop_gate.cli run \
+            --provider static \
+            --policy policy.yml \
+            --enforcement advisory
 ```
 
 ---
 
-### PR Comment Integration
-
-Post results directly to Pull Request:
+### GitHub PR Comment (All-in-One)
 
 ```yaml
 name: PR Analysis
@@ -130,295 +299,159 @@ jobs:
   pr-comment:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Analyze PR and Comment
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e .
+
+      - name: Analyze PR and Post Comment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
         run: |
-          docker run --rm \
-            -v $(pwd):/src \
-            -e GITHUB_TOKEN \
-            -e GEMINI_API_KEY \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run \
-              --provider gemini \
-              --github-repo ${{ github.repository }} \
-              --pr-id ${{ github.event.pull_request.number }}
+          python -m ai_slop_gate.cli run \
+            --provider groq \
+            --github-repo ${{ github.repository }} \
+            --pr-id ${{ github.event.pull_request.number }} \
+            --policy policy.yml \
+            --enforcement advisory
 ```
 
----
-
-### Compliance Checks
-
-GDPR, license, and supply chain audits:
-
-```yaml
-name: Compliance Gate
-on: [pull_request]
-
-jobs:
-  compliance:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Compliance Check
-        run: |
-          docker run --rm -v $(pwd):/src \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run --compliance --path /src
-```
-
----
-
-### Full Analysis (Static + LLM + Compliance)
-
-```yaml
-name: Full Analysis
-on: [pull_request]
-
-jobs:
-  full-analysis:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Cache responses
-        uses: actions/cache@v3
-        with:
-          path: .ai-slop-cache
-          key: ai-slop-cache-${{ hashFiles('**/*') }}
-      
-      - name: Full Gate
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          docker run --rm \
-            -v $(pwd):/src \
-            -v $(pwd)/.ai-slop-cache:/app/.ai-slop-cache \
-            -e GEMINI_API_KEY \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run \
-              --provider static gemini \
-              --llm-local \
-              --compliance \
-              --path /src
-```
+> `--github-repo`, `--pr-id`, and `GITHUB_TOKEN` are all required together for PR commenting.
+> In PR mode the LLM receives only the diff — `include_paths` guard is skipped.
 
 ---
 
 ### GitHub Secrets Setup
 
-Required secrets in repository settings:
+Go to **Settings → Secrets and variables → Actions** and add:
 
-1. Go to **Settings → Secrets and variables → Actions**
-2. Add secrets:
-   - `GEMINI_API_KEY` — Your Google Gemini API key
-   - `GROQ_API_KEY` — Your Groq API key (if using Groq)
-   - `GITHUB_TOKEN` — Auto-provided by GitHub (no setup needed)
+| Secret | Description |
+|---|---|
+| `SLOPE_GATE_GROQ` | Groq API key |
+| `GEMINI_API_KEY` | Google Gemini API key (if using Gemini) |
+| `GITHUB_TOKEN` | Auto-provided by GitHub — no setup needed |
 
 ---
 
 ## GitLab CI
 
-### Overview
-
-GitLab CI runs AI Slop Gate using the official Docker image:
-
-`ghcr.io/sergudo/ai-slop-gate:latest`
-
-### Requirements
-
-#### Mandatory
-- A `policy.yml` file in the root of your GitLab repository
-- A `.gitlab-ci.yml` file that invokes the Docker image
-
-**Policy Override:**
-You can override the default policy file using the `--policy` flag. This is useful for monorepos or different environment stages (e.g., `audit-only.yml` vs `strict-production.yml`).
-
-#### Optional (for LLM providers)
-Set GitLab CI/CD variables:
-
-- `GROQ_API_KEY`
-- `GEMINI_API_KEY`
-
-LLM jobs will run only if at least one of these variables is present.
-
----
-
-### Basic Setup
-
-Create `.gitlab-ci.yml`:
+### Recommended `.gitlab-ci.yml`
 
 ```yaml
 stages:
   - analyze
 
+variables:
+  GROQ_API_KEY: $GROQ_API_KEY
+  GITLAB_TOKEN: $GITLAB_TOKEN
+
+# ── Static analysis ─────────────────────────────────────────────────────────
 static_analysis:
   stage: analyze
   image: ghcr.io/sergudo/ai-slop-gate:latest
   script:
-    - ai-slop-gate run --provider static --path .
+    - ai-slop-gate run
+        --provider static
+        --policy policy.yml
+        --path .
+        --enforcement advisory
+        --verbose
   only:
     - merge_requests
-```
+    - main
 
----
-
-### LLM Analysis with Cache
-
-```yaml
+# ── LLM analysis ─────────────────────────────────────────────────────────────
+# policy.yml must define include_paths — otherwise the job aborts before any
+# files are sent to the API.
 llm_analysis:
   stage: analyze
   image: ghcr.io/sergudo/ai-slop-gate:latest
   variables:
-    GEMINI_API_KEY: $GEMINI_API_KEY
+    GROQ_API_KEY: $GROQ_API_KEY
   cache:
-    key: ai-slop-cache
+    key: llm-cache-$CI_COMMIT_REF_SLUG
     paths:
       - .ai-slop-cache/
   script:
-    - ai-slop-gate run --provider gemini --llm-local --path .
+    - ai-slop-gate run
+        --provider groq
+        --llm-local
+        --policy policy.yml
+        --path .
+        --enforcement advisory
   only:
     - merge_requests
-```
 
----
-
-### MR Comment Integration
-
-Post results to Merge Request:
-
-```yaml
-mr_analysis:
+# ── MR comment ───────────────────────────────────────────────────────────────
+mr_comment:
   stage: analyze
   image: ghcr.io/sergudo/ai-slop-gate:latest
   variables:
     GITLAB_TOKEN: $GITLAB_TOKEN
-    GEMINI_API_KEY: $GEMINI_API_KEY
+    GROQ_API_KEY: $GROQ_API_KEY
   script:
-    - |
-      ai-slop-gate run \
-        --provider gemini \
-        --gitlab-project $CI_PROJECT_PATH \
-        --mr-iid $CI_MERGE_REQUEST_IID \
+    - ai-slop-gate run
+        --provider groq
+        --gitlab-project $CI_PROJECT_PATH
+        --mr-iid $CI_MERGE_REQUEST_IID
         --gitlab-url $CI_SERVER_URL
+        --policy policy.yml
+        --enforcement advisory
   only:
     - merge_requests
-```
 
----
-
-### Compliance Gate
-
-```yaml
+# ── Compliance ───────────────────────────────────────────────────────────────
 compliance:
   stage: analyze
   image: ghcr.io/sergudo/ai-slop-gate:latest
   script:
-    - ai-slop-gate run --compliance --path .
-  only:
-    - merge_requests
-```
-
----
-
-### Full Analysis
-
-```yaml
-full_analysis:
-  stage: analyze
-  image: ghcr.io/sergudo/ai-slop-gate:latest
-  variables:
-    GEMINI_API_KEY: $GEMINI_API_KEY
-  cache:
-    key: ai-slop-cache-$CI_COMMIT_REF_SLUG
-    paths:
-      - .ai-slop-cache/
-  script:
-    - |
-      ai-slop-gate run \
-        --provider static gemini \
-        --llm-local \
-        --compliance \
+    - ai-slop-gate run
+        --compliance
+        --policy policy.yml
         --path .
+        --enforcement advisory
   only:
     - merge_requests
+    - main
 ```
 
 ---
 
 ### GitLab Variables Setup
 
-1. Go to **Settings → CI/CD → Variables**
-2. Add variables:
-   - `GEMINI_API_KEY` — Your Gemini key (protected, masked)
-   - `GROQ_API_KEY` — Your Groq key (protected, masked)
-   - `GITLAB_TOKEN` — GitLab access token with API scope
+Go to **Settings → CI/CD → Variables** and add (protected + masked):
 
----
-
-### Recommended Configuration
-
-```yaml
-variables:
-  SLOP_PROVIDERS: "gemini" 
-  GEMINI_API_KEY: $GEMINI_API_KEY 
-  GROQ_API_KEY: $GROQ_API_KEY
-
-include:
-  - remote: 'https://raw.githubusercontent.com/sergudo/ai-slop-gate/main/ci/gate-template.yml'
-```
+| Variable | Description |
+|---|---|
+| `GROQ_API_KEY` | Groq API key |
+| `GEMINI_API_KEY` | Google Gemini API key (if using Gemini) |
+| `GITLAB_TOKEN` | GitLab access token with `api` scope |
 
 ---
 
 ## Jenkins
 
-### Declarative Pipeline
-
 ```groovy
 pipeline {
     agent any
-    
     environment {
-        GEMINI_API_KEY = credentials('gemini-api-key')
+        GROQ_API_KEY = credentials('groq-api-key')
     }
-    
     stages {
         stage('AI Slop Gate') {
             steps {
-                script {
-                    docker.image('ghcr.io/sergudo/ai-slop-gate:latest').inside {
-                        sh '''
-                            ai-slop-gate run \
-                              --provider static gemini \
-                              --llm-local \
-                              --path .
-                        '''
-                    }
-                }
-            }
-        }
-    }
-}
-```
-
----
-
-### Scripted Pipeline
-
-```groovy
-node {
-    stage('Checkout') {
-        checkout scm
-    }
-    
-    stage('Analysis') {
-        withCredentials([string(credentialsId: 'gemini-api-key', variable: 'GEMINI_API_KEY')]) {
-            docker.image('ghcr.io/sergudo/ai-slop-gate:latest').inside {
-                sh 'ai-slop-gate run --provider gemini --llm-local'
+                sh '''
+                    pip install -e .
+                    python -m ai_slop_gate.cli run \
+                      --provider static groq \
+                      --llm-local \
+                      --policy policy.yml \
+                      --enforcement advisory \
+                      --path .
+                '''
             }
         }
     }
@@ -429,8 +462,6 @@ node {
 
 ## Azure DevOps
 
-### YAML Pipeline
-
 ```yaml
 trigger:
   - main
@@ -439,23 +470,23 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-- task: Docker@2
+- script: pip install -e .
+  displayName: 'Install ai-slop-gate'
+
+- script: |
+    python -m ai_slop_gate.cli run \
+      --provider static \
+      --policy policy.yml \
+      --enforcement advisory \
+      --path .
+  env:
+    GROQ_API_KEY: $(GROQ_API_KEY)
   displayName: 'Run AI Slop Gate'
-  inputs:
-    command: 'run'
-    arguments: |
-      --rm \
-      -v $(Build.SourcesDirectory):/src \
-      -e GEMINI_API_KEY=$(GEMINI_API_KEY) \
-      ghcr.io/sergudo/ai-slop-gate:latest \
-      run --provider gemini --llm-local --path /src
 ```
 
 ---
 
 ## CircleCI
-
-### Config Example
 
 ```yaml
 version: 2.1
@@ -463,360 +494,237 @@ version: 2.1
 jobs:
   analyze:
     docker:
-      - image: ghcr.io/sergudo/ai-slop-gate:latest
+      - image: cimg/python:3.11
     steps:
       - checkout
       - run:
-          name: AI Slop Gate
+          name: Install ai-slop-gate
+          command: pip install -e .
+      - restore_cache:
+          keys:
+            - llm-cache-{{ checksum "**/*.py" }}
+      - run:
+          name: Static Analysis
           command: |
-            ai-slop-gate run \
-              --provider static gemini \
-              --llm-local \
-              --path .
+            python -m ai_slop_gate.cli run \
+              --provider static \
+              --policy policy.yml \
+              --enforcement advisory
+      - save_cache:
+          key: llm-cache-{{ checksum "**/*.py" }}
+          paths:
+            - .ai-slop-cache
 
 workflows:
   main:
     jobs:
-      - analyze:
-          filters:
-            branches:
-              only: /pull\/.*/
-```
-
----
-
-## Self-Hosted Runners
-
-### GitHub Actions (Self-Hosted)
-
-```yaml
-name: Self-Hosted Analysis
-on: [pull_request]
-
-jobs:
-  analyze:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Local Ollama Analysis
-        run: |
-          docker-compose up -d
-          docker-compose run --rm gate \
-            python -m ai_slop_gate.cli run \
-            --provider ollama \
-            --llm-local \
-            --path /workspace
-```
-
-**Benefits:**
-- 100% data privacy (code never leaves infrastructure)
-- Zero API costs (local Ollama)
-- GDPR compliant
-
----
-
-### GitLab Runner (Docker)
-
-```yaml
-llm_local:
-  stage: analyze
-  tags:
-    - docker
-  services:
-    - name: ollama/ollama:latest
-      alias: ollama
-  script:
-    - ai-slop-gate run --provider ollama --llm-local
+      - analyze
 ```
 
 ---
 
 ## Advanced Patterns
 
-### Matrix Strategy (Multiple Providers)
+### Progressive Enforcement
+
+Run advisory on feature branches, blocking on main:
 
 ```yaml
-name: Multi-Provider Analysis
-on: [pull_request]
+- name: Run Analysis
+  run: |
+    ENFORCEMENT="advisory"
+    if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+      ENFORCEMENT="blocking"
+    fi
+    python -m ai_slop_gate.cli run \
+      --provider static \
+      --policy policy.yml \
+      --enforcement $ENFORCEMENT
+```
 
+---
+
+### Matrix Strategy (Multiple Providers in Parallel)
+
+```yaml
 jobs:
   analyze:
     strategy:
+      fail-fast: false
       matrix:
-        provider: [static, gemini, groq]
+        provider: [static, groq]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Cache
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e .
+
+      - name: Cache (LLM only)
         if: matrix.provider != 'static'
         uses: actions/cache@v3
         with:
           path: .ai-slop-cache
-          key: cache-${{ matrix.provider }}-${{ hashFiles('**/*') }}
-      
+          key: llm-cache-${{ matrix.provider }}-${{ hashFiles('**/*.py') }}
+
       - name: Run ${{ matrix.provider }}
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
         run: |
-          docker run --rm \
-            -v $(pwd):/src \
-            -v $(pwd)/.ai-slop-cache:/app/.ai-slop-cache \
-            -e GEMINI_API_KEY -e GROQ_API_KEY \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider ${{ matrix.provider }} --llm-local --path /src
+          EXTRA=""
+          if [ "${{ matrix.provider }}" != "static" ]; then
+            EXTRA="--llm-local"
+          fi
+          python -m ai_slop_gate.cli run \
+            --provider ${{ matrix.provider }} \
+            --policy policy.yml \
+            --enforcement advisory \
+            $EXTRA
 ```
 
 ---
 
-### Conditional Analysis (Changed Files)
-
-```yaml
-name: Smart Analysis
-on: [pull_request]
-
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      
-      - name: Get changed files
-        id: changed
-        run: |
-          echo "files=$(git diff --name-only origin/main...HEAD | tr '\n' ' ')" >> $GITHUB_OUTPUT
-      
-      - name: Run on changed files only
-        if: steps.changed.outputs.files != ''
-        run: |
-          docker run --rm -v $(pwd):/src \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider static --path /src
-```
-
----
-
-### Scheduled Deep Analysis
+### Scheduled Deep Scan (Weekly)
 
 ```yaml
 name: Weekly Deep Scan
 on:
   schedule:
-    - cron: '0 2 * * 1'  # Every Monday at 2 AM
+    - cron: '0 2 * * 1'   # Every Monday at 2 AM
 
 jobs:
   deep-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Full LLM Scan
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e .
+
+      - name: Full Scan (no cache — fresh results)
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
         run: |
-          docker run --rm \
-            -v $(pwd):/src \
-            -e GEMINI_API_KEY \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run \
-              --provider static gemini groq \
-              --llm-local \
-              --compliance \
-              --no-cache \
-              --path /src
+          python -m ai_slop_gate.cli run \
+            --provider static groq \
+            --llm-local \
+            --compliance \
+            --policy policy.yml \
+            --no-cache \
+            --enforcement advisory \
+            --verbose
 ```
 
 ---
 
 ## Best Practices
 
-### 1. Always Use Cache for LLM
+### 1. Always include `--policy` with `include_paths`
+
+```bash
+# ✅ GOOD — scoped to source directory
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml
+
+# ❌ BAD — entire repo sent to the API, token limit hit
+python -m ai_slop_gate.cli run --provider groq --llm-local
+```
+
+### 2. Start with `advisory`, tighten later
+
+```bash
+# Step 1: understand findings
+--enforcement advisory
+
+# Step 2: once baseline is clear
+--enforcement blocking
+```
+
+### 3. Always cache LLM responses in CI
 
 ```yaml
-# Good: Saves 67% of API tokens
 - uses: actions/cache@v3
   with:
     path: .ai-slop-cache
-    key: cache-${{ hashFiles('**/*.py') }}
+    key: llm-cache-${{ hashFiles('**/*.py', '**/*.js') }}
+    restore-keys: llm-cache-
 ```
 
----
-
-### 2. Separate Fast and Slow Jobs
+### 4. Use secrets, never inline API keys
 
 ```yaml
-# Fast static check (always)
-static:
-  runs-on: ubuntu-latest
-  steps:
-    - run: ai-slop-gate run --provider static
-
-# Slow LLM check (only on main branch)
-llm:
-  if: github.ref == 'refs/heads/main'
-  runs-on: ubuntu-latest
-  steps:
-    - run: ai-slop-gate run --provider gemini --llm-local
-```
-
----
-
-### 3. Use Protected Secrets
-
-```yaml
-# Good: Secrets are masked in logs
+# ✅ GOOD
 env:
-  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
 
-# Bad: Never hardcode keys
+# ❌ BAD — visible in logs and git history
 env:
-  GEMINI_API_KEY: "your-actual-key"
+  GROQ_API_KEY: "gsk_actual_key_here"
 ```
 
----
+### 5. Run static and LLM jobs in parallel
 
-### 4. Fail Fast on Critical Issues
-
-```yaml
-- name: Critical Check
-  run: |
-    ai-slop-gate run \
-      --provider static \
-      --enforcement blocking \
-      --path .
-```
-
----
-
-### 5. Advisory Mode for Development
-
-```yaml
-# Development branches: Advisory only
-if: github.ref != 'refs/heads/main'
-run: ai-slop-gate run --enforcement advisory
-
-# Main branch: Blocking
-if: github.ref == 'refs/heads/main'
-run: ai-slop-gate run --enforcement blocking
-```
+Static analysis is fast (~5s). LLM analysis takes ~15s on first run (cached after).
+Running them as separate parallel jobs gives faster overall feedback.
 
 ---
 
 ## Troubleshooting
 
-### Issue: "API rate limit exceeded"
+### "the following arguments are required: --policy"
 
-**Solution:** Use cache and reduce frequency
-
-```yaml
-# Add cache
-- uses: actions/cache@v3
-
-# Or reduce runs
-on:
-  pull_request:
-    types: [opened, ready_for_review]  # Not on every commit
-```
-
----
-
-### Issue: "Docker pull rate limit"
-
-**Solution:** Use GitHub Container Registry
-
-```yaml
-# Good: No rate limits
-docker pull ghcr.io/sergudo/ai-slop-gate:latest
-
-# Avoid: Docker Hub rate limits
-docker pull dockerhub/ai-slop-gate:latest
-```
-
----
-
-### Issue: "Secrets not found"
-
-**Solution:** Check secret configuration
+Every `run` command requires `--policy`. Add it:
 
 ```bash
-# GitHub: Settings → Secrets → Actions
-# GitLab: Settings → CI/CD → Variables
+python -m ai_slop_gate.cli run --provider static --policy policy.yml
 ```
 
----
+### "LLM providers require include_paths"
 
-### Issue: "Permission denied in container"
-
-**Solution:** Fix volume permissions
+Your `policy.yml` is missing `include_paths`. Add it:
 
 ```yaml
-# Linux/macOS
-- run: docker run --rm -v $(pwd):/src:rw ...
-
-# Or set user
-- run: docker run --rm --user $(id -u):$(id -g) ...
+include_paths:
+  - src
 ```
 
----
+### "API rate limit exceeded"
 
-## Performance Optimization
+Enable cache (default) and avoid `--no-cache` in CI. Cache persists between runs
+with `actions/cache`.
 
-### Cache Key Strategy
+### "Trivy / Syft binary not found"
+
+Install them explicitly in the workflow before running static analysis:
 
 ```yaml
-# Good: Specific cache per file content
-key: cache-${{ hashFiles('**/*.py', '**/*.js') }}
+- name: Install Trivy
+  run: |
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+      | sh -s -- -b /usr/local/bin v0.50.4
 
-# Bad: Global cache (low hit rate)
-key: global-cache
+- name: Install Syft
+  run: |
+    curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+      | sh -s -- -b /usr/local/bin
 ```
-
----
-
-### Parallel Jobs
-
-```yaml
-jobs:
-  static:
-    runs-on: ubuntu-latest
-    steps: [...]
-  
-  llm:
-    runs-on: ubuntu-latest
-    steps: [...]
-  
-  compliance:
-    runs-on: ubuntu-latest
-    steps: [...]
-```
-
-All run in parallel for faster feedback!
-
----
-
-## Example Repositories
-
-- [ai-slop-gate](https://github.com/SergUdo/ai-slop-gate) — Main repository
-- [slop_test](https://github.com/SergUdo/slop_test) — Demo with violations
 
 ---
 
 ## Related Documentation
 
-- [CLI Reference](CLI_REFERENCE.md)
-- [Docker Guide](DOCKER.md)
-- [Cache Guide](CACHE.md)
-- [Policy Configuration](policy-configuration.md)
+- [CLI Reference](CLI_REFERENCE.md) — All flags and options
+- [Docker Guide](DOCKER.md) — Docker usage
+- [Cache Guide](CACHE.md) — Cache configuration
+- [Policy Configuration](policy-configuration.md) — Policy settings
 
 ---
 
 ## Support
 
-Integration issues? Check:
-1. [GitHub Discussions](https://github.com/SergUdo/ai-slop-gate/discussions)
-2. [Issue Tracker](https://github.com/SergUdo/ai-slop-gate/issues)
-3. [Documentation](https://ai-slop-gate.readthedocs.io/)
+- [GitHub Discussions](https://github.com/SergUdo/ai-slop-gate/discussions)
+- [Issue Tracker](https://github.com/SergUdo/ai-slop-gate/issues)
+- [Documentation](https://ai-slop-gate.readthedocs.io/)

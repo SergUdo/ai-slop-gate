@@ -1,0 +1,67 @@
+# policy.yml – minimal override for target repository
+# Place this file in the root of the project you are scanning.
+# AI Slop Gate will prefer this file over its own bundled policy.
+#
+# You only need to specify what you want to OVERRIDE.
+# Omitted sections fall back to the gate's bundled defaults.
+
+version: "v1.4"
+project_name: "my-project"   # ← change to your project name
+
+# ── Enforcement ──────────────────────────────────────────────────────────────
+# never    → report only, CI always passes
+# advisory → warnings appear, CI never blocked
+# blocking → CI fails on violations
+enforcement: advisory          # start with advisory, tighten later
+
+# ── Limit analysis to source code only ───────────────────────────────────────
+# Paths are relative to --path (the repo root passed to the CLI).
+include_paths:
+  - src          # your source directory; adjust as needed
+  - lib
+  # - .          # ← uncomment to scan everything (not recommended)
+
+# ── AI provider ──────────────────────────────────────────────────────────────
+ai_provider:
+  name: groq
+  models:
+    groq: llama-3.3-70b-versatile
+
+# ── Compliance (opt-in) ───────────────────────────────────────────────────────
+compliance:
+  enabled: false             # set to true to enable license / GDPR checks
+  run_in_pr: false
+
+  license_audit:
+    enabled: false
+    forbidden_licenses:
+      - GPL-3.0
+      - AGPL-3.0
+    severity: high
+
+  security_audit:
+    enabled: false
+    detect_secrets: true
+    detect_pii: false
+    severity: critical
+
+  gdpr_detection:
+    enabled: false
+
+# ── Rules (minimal) ──────────────────────────────────────────────────────────
+rules:
+  - id: block-hardcoded-secrets
+    when:
+      signal: "hardcoded_.*"
+    then:
+      action: blocking
+      message: "Hardcoded secret detected."
+
+  - id: advisory-quality
+    when:
+      category: quality
+      severity: medium
+    then:
+      action: advisory
+      message: "Code quality issue detected."
+      

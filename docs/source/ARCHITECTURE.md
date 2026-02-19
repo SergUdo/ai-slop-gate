@@ -83,14 +83,9 @@ If any part of this document diverges from the snapshot —
 |------|-------------|
 | `--policy` | Path to policy.yml (required for run) |
 | `--provider` | Provider name (static, k8s-runtime, supply-chain, llm) |
-| `--input-file` | Input file for providers |
-| `--k8s-manifests` | Kubernetes YAML manifests |
 | `--compliance` | Force enable compliance sidecar |
-| `--profile` | Override compliance profile |
 | `--enforcement` | never \| advisory \| blocking |
 | `--verbose` | Emit full resolved state and observations |
-| `--github-checks` | Emit GitHub Checks |
-| `--github-repo` | GitHub repository |
 | `--github-sha` | Commit SHA |
 | `--pr-id` | Pull Request ID |
 

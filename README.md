@@ -13,7 +13,6 @@ Implements deterministic normalization of LLM outputs (severity, confidence, sig
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![Stage](https://img.shields.io/badge/stage-Beta-blue)
-![Coverage](https://img.shields.io/badge/coverage-local-blue)
 ![Docker](https://img.shields.io/badge/docker-GHCR-success)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/SergUdo/ai-slop-gate?sort=semver)
 ![Cosign Verified](https://img.shields.io/badge/cosign-verified-brightgreen?logo=sigstore)
@@ -22,8 +21,7 @@ Implements deterministic normalization of LLM outputs (severity, confidence, sig
 
 ## Documentation
 
-Complete documentation is available at:  
-**[ai-slop-gate.readthedocs.io](https://ai-slop-gate.readthedocs.io/)**
+Complete documentation: **[ai-slop-gate.readthedocs.io](https://ai-slop-gate.readthedocs.io/)**
 
 ### Quick Links
 - [Quick Start Guide](docs/source/quick-start.rst)
@@ -32,39 +30,39 @@ Complete documentation is available at:
 - [Cache Guide](docs/source/CACHE.md)
 - [Docker Setup](docs/source/DOCKER.md)
 - [CI/CD Integrations](docs/source/INTEGRATIONS.md)
-- [Testing Guide](docs/source/TESTING.md)
 - [Security Policy](docs/source/SECURITY.md)
-- [Release Notes](docs/source/RELEASE.md)
 
 ---
 
 ## Key Features
 
-### Supply Chain Security  
-- Detects forbidden licenses (GPL, AGPL)  
-- Identifies AI-hallucinated or suspicious package names  
-- Supports NIS2 and EU Cyber Resilience Act readiness
+### Supply Chain Security
+- Detects forbidden licenses (GPL, AGPL)
+- Identifies AI-hallucinated or suspicious package names
+- SBOM generation via Syft (SPDX-JSON)
+- CVE scanning via Trivy
+- Supports NIS2
 - Assists in technical alignment with **[EU Cyber Resilience Act](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689)** and **[DORA](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2554)** supply chain security requirements. 
 
-### GDPR/DSGVO Compliance  
-- Enforces EU-only data residency for AI processing  
-- Prevents non-compliant LLM routing  
-- Produces audit-ready compliance reports  
+### GDPR/DSGVO Compliance
+- Enforces EU-only data residency for AI processing
+- Prevents non-compliant LLM routing
+- Produces audit-ready compliance reports
 
-### Enterprise Policy-as-Code  
-- Centralized `policy.yml` defining risk appetite  
-- Deterministic evaluation for CI/CD  
+### Enterprise Policy-as-Code
+- Centralized `policy.yml` defining risk appetite and `include_paths`
+- Deterministic evaluation for CI/CD gates
 - Consistent governance across teams and repositories
 
 ### Multi-Model Intelligence
-- **Groq (Llama 3.3)** - Extreme speed, free tier
-- **Google Gemini** - Free tier available
-- **Local LLMs (Ollama)** - 100% private, no API costs
+- **Groq (Llama 3.3)** — Extreme speed, free tier
+- **Google Gemini** — Free tier available
+- **Local LLMs (Ollama)** — 100% private, no API costs
 
 ### CI/CD Ready
 - Automated PR commenting via GitHub API
 - GitLab Merge Request integration
-- Advisory mode with optional blocking
+- `--enforcement advisory/blocking/never` for progressive rollout
 
 ---
 
@@ -72,38 +70,36 @@ Complete documentation is available at:
 
 ### Goals
 - **Detect AI Slop:** Identify messy, repetitive, or context-free AI-generated code
-- **Hybrid Analysis:** Combine Static Code Analysis with deep LLM insights
+- **Hybrid Analysis:** Combine static analysis with deep LLM insights
 - **Shift-Left Review:** Audit code locally before pushing to production
 - **Advisory Feedback:** Provide actionable insights directly in Pull Requests
-- **Scalable Architecture:** Vendor-agnostic design supporting various AI models
 
 ### Non-Goals
 ai-slop-gate is **NOT**:
 - A replacement for human code reviews
 - A formal security scanner or compliance certification tool
 - A guarantee that AI-generated code is correct or safe
-- A production-grade enforcement gate (yet)
 
-**Disclaimer:** This tool supports compliance workflows but does not guarantee legal compliance with EU AI Act or DORA regulations. Use as part of a comprehensive compliance framework.
+**Disclaimer:** This tool supports compliance workflows but does not guarantee legal compliance with EU AI Act or DORA regulations.
 
 ---
 
 ## Supported Languages & Infrastructure
 
-- **Languages:** Ruby, Python, JavaScript/TypeScript, Java, C++, C#
+- **Languages:** Python, JavaScript/TypeScript, Ruby, Java, C++, C#
 - **Infrastructure:** Docker, Kubernetes, Terraform
 
 ---
 
 ## Getting Started
 
-### Quick Installation
+### Installation
 
 ```bash
 git clone https://github.com/SergUdo/ai-slop-gate.git
 cd ai-slop-gate
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e .
 ```
 
@@ -113,36 +109,17 @@ pip install -e .
 python -m ai_slop_gate.cli init
 ```
 
-This creates `.ai-slop-gate.yml` with default settings. Use `--force` to overwrite existing config.
+Creates a default `policy.yml` in the current directory.
 
 ### Set Up Environment Variables
 
-Create a `.env` file:
-
 ```bash
-# Required for GitHub PR commenting
+# .env file
 GITHUB_TOKEN=your_github_personal_access_token
-
-# Provider Keys (add based on your configuration)
 GEMINI_API_KEY=your_google_gemini_api_key
 GROQ_API_KEY=your_groq_api_key
-GITLAB_TOKEN=your_gitlab_token  # For GitLab integration
+GITLAB_TOKEN=your_gitlab_token   # For GitLab integration
 ```
-
-### Run Your First Analysis
-
-```bash
-# Static analysis (fast, no API keys required)
-python -m ai_slop_gate.cli run --provider static --policy policy.yml
-
-# LLM analysis with cache (recommended)
-python -m ai_slop_gate.cli run --provider gemini --llm-local --policy policy.yml
-
-# Compliance check
-python -m ai_slop_gate.cli run --compliance --policy policy.yml
-```
-
----
 
 ## Analysis Examples & Reports
 
@@ -154,66 +131,143 @@ Real-world execution logs and examples:
 - [Static Analysis](docs/source/example_static_pipeline_report.md) - Security & quality gates
 - [Compliance Audit](docs/source/example_compliance_report.md) - Legal and regulatory checks
 
----
-
-## Test Your Workflow
-
-Try ai-slop-gate on our demo repository filled with intentional violations:
-
-**[SergUdo/slop_test](https://github.com/SergUdo/slop_test)** — Test repository with bad code patterns
-
-```bash
-git clone https://github.com/SergUdo/slop_test
-python -m ai_slop_gate.cli run --provider gemini --llm-local --path slop_test
-```
-
-**Live Example:** See [this PR](https://github.com/SergUdo/slop_test/pull/7) where ai-slop-gate automatically analyzed and commented on violations.
 
 ---
 
-## Docker Support
+## Policy File — Required
 
-Pull and run the pre-built image:
+`--policy` is **required** for every `run` command. The `policy.yml` controls which directories
+are sent to providers via `include_paths`. Without it, LLM providers receive the entire
+repository and fail with token-limit errors.
 
-```bash
-docker pull ghcr.io/sergudo/ai-slop-gate:latest
+**Policy discovery order** when the scanned repository has its own policy:
 
-docker run --rm -v $(pwd):/src ghcr.io/sergudo/ai-slop-gate:latest \
-  run --provider static --policy /src/policy.yml --path /src
+1. `--policy <explicit path>` — always wins
+2. `<--path>/policy.yml` — policy inside the scanned repository (auto-discovered)
+3. `./policy.yml` — current working directory
+4. Bundled package default (permissive, not recommended for LLM use)
+
+### Minimal policy for a target repository
+
+Place this in the root of any repository you want to scan — the gate will auto-discover it:
+
+```yaml
+# policy.yml
+version: "v1.4"
+project_name: "my-project"
+
+enforcement: advisory   # start here; switch to blocking after tuning
+
+# Required for LLM providers — scopes what gets sent to the API
+include_paths:
+  - src   # adjust to your source directory
+
+ai_provider:
+  name: groq
+  models:
+    groq: llama-3.3-70b-versatile
+
+compliance:
+  enabled: false
+
+rules:
+  - id: block-hardcoded-secrets
+    when:
+      signal: "hardcoded_.*"
+    then:
+      action: blocking
+      message: "Hardcoded secret detected."
 ```
 
-**Full Docker documentation:** [docs/source/DOCKER.md](docs/source/DOCKER.md)
+---
+
+## Run Your First Analysis
+
+```bash
+# Static analysis (fast, no API key required)
+python -m ai_slop_gate.cli run --provider static --policy policy.yml
+
+# LLM analysis on local files
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml
+
+# Compliance check only
+python -m ai_slop_gate.cli run --compliance-only --policy policy.yml
+
+# Advisory mode — findings shown, CI never blocked
+python -m ai_slop_gate.cli run --provider static --policy policy.yml --enforcement advisory
+```
+
+---
+
+## Enforcement Levels
+
+| Mode | Behaviour | When to use |
+|---|---|---|
+| `advisory` | Findings reported, CI always passes | First rollout, baseline tuning |
+| `blocking` | CI fails on violations | Production gate |
+| `never` | Report only, exit code always 0 | Dry-run / debugging |
+
+```bash
+# Override policy enforcement from CLI
+python -m ai_slop_gate.cli run --provider static --policy policy.yml --enforcement advisory
+```
+
+---
+
+## Sensitive File Exclusions
+
+LLM providers automatically exclude the following from API calls (regardless of policy):
+
+- `.env`, `.env.*`, `.env.example`
+- `policy.yml`
+- `docs/`, `scripts/`, `.ai-slop-cache/`
+- Lock files: `package-lock.json`, `poetry.lock`, `yarn.lock`, etc.
+- Minified bundles: `*.min.js`
+
+Only source code extensions are sent: `.py`, `.js`, `.ts`, `.go`, `.tf`, `.yml` (app config only), etc.
 
 ---
 
 ## Cache System
 
-AI Slop Gate automatically caches LLM responses to save tokens and speed up analyses:
+LLM responses are cached automatically to save tokens and speed up repeat runs:
 
-- **First run:** 15s, calls LLM API
-- **Cached run:** 0.5s, no API call
-- **Savings:** ~67% of tokens and time!
+| Run | Time | API calls |
+|---|---|---|
+| First run | ~15s | Yes |
+| Cached run | ~0.5s | No |
+| Savings | — | ~67% of tokens |
 
 ```bash
-# Run with cache (default)
-python -m ai_slop_gate.cli run --provider gemini --llm-local
+# Cache enabled by default
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml
 
-# Disable cache
-python -m ai_slop_gate.cli run --provider gemini --llm-local --no-cache
+# Disable cache (for debugging prompt changes only)
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --no-cache
 
 # Custom cache directory
-python -m ai_slop_gate.cli run --provider gemini --llm-local --cache-dir /tmp/cache
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --cache-dir /tmp/cache
 ```
 
-**Full cache documentation:** [docs/source/CACHE.md](docs/source/CACHE.md)
+---
+
+## Docker Support
+
+```bash
+docker pull ghcr.io/sergudo/ai-slop-gate:latest
+
+docker run --rm -v $(pwd):/src \
+  ghcr.io/sergudo/ai-slop-gate:latest \
+  run --provider static --policy /src/policy.yml --path /src
+```
+
+Full Docker documentation: [docs/source/DOCKER.md](docs/source/DOCKER.md)
 
 ---
 
 ## CI/CD Integration
 
-### GitHub Actions
-
-Example workflow for GitHub:
+### GitHub Actions (minimal)
 
 ```yaml
 name: AI Slop Gate
@@ -223,16 +277,62 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Run AI Slop Gate
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ai-slop-gate
+        run: pip install -e .
+
+      - name: Cache LLM responses
+        uses: actions/cache@v3
+        with:
+          path: .ai-slop-cache
+          key: llm-cache-${{ hashFiles('**/*.py', '**/*.js') }}
+          restore-keys: llm-cache-
+
+      - name: Run Static Analysis
         run: |
-          docker run --rm -v $(pwd):/src \
-            -e GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
-            ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider gemini --policy /src/policy.yml --path /src
+          python -m ai_slop_gate.cli run \
+            --provider static \
+            --policy policy.yml \
+            --enforcement advisory
+
+      - name: Run LLM Analysis
+        env:
+          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
+        run: |
+          python -m ai_slop_gate.cli run \
+            --provider groq \
+            --llm-local \
+            --policy policy.yml \
+            --enforcement advisory
 ```
 
-**Full integration guide:** [docs/source/INTEGRATIONS.md](docs/source/INTEGRATIONS.md)
+Full integration guide: [docs/source/INTEGRATIONS.md](docs/source/INTEGRATIONS.md)
+
+---
+
+## Test Your Workflow
+
+Try ai-slop-gate on a demo repository with intentional violations:
+
+```bash
+git clone https://github.com/SergUdo/slop_test
+
+# The target repo has its own policy.yml — auto-discovered
+python -m ai_slop_gate.cli run \
+  --provider groq \
+  --llm-local \
+  --path slop_test \
+  --policy slop_test/policy.yml
+```
+
+**Live example:** See [this PR](https://github.com/SergUdo/slop_test/pull/7) where ai-slop-gate automatically commented on violations.
 
 ---
 
@@ -247,60 +347,30 @@ python -m pytest ai_slop_gate/tests \
   --cov=ai_slop_gate \
   --cov-report=term-missing \
   --cov-report=html
-
-# View coverage report
-xdg-open htmlcov/index.html  # Linux
-open htmlcov/index.html       # macOS
 ```
-
-**Full testing guide:** [docs/source/TESTING.md](docs/source/TESTING.md)
 
 ---
 
 ## Security & Compliance
 
-ai-slop-gate follows **DevSecOps** best practices:
-
-- Vulnerability Scanning: Every build scanned by Trivy
-- SBOM Generation: Full transparency with Syft (SPDX-JSON)
-- License Compliance: Automated gates for restrictive licenses
-- Data Sovereignty: Local LLM support for GDPR compliance
-- EU Compliance: Supports NIS2, DORA, and EU AI Act requirements
-
-For detailed security information, see [SECURITY.md](docs/source/SECURITY.md)
-
----
-
-## Tips for Open Source Projects
-
-1. **Use cache to save money** — Cache saves ~67% of tokens on repeated analyses
-2. **Use free/local providers** — Ollama (100% free), Groq (free tier), Gemini Flash (free quota)
-3. **Combine static + LLM** — Fast static analysis + cached LLM for best results
-4. **Cache in CI/CD** — Persist `.ai-slop-cache/` between runs to save tokens
-
-```yaml
-# GitHub Actions cache example
-- uses: actions/cache@v3
-  with:
-    path: .ai-slop-cache
-    key: ai-slop-cache-${{ hashFiles('**/*.py') }}
-```
+- Vulnerability scanning: every build scanned by Trivy
+- SBOM generation: full transparency with Syft (SPDX-JSON)
+- License compliance: automated gates for restrictive licenses
+- Data sovereignty: local LLM support for GDPR compliance
+- EU compliance: supports NIS2, DORA, and EU AI Act requirements
 
 ---
 
 ## Contributing
 
-We welcome contributions! See:
 - [Architecture Overview](docs/source/ARCHITECTURE.md)
-- [Development Setup](docs/source/DEV_SETUP.md)
 - [Contributing Guidelines](docs/source/CONTRIBUTING.md)
 
 ---
 
 ## License
 
-MIT License © 2025 Vira Udovychenko.  
-See the [LICENSE](LICENSE) file for details.
+MIT License © 2025 Vira Udovychenko. See [LICENSE](LICENSE).
 
 ---
 
@@ -308,4 +378,3 @@ See the [LICENSE](LICENSE) file for details.
 
 - [Documentation](https://ai-slop-gate.readthedocs.io/)
 - [Issue Tracker](https://github.com/SergUdo/ai-slop-gate/issues)
-

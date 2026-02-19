@@ -16,19 +16,19 @@ python -m ai_slop_gate.cli <command> [options]
 
 ### `init`
 
-Initialize configuration file.
+Initialize a default `policy.yml` in the current directory.
 
 ```bash
 python -m ai_slop_gate.cli init [--force]
 ```
 
 **Options:**
-- `--force` — Overwrite existing `.ai-slop-gate.yml`
+- `--force` — Overwrite existing `policy.yml`
 
-**Example:**
+**Examples:**
 ```bash
 python -m ai_slop_gate.cli init
-python -m ai_slop_gate.cli init --force  # Overwrite existing config
+python -m ai_slop_gate.cli init --force
 ```
 
 ---
@@ -45,44 +45,30 @@ python -m ai_slop_gate.cli run [options]
 
 ## Core Options
 
-### `--provider <name> [<name> ...]`
+### `--policy <path>` ⚠️ Required
 
-Specify which provider(s) to use.
+Path to `policy.yml`.
 
-**Available providers:**
-- `static` — Fast static analysis (no API key required)
-- `gemini` — Google Gemini LLM
-- `groq` — Groq LLM (Llama 3.3)
-- `ollama` — Local Ollama LLM
-- `compliance` — Compliance checks (GDPR, licenses, etc.)
+**Why it matters:** `policy.yml` defines `include_paths` — without it, every file in the repository
+is sent to the LLM provider, which hits token limits and generates noise from docs, lock files,
+and other non-code content. Always provide a policy.
 
-**Examples:**
-```bash
-# Single provider
-python -m ai_slop_gate.cli run --provider static
+**Discovery order** (when `--policy` is omitted — not recommended):
 
-# Multiple providers
-python -m ai_slop_gate.cli run --provider static gemini
+1. `<--path>/policy.yml` — policy inside the repository being analysed
+2. `./policy.yml` — current working directory
+3. Bundled package default (very permissive, no `include_paths`)
 
-# All providers
-python -m ai_slop_gate.cli run --provider static gemini groq ollama
-```
-
----
-
-### `--policy <path>`
-
-Path to policy configuration file.
-
-**Default:** `policy.yml`
+**Best practice:** every repository you scan should have its own minimal `policy.yml`
+(see [Minimal policy for a target repository](#minimal-policy-for-a-target-repository)).
 
 **Examples:**
 ```bash
-# Use default policy
-python -m ai_slop_gate.cli run --provider static
+# Explicit policy (recommended)
+python -m ai_slop_gate.cli run --provider static --policy policy.yml
 
-# Custom policy
-python -m ai_slop_gate.cli run --provider static --policy custom-policy.yml
+# Policy from the target repo (auto-discovery, requires policy.yml in --path)
+python -m ai_slop_gate.cli run --provider static --path /path/to/project
 
 # Strict production policy
 python -m ai_slop_gate.cli run --provider static --policy policies/prod-strict.yml
@@ -90,22 +76,72 @@ python -m ai_slop_gate.cli run --provider static --policy policies/prod-strict.y
 
 ---
 
-### `--path <path>`
+### `--provider <name> [<name> ...]`
 
-Project directory to analyze.
+Specify which provider(s) to run.
 
-**Default:** Current directory (`.`)
+**Available providers:**
+
+| Provider | Requires API key | Description |
+|---|---|---|
+| `static` / `static_pipeline` | No | Fast deterministic static analysis |
+| `gemini` | `GEMINI_API_KEY` | Google Gemini LLM |
+| `groq` | `GROQ_API_KEY` | Groq LLM (Llama 3.3) |
+| `ollama` | No (local) | Local Ollama LLM |
 
 **Examples:**
 ```bash
-# Analyze current directory
-python -m ai_slop_gate.cli run --provider static
+# Single provider
+python -m ai_slop_gate.cli run --provider static --policy policy.yml
 
-# Analyze specific project
-python -m ai_slop_gate.cli run --provider static --path /path/to/project
+# Multiple providers
+python -m ai_slop_gate.cli run --provider static gemini --policy policy.yml
 
-# Analyze subdirectory
-python -m ai_slop_gate.cli run --provider static --path ./src
+# LLM + local files
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml
+```
+
+---
+
+### `--path <path>`
+
+Project directory to analyse.
+
+**Default:** `.` (current directory)
+
+**Note:** `include_paths` in `policy.yml` are resolved relative to `--path`.
+Scoping `--path` to your source directory alone is not sufficient — always use
+`include_paths` in `policy.yml` to restrict what providers see.
+
+**Examples:**
+```bash
+python -m ai_slop_gate.cli run --provider static --policy policy.yml
+python -m ai_slop_gate.cli run --provider static --path /path/to/project --policy policy.yml
+```
+
+---
+
+### `--enforcement <mode>`
+
+Override the enforcement level set in `policy.yml`.
+
+| Mode | Behaviour |
+|---|---|
+| `blocking` | CI fails on violations (default from policy) |
+| `advisory` | Findings are reported, CI never blocked |
+| `never` | Report only — exit code always 0 |
+
+**Use `advisory` or `never` when:**
+- Introducing the gate to an existing project (clearing baseline noise first)
+- Running analysis steps that should never break the build independently
+
+**Examples:**
+```bash
+# Warn but don't block CI
+python -m ai_slop_gate.cli run --provider static --enforcement advisory --policy policy.yml
+
+# Full blocking mode
+python -m ai_slop_gate.cli run --provider static --enforcement blocking --policy policy.yml
 ```
 
 ---
@@ -114,37 +150,34 @@ python -m ai_slop_gate.cli run --provider static --path ./src
 
 ### `--llm-local`
 
-Run LLM analysis on local files (full repository).
+Scan local files with the LLM provider instead of a PR diff.
 
-**Usage:**
+**Requires:** `--policy` with `include_paths` configured — otherwise the LLM receives the entire
+repository and will exceed token limits.
+
+**Excluded automatically by `llm_provider.py`** (regardless of policy):
+- `.env`, `.env.*`, `.env.example`
+- `policy.yml`
+- `docs/`, `scripts/`, `.ai-slop-cache/`
+- Lock files (`package-lock.json`, `poetry.lock`, etc.)
+- Minified bundles (`*.min.js`)
+
+**Examples:**
 ```bash
-python -m ai_slop_gate.cli run --provider gemini --llm-local
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml
+python -m ai_slop_gate.cli run --provider ollama --llm-local --path ./src --policy policy.yml
 ```
-
-**Notes:**
-- Analyzes entire repository
-- Requires API key for cloud providers (Gemini, Groq)
-- No API key needed for Ollama (local)
-- Automatically uses cache to save tokens
 
 ---
 
 ### `--cache-dir <path>`
 
-Specify cache directory for LLM responses.
+Cache directory for LLM responses.
 
 **Default:** `.ai-slop-cache`
 
-**Examples:**
 ```bash
-# Default cache location
-python -m ai_slop_gate.cli run --provider gemini --llm-local
-
-# Custom cache directory
-python -m ai_slop_gate.cli run --provider gemini --llm-local --cache-dir /tmp/cache
-
-# User-specific cache
-python -m ai_slop_gate.cli run --provider gemini --llm-local --cache-dir $HOME/.ai-cache
+python -m ai_slop_gate.cli run --provider gemini --llm-local --cache-dir /tmp/cache --policy policy.yml
 ```
 
 ---
@@ -153,128 +186,112 @@ python -m ai_slop_gate.cli run --provider gemini --llm-local --cache-dir $HOME/.
 
 Disable LLM response caching (always call API).
 
-**Usage:**
+**Warning:** Increases API costs significantly.
+
 ```bash
-python -m ai_slop_gate.cli run --provider gemini --llm-local --no-cache
+python -m ai_slop_gate.cli run --provider gemini --llm-local --no-cache --policy policy.yml
 ```
 
-**Use when:**
-- Testing prompt changes
-- Debugging LLM responses
-- Forcing fresh analysis
+---
 
-**Warning:** Disabling cache increases API costs!
+## Compliance Options
+
+### `--compliance`
+
+Run compliance checks in addition to provider analysis.
+
+**Checks:** GDPR/DSGVO, license violations (GPL, AGPL), secret detection, PII detection.
+
+```bash
+python -m ai_slop_gate.cli run --provider static --compliance --policy policy.yml
+```
+
+---
+
+### `--compliance-only`
+
+Run ONLY compliance checks, skip all LLM and static providers.
+
+```bash
+python -m ai_slop_gate.cli run --compliance-only --policy policy.yml
+```
+
+---
+
+## Output
+
+### `--verbose`
+
+Show detailed diagnostic output: cache hits/misses, per-file progress, triggered rules.
+
+```bash
+python -m ai_slop_gate.cli run --provider gemini --llm-local --verbose --policy policy.yml
+```
 
 ---
 
 ## GitHub Integration
 
-### `--github-repo <owner/repo>`
+All three flags are required together to post PR comments or create GitHub Checks.
 
-Enable GitHub integration.
+### `--github-repo <owner/repo>` + `--pr-id <number>` + `--github-token <token>`
 
-**Format:** `owner/repository`
+Post analysis results as a PR comment.
 
-**Example:**
 ```bash
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
+
 python -m ai_slop_gate.cli run \
-  --provider gemini \
-  --github-repo SergUdo/ai-slop-gate \
-  --pr-id 123
-```
-
----
-
-### `--pr-id <number>`
-
-Analyze specific GitHub Pull Request (diff-only mode).
-
-**Required:** `--github-repo`
-
-**Example:**
-```bash
-python -m ai_slop_gate.cli run \
-  --provider gemini \
-  --github-repo SergUdo/ai-slop-gate \
+  --provider groq \
+  --github-repo owner/repo \
   --pr-id 123 \
-  --github-token "$GITHUB_TOKEN"
+  --policy policy.yml
 ```
-
-**Notes:**
-- Only analyzes PR diff (changed files)
-- Posts comments directly to PR
-- Requires GitHub token with PR permissions
 
 ---
 
 ### `--github-sha <sha>`
 
-Report results as GitHub Checks for specific commit.
+Publish results as a GitHub Checks annotation (for push events).
+Used together with `--github-repo` and `--github-token`.
 
-**Example:**
 ```bash
 python -m ai_slop_gate.cli run \
   --provider static \
-  --github-repo SergUdo/ai-slop-gate \
-  --github-sha abc123def456
+  --github-repo owner/repo \
+  --github-sha abc123def456 \
+  --policy policy.yml
 ```
 
 ---
 
 ### `--github-token <token>`
 
-GitHub API token for authentication.
+GitHub API token. Prefer `GITHUB_TOKEN` environment variable over passing via CLI flag
+(CLI flags appear in shell history).
 
-**Alternative:** Set `GITHUB_TOKEN` environment variable
-
-**Examples:**
 ```bash
-# Via CLI argument
-python -m ai_slop_gate.cli run \
-  --github-repo SergUdo/ai-slop-gate \
-  --pr-id 123 \
-  --github-token "ghp_xxxxxxxxxxxx"
-
-# Via environment variable (recommended)
+# Recommended
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
-python -m ai_slop_gate.cli run \
-  --github-repo SergUdo/ai-slop-gate \
-  --pr-id 123
+python -m ai_slop_gate.cli run --github-repo owner/repo --pr-id 123 --policy policy.yml
 ```
 
 ---
 
 ## GitLab Integration
 
-### `--gitlab-project <path>`
+### `--gitlab-project <path>` + `--mr-iid <number>` + `--gitlab-token <token>`
 
-GitLab project identifier.
+Post analysis results as a Merge Request comment.
 
-**Format:** `username/project` or `group/subgroup/project`
-
-**Example:**
 ```bash
+export GITLAB_TOKEN="glpat-xxxxxxxxxxxx"
+
 python -m ai_slop_gate.cli run \
-  --provider static \
-  --gitlab-project sergudo/ai-slop-gate \
-  --mr-iid 42
-```
-
----
-
-### `--mr-iid <number>`
-
-Merge Request internal ID (not the MR number).
-
-**Required:** `--gitlab-project`
-
-**Example:**
-```bash
-python -m ai_slop_gate.cli run \
-  --provider gemini \
-  --gitlab-project sergudo/ai-slop-gate \
+  --provider groq \
+  --gitlab-project user/repo \
   --mr-iid 42 \
-  --gitlab-token "$GITLAB_TOKEN"
+  --policy policy.yml
 ```
 
 ---
@@ -285,113 +302,56 @@ GitLab instance URL.
 
 **Default:** `https://gitlab.com`
 
-**Examples:**
 ```bash
-# GitLab.com (default)
-python -m ai_slop_gate.cli run --gitlab-project user/repo --mr-iid 1
-
-# Self-hosted GitLab
 python -m ai_slop_gate.cli run \
+  --provider static \
   --gitlab-project user/repo \
   --mr-iid 1 \
-  --gitlab-url https://gitlab.company.com
+  --gitlab-url https://gitlab.company.com \
+  --policy policy.yml
 ```
 
 ---
 
-### `--gitlab-token <token>`
+## Minimal Policy for a Target Repository
 
-GitLab API token.
+Place this `policy.yml` in the root of the repository you want to scan.
+The gate will automatically use it (discovery order: target repo → cwd → bundled default).
 
-**Alternative:** Set `GITLAB_TOKEN` environment variable
+```yaml
+# policy.yml — minimal override for target repository
+version: "v1.4"
+project_name: "my-project"
 
-**Examples:**
-```bash
-# Via CLI argument
-python -m ai_slop_gate.cli run \
-  --gitlab-project user/repo \
-  --mr-iid 1 \
-  --gitlab-token "glpat-xxxxxxxxxxxx"
+enforcement: advisory   # start with advisory, switch to blocking after tuning
 
-# Via environment variable (recommended)
-export GITLAB_TOKEN="glpat-xxxxxxxxxxxx"
-python -m ai_slop_gate.cli run \
-  --gitlab-project user/repo \
-  --mr-iid 1
-```
+# REQUIRED: limits what providers see. Without this, LLMs hit token limits.
+include_paths:
+  - src    # adjust to your source directory
 
----
+ai_provider:
+  name: groq
+  models:
+    groq: llama-3.3-70b-versatile
 
-## Compliance Options
+compliance:
+  enabled: false
 
-### `--compliance`
+rules:
+  - id: block-hardcoded-secrets
+    when:
+      signal: "hardcoded_.*"
+    then:
+      action: blocking
+      message: "Hardcoded secret detected."
 
-Run compliance checks in addition to code analysis.
-
-**Example:**
-```bash
-python -m ai_slop_gate.cli run --provider static --compliance
-```
-
-**Checks:**
-- GDPR/DSGVO data residency
-- License compliance (GPL, AGPL detection)
-- Supply chain security
-- AI hallucination detection
-
----
-
-### `--compliance-only`
-
-Run ONLY compliance checks (skip code analysis).
-
-**Example:**
-```bash
-python -m ai_slop_gate.cli run --compliance-only
-```
-
-**Use when:**
-- Only legal/compliance review needed
-- Fast compliance gate in CI/CD
-- Auditing dependencies
-
----
-
-## Output & Debugging
-
-### `--verbose`
-
-Show detailed diagnostic output.
-
-**Example:**
-```bash
-python -m ai_slop_gate.cli run --provider gemini --llm-local --verbose
-```
-
-**Output includes:**
-- Cache hits/misses
-- API call details
-- File analysis progress
-- Provider execution logs
-
----
-
-### `--enforcement <mode>`
-
-Override enforcement mode from policy.
-
-**Modes:**
-- `never` — No enforcement (advisory only)
-- `advisory` — Show warnings, don't block
-- `blocking` — Fail build on violations
-
-**Example:**
-```bash
-# Advisory mode for development
-python -m ai_slop_gate.cli run --provider static --enforcement advisory
-
-# Blocking mode for production
-python -m ai_slop_gate.cli run --provider static --enforcement blocking
+  - id: advisory-quality
+    when:
+      category: quality
+      severity: medium
+    then:
+      action: advisory
+      message: "Code quality issue detected."
 ```
 
 ---
@@ -405,59 +365,56 @@ export GEMINI_API_KEY="your-gemini-key"
 export GROQ_API_KEY="your-groq-key"
 ```
 
-### GitHub/GitLab Tokens
+### GitHub / GitLab Tokens
 
 ```bash
-export GITHUB_TOKEN="ghp-xxxxxxxxxxxx"
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
 export GITLAB_TOKEN="glpat-xxxxxxxxxxxx"
-```
-
-### Custom Configuration
-
-```bash
-export AI_SLOP_GATE_CONFIG="/path/to/custom-config.yml"
-export AI_SLOP_GATE_CACHE_DIR="/tmp/cache"
 ```
 
 ---
 
 ## Complete Examples
 
-### Basic Static Analysis
+### Static Analysis (local project)
 
 ```bash
-python -m ai_slop_gate.cli run --provider static
+python -m ai_slop_gate.cli run \
+  --provider static \
+  --policy policy.yml
 ```
 
 ---
 
-### LLM Analysis with Cache
+### LLM Analysis on Local Files
 
 ```bash
+export GROQ_API_KEY="your-key"
+
 python -m ai_slop_gate.cli run \
-  --provider gemini \
+  --provider groq \
   --llm-local \
   --policy policy.yml
 ```
 
 ---
 
-### Multiple Providers
+### Static + LLM Combined
 
 ```bash
 python -m ai_slop_gate.cli run \
-  --provider static gemini groq \
+  --provider static groq \
   --llm-local \
-  --path /path/to/project
+  --policy policy.yml
 ```
 
 ---
 
-### Compliance Check
+### Compliance Only
 
 ```bash
 python -m ai_slop_gate.cli run \
-  --compliance \
+  --compliance-only \
   --policy policy.yml
 ```
 
@@ -466,13 +423,14 @@ python -m ai_slop_gate.cli run \
 ### GitHub PR Analysis
 
 ```bash
-export GITHUB_TOKEN="ghp-xxxxxxxxxxxx"
-export GEMINI_API_KEY="your-key"
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
+export GROQ_API_KEY="your-key"
 
 python -m ai_slop_gate.cli run \
-  --provider gemini \
+  --provider groq \
   --github-repo owner/repo \
-  --pr-id 123
+  --pr-id 123 \
+  --policy policy.yml
 ```
 
 ---
@@ -487,55 +445,42 @@ python -m ai_slop_gate.cli run \
   --provider groq \
   --gitlab-project user/repo \
   --mr-iid 42 \
-  --gitlab-url https://gitlab.company.com
+  --policy policy.yml
 ```
 
 ---
 
-### Local Ollama Analysis
+### Local Ollama (no API key)
 
 ```bash
+# Start Ollama first: ollama serve
 python -m ai_slop_gate.cli run \
   --provider ollama \
   --llm-local \
-  --path /path/to/project
-```
-
-**Note:** Requires Ollama running locally (`ollama serve`)
-
----
-
-### Custom Cache Directory
-
-```bash
-python -m ai_slop_gate.cli run \
-  --provider gemini \
-  --llm-local \
-  --cache-dir /tmp/my-cache
+  --policy policy.yml
 ```
 
 ---
 
-### Verbose Output with No Cache
+### Advisory Mode (safe for new projects)
 
 ```bash
 python -m ai_slop_gate.cli run \
-  --provider gemini \
-  --llm-local \
-  --no-cache \
-  --verbose
+  --provider static \
+  --enforcement advisory \
+  --policy policy.yml
 ```
 
 ---
 
-### Production Mode (Strict)
+### Production Strict Mode
 
 ```bash
 python -m ai_slop_gate.cli run \
-  --provider static gemini \
+  --provider static groq \
   --llm-local \
-  --policy policies/production.yml \
-  --enforcement blocking
+  --enforcement blocking \
+  --policy policies/production.yml
 ```
 
 ---
@@ -543,143 +488,95 @@ python -m ai_slop_gate.cli run \
 ## Exit Codes
 
 | Code | Meaning |
-|------|---------|
-| `0`  | Success (no violations or advisory mode) |
-| `1`  | Analysis failed (critical violations in blocking mode) |
-| `2`  | Configuration error |
-| `3`  | API error (invalid key, rate limit, etc.) |
-
----
-
-## Alias & Shortcuts
-
-### Bash Aliases
-
-Add to `~/.bashrc` or `~/.zshrc`:
-
-```bash
-# Quick static analysis
-alias asg-static='python -m ai_slop_gate.cli run --provider static'
-
-# LLM analysis with cache
-alias asg-llm='python -m ai_slop_gate.cli run --provider gemini --llm-local'
-
-# Full analysis
-alias asg-full='python -m ai_slop_gate.cli run --provider static gemini --llm-local'
-
-# Compliance check
-alias asg-comply='python -m ai_slop_gate.cli run --compliance'
-```
+|---|---|
+| `0` | Success — no blocking violations, or `--enforcement advisory/never` |
+| `1` | Blocking violations detected (`--enforcement blocking`) |
 
 ---
 
 ## Tips & Best Practices
 
-### 1. Always Use Cache for LLM
+### 1. Always provide `--policy`
+
+Without `policy.yml` and `include_paths`, LLM providers receive the entire repository
+and will exceed token limits on any non-trivial project.
 
 ```bash
-# ✅ GOOD: Uses cache (default)
-python -m ai_slop_gate.cli run --provider gemini --llm-local
+# ✅ GOOD
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml
 
-# ❌ BAD: Wastes tokens
-python -m ai_slop_gate.cli run --provider gemini --llm-local --no-cache
+# ❌ BAD — sends everything to the LLM
+python -m ai_slop_gate.cli run --provider groq --llm-local
 ```
 
----
-
-### 2. Combine Static + LLM
+### 2. Start with `advisory`, then tighten
 
 ```bash
-# Fast static check + smart LLM analysis
-python -m ai_slop_gate.cli run --provider static gemini --llm-local
+# Step 1: understand findings
+python -m ai_slop_gate.cli run --provider static --enforcement advisory --policy policy.yml
+
+# Step 2: block on violations once baseline is clear
+python -m ai_slop_gate.cli run --provider static --enforcement blocking --policy policy.yml
 ```
 
----
-
-### 3. Use Environment Variables for Tokens
+### 3. Use environment variables for tokens
 
 ```bash
-# ✅ GOOD: Secure, no token in command history
-export GITHUB_TOKEN="ghp-xxxxxxxxxxxx"
-python -m ai_slop_gate.cli run --github-repo owner/repo --pr-id 123
+# ✅ GOOD — token not in shell history
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
+python -m ai_slop_gate.cli run --github-repo owner/repo --pr-id 123 --policy policy.yml
 
-# ❌ BAD: Token visible in shell history
-python -m ai_slop_gate.cli run --github-token "ghp-xxxxxxxxxxxx"
+# ❌ BAD — visible in shell history
+python -m ai_slop_gate.cli run --github-token "ghp_xxxxxxxxxxxx" ...
 ```
 
----
+### 4. Use cache for LLM in CI
 
-### 4. Start with Advisory Mode
+LLM calls are expensive. Cache is enabled by default and reduces costs on repeat runs
+(e.g. when only one file changed).
 
 ```bash
-# First time: Advisory mode
-python -m ai_slop_gate.cli run --provider static --enforcement advisory
+# ✅ Cache enabled (default)
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml
 
-# After tuning: Blocking mode
-python -m ai_slop_gate.cli run --provider static --enforcement blocking
+# Use --no-cache only when debugging prompt changes
+python -m ai_slop_gate.cli run --provider groq --llm-local --no-cache --verbose --policy policy.yml
 ```
 
 ---
 
 ## Troubleshooting
 
-### "Provider skipped: insufficient context"
+### "LLM provider skipped: no PR context and --llm-local not set"
 
-**Cause:** Missing API key or invalid configuration
+Add `--llm-local` to analyse files on disk, or pass `--github-repo` + `--pr-id` for PR diff mode.
 
-**Solution:**
+### "Token limit exceeded"
+
+Add or tighten `include_paths` in `policy.yml` to limit which directories are sent to the LLM.
+
+### "No policy.yml found"
+
+Run `python -m ai_slop_gate.cli init` to create a default policy, or pass `--policy <path>` explicitly.
+
+### "Trivy / Syft binary not found"
+
+Install the required tools before running static analysis in CI:
+
 ```bash
-# Set API key
-export GEMINI_API_KEY="your-key"
+# Trivy
+curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+  | sh -s -- -b /usr/local/bin v0.50.4
 
-# Or use local Ollama
-python -m ai_slop_gate.cli run --provider ollama --llm-local
-```
-
----
-
-### "Cache not working"
-
-**Cause:** Cache disabled or wrong directory
-
-**Solution:**
-```bash
-# Check verbose output
-python -m ai_slop_gate.cli run --provider gemini --llm-local --verbose
-
-# Verify cache directory
-ls -la .ai-slop-cache/
-```
-
----
-
-### "Permission denied"
-
-**Cause:** No write access to project directory or cache
-
-**Solution:**
-```bash
-# Fix permissions
-chmod -R u+rw .ai-slop-cache/
-
-# Or use custom cache directory
-python -m ai_slop_gate.cli run --cache-dir /tmp/cache
+# Syft
+curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+  | sh -s -- -b /usr/local/bin
 ```
 
 ---
 
 ## Related Documentation
 
-- [Cache Guide](CACHE.md) — Cache management
-- [Docker Guide](DOCKER.md) — Docker usage
-- [Integrations](INTEGRATIONS.md) — CI/CD setup
-- [Policy Configuration](../docs/source/policy-configuration.md) — Policy settings
-
----
-
-## Support
-
-For CLI issues:
-1. Check [GitHub Issues](https://github.com/SergUdo/ai-slop-gate/issues)
-2. Review [Discussions](https://github.com/SergUdo/ai-slop-gate/discussions)
-3. Read [Full Documentation](https://ai-slop-gate.readthedocs.io/)
+- [Cache Guide](CACHE.md)
+- [Policy Configuration](../docs/source/policy-configuration.md)
+- [Integrations](INTEGRATIONS.md)
