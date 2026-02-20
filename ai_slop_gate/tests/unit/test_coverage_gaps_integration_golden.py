@@ -18,6 +18,8 @@ from ai_slop_gate.domain.checks import CheckReport, CheckStatus, CheckAnnotation
 from ai_slop_gate.cache.file_backend import FileCacheBackend
 from ai_slop_gate.cache.key_builder import CacheKeyBuilder
 from ai_slop_gate.providers.cached_provider import CachedProvider
+from ai_slop_gate.providers.base import ProviderObservation
+from ai_slop_gate.domain.observation_factory import make_observation
 
 
 class TestIntegrationCachingWithErrors:
@@ -32,10 +34,21 @@ class TestIntegrationCachingWithErrors:
                 def __init__(self):
                     self.call_count = 0
                     self.model = "test"
-                
                 def collect(self, content):
                     self.call_count += 1
-                    return {"result": self.call_count}
+                    obs = make_observation(
+                        provider="CountingProvider",
+                        category="quality",
+                        signal="count",
+                        confidence=0.9,
+                        message=str(self.call_count),
+                    )
+                    return ProviderObservation(
+                        provider="CountingProvider",
+                        model=self.model,
+                        observations=[obs],
+                        raw_text=content,
+                    )
             
             provider = CountingProvider()
             cp = CachedProvider(provider, cache)
@@ -43,12 +56,12 @@ class TestIntegrationCachingWithErrors:
             # First call
             result1 = cp.collect("test_content", policy={})
             assert provider.call_count == 1
-            assert result1["result"] == 1
-            
+            assert result1.observations[0].message == "1"
+
             # Second call (should hit cache)
             result2 = cp.collect("test_content", policy={})
             assert provider.call_count == 1  # No additional call
-            assert result2["result"] == 1  # Same result
+            assert result2.observations[0].message == "1"  # Same result
 
     def test_different_content_different_cache_entries(self):
         """Test that different content creates different cache entries."""
@@ -58,18 +71,29 @@ class TestIntegrationCachingWithErrors:
             class Provider:
                 def __init__(self):
                     self.model = "test"
-                
                 def collect(self, content):
-                    return {"content": content}
+                    obs = make_observation(
+                        provider="Provider",
+                        category="quality",
+                        signal="content",
+                        confidence=0.9,
+                        message=content,
+                    )
+                    return ProviderObservation(
+                        provider="Provider",
+                        model=self.model,
+                        observations=[obs],
+                        raw_text=content,
+                    )
             
             provider = Provider()
             cp = CachedProvider(provider, cache)
             
             result1 = cp.collect("content1", policy={})
             result2 = cp.collect("content2", policy={})
-            
-            assert result1["content"] == "content1"
-            assert result2["content"] == "content2"
+
+            assert result1.observations[0].message == "content1"
+            assert result2.observations[0].message == "content2"
             # Verify cache works by checking results are consistent
             result1_again = cp.collect("content1", policy={})
             assert result1_again == result1
@@ -82,9 +106,20 @@ class TestIntegrationCachingWithErrors:
             class Provider:
                 def __init__(self):
                     self.model = "test"
-                
                 def collect(self, content):
-                    return {"cached": True}
+                    obs = make_observation(
+                        provider="Provider",
+                        category="quality",
+                        signal="cached",
+                        confidence=0.9,
+                        message="cached",
+                    )
+                    return ProviderObservation(
+                        provider="Provider",
+                        model=self.model,
+                        observations=[obs],
+                        raw_text=content,
+                    )
             
             provider = Provider()
             cp = CachedProvider(provider, cache)
@@ -92,10 +127,10 @@ class TestIntegrationCachingWithErrors:
             # Same content, different policies - results should be returned
             result1 = cp.collect("test", policy={"rule": "1"})
             result2 = cp.collect("test", policy={"rule": "2"})
-            
-            # Both calls should return results (may or may not be cached depending on policy handling)
-            assert result1 == {"cached": True}
-            assert result2 == {"cached": True}
+
+            # Both calls should return ProviderObservation objects
+            assert isinstance(result1, ProviderObservation)
+            assert isinstance(result2, ProviderObservation)
 
 
 class TestIntegrationPolicyEngineWithComplexRules:

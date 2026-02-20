@@ -16,6 +16,8 @@ from unittest.mock import Mock, MagicMock
 from ai_slop_gate.cache.key_builder import CacheKeyBuilder
 from ai_slop_gate.cache.file_backend import FileCacheBackend
 from ai_slop_gate.providers.cached_provider import CachedProvider
+from ai_slop_gate.providers.base import ProviderObservation
+from ai_slop_gate.domain.observation_factory import make_observation
 
 
 class TestCacheKeyBuilder:
@@ -196,45 +198,94 @@ class TestCachedProvider:
     def test_cache_miss_calls_provider(self, cached_provider, mock_provider, mock_cache):
         """Cache miss should call underlying provider."""
         mock_cache.get.return_value = None
-        mock_provider.collect.return_value = {"result": "from_provider"}
-        
+
+        obs = make_observation(
+            provider=mock_provider.__class__.__name__,
+            category="quality",
+            signal="test",
+            confidence=0.9,
+            message="from_provider",
+        )
+
+        provider_obs = ProviderObservation(
+            provider=mock_provider.__class__.__name__,
+            model=mock_provider.model,
+            observations=[obs],
+            raw_text="test content",
+        )
+
+        mock_provider.collect.return_value = provider_obs
+
         result = cached_provider.collect(
             content="test content",
             policy={"rule": "value"}
         )
-        
+
         # Provider should be called
         mock_provider.collect.assert_called_once_with("test content")
-        
+
         # Result should be cached
         mock_cache.set.assert_called_once()
-        
-        # Result should be from provider
-        assert result == {"result": "from_provider"}
+
+        # Result should be from provider and be a ProviderObservation
+        assert result == provider_obs
     
     def test_cache_hit_skips_provider(self, cached_provider, mock_provider, mock_cache):
         """Cache hit should NOT call underlying provider."""
-        cached_data = {"result": "from_cache"}
-        mock_cache.get.return_value = cached_data
-        
+        # Prepare a ProviderObservation and cache the serialized form
+        obs = make_observation(
+            provider=mock_provider.__class__.__name__,
+            category="quality",
+            signal="cached",
+            confidence=0.8,
+            message="from_cache",
+        )
+
+        provider_obs = ProviderObservation(
+            provider=mock_provider.__class__.__name__,
+            model=mock_provider.model,
+            observations=[obs],
+            raw_text="test content",
+        )
+
+        mock_cache.get.return_value = cached_provider._serialize(provider_obs)
+
         result = cached_provider.collect(
             content="test content",
             policy={"rule": "value"}
         )
-        
+
         # Provider should NOT be called
         mock_provider.collect.assert_not_called()
-        
+
         # Cache should not be written (already exists)
         mock_cache.set.assert_not_called()
-        
-        # Result should be from cache
-        assert result == cached_data
+
+        # Result should be from cache and equal to the original ProviderObservation
+        assert result == provider_obs
     
     def test_cache_key_includes_all_parameters(self, cached_provider, mock_cache):
         """Cache key should include provider, model, content, and policy."""
         mock_cache.get.return_value = None
-        
+
+        # Ensure provider returns a ProviderObservation so serialization works
+        obs = make_observation(
+            provider=cached_provider.provider.__class__.__name__,
+            category="quality",
+            signal="k",
+            confidence=0.9,
+            message="m",
+        )
+
+        provider_obs = ProviderObservation(
+            provider=cached_provider.provider.__class__.__name__,
+            model=getattr(cached_provider.provider, "model", "unknown"),
+            observations=[obs],
+            raw_text="test content",
+        )
+
+        cached_provider.provider.collect.return_value = provider_obs
+
         cached_provider.collect(
             content="test content",
             policy={"rule": "value"}
@@ -251,10 +302,42 @@ class TestCachedProvider:
     def test_different_content_different_cache_keys(self, cached_provider, mock_cache):
         """Different content should use different cache keys."""
         mock_cache.get.return_value = None
-        
+        # Provider must return ProviderObservation instances
+        obs_a = make_observation(
+            provider=cached_provider.provider.__class__.__name__,
+            category="quality",
+            signal="a",
+            confidence=0.9,
+            message="A",
+        )
+        provider_obs_a = ProviderObservation(
+            provider=cached_provider.provider.__class__.__name__,
+            model=getattr(cached_provider.provider, "model", "unknown"),
+            observations=[obs_a],
+            raw_text="content A",
+        )
+
+        cached_provider.provider.collect.return_value = provider_obs_a
+
         cached_provider.collect(content="content A", policy={})
         key1 = mock_cache.get.call_args[0][0]
         
+        obs_b = make_observation(
+            provider=cached_provider.provider.__class__.__name__,
+            category="quality",
+            signal="b",
+            confidence=0.9,
+            message="B",
+        )
+        provider_obs_b = ProviderObservation(
+            provider=cached_provider.provider.__class__.__name__,
+            model=getattr(cached_provider.provider, "model", "unknown"),
+            observations=[obs_b],
+            raw_text="content B",
+        )
+
+        cached_provider.provider.collect.return_value = provider_obs_b
+
         cached_provider.collect(content="content B", policy={})
         key2 = mock_cache.get.call_args[0][0]
         
@@ -273,11 +356,21 @@ class TestCacheIntegration:
         mock_provider = Mock()
         mock_provider.__class__.__name__ = "TestProvider"
         mock_provider.model = "test-model"
-        mock_provider.collect.return_value = {
-            "observations": [
-                {"signal": "test", "message": "test message"}
-            ]
-        }
+
+        obs = make_observation(
+            provider="TestProvider",
+            category="quality",
+            signal="test",
+            confidence=0.9,
+            message="test message",
+        )
+
+        mock_provider.collect.return_value = ProviderObservation(
+            provider="TestProvider",
+            model="test-model",
+            observations=[obs],
+            raw_text="test content",
+        )
         
         cached_provider = CachedProvider(
             provider=mock_provider,
@@ -310,9 +403,26 @@ class TestCacheIntegration:
         mock_provider = Mock()
         mock_provider.__class__.__name__ = "TestProvider"
         mock_provider.model = "test-model"
+        mock_provider.collect.side_effect = []
+        # prepare two different ProviderObservation return values
+        obs_a = make_observation(
+            provider="TestProvider",
+            category="quality",
+            signal="A",
+            confidence=0.9,
+            message="policy_A",
+        )
+        obs_b = make_observation(
+            provider="TestProvider",
+            category="quality",
+            signal="B",
+            confidence=0.9,
+            message="policy_B",
+        )
+
         mock_provider.collect.side_effect = [
-            {"result": "policy_A"},
-            {"result": "policy_B"}
+            ProviderObservation(provider="TestProvider", model="test-model", observations=[obs_a], raw_text="same content"),
+            ProviderObservation(provider="TestProvider", model="test-model", observations=[obs_b], raw_text="same content"),
         ]
         
         cached_provider = CachedProvider(

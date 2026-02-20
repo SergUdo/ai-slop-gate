@@ -1,12 +1,27 @@
 from ai_slop_gate.providers.cached_provider import CachedProvider
+from ai_slop_gate.providers.base import ProviderObservation
+from ai_slop_gate.domain.observation_factory import make_observation
 
 
 class DummyProvider:
     def __init__(self):
         self.called = 0
+        self.model = "dummy"
     def collect(self, content: str):
         self.called += 1
-        return {"result": content}
+        obs = make_observation(
+            provider="DummyProvider",
+            category="quality",
+            signal="test",
+            confidence=0.9,
+            message=content,
+        )
+        return ProviderObservation(
+            provider="DummyProvider",
+            model=self.model,
+            observations=[obs],
+            raw_text=content,
+        )
 
 
 class DummyCache:

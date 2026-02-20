@@ -25,6 +25,8 @@ from ai_slop_gate.cache.key_builder import CacheKeyBuilder
 from ai_slop_gate.domain.policy_engine import PolicyEngine
 from ai_slop_gate.domain.observation import Observation, Severity
 from ai_slop_gate.domain.decision import Decision, DecisionMode
+from ai_slop_gate.providers.base import ProviderObservation
+from ai_slop_gate.domain.observation_factory import make_observation
 
 
 class TestRateLimitGuardUncovered:
@@ -163,7 +165,20 @@ class TestCachedProviderUncovered:
                 self.call_count = 0
             def collect(self, content):
                 self.call_count += 1
-                return {"result": "valid"}
+                obs = make_observation(
+                    provider="TestProvider",
+                    category="quality",
+                    signal="valid",
+                    confidence=0.9,
+                    message="valid",
+                )
+
+                return ProviderObservation(
+                    provider="TestProvider",
+                    model="test",
+                    observations=[obs],
+                    raw_text=content,
+                )
         
         provider = TestProvider()
         cache = DummyCache()
@@ -174,7 +189,8 @@ class TestCachedProviderUncovered:
         
         # Should still work with fresh data
         result = cp.collect("test", policy={})
-        assert result == {"result": "valid"}
+        assert isinstance(result, ProviderObservation)
+        assert result.observations[0].message == "valid"
 
     def test_cached_provider_concurrent_writes(self):
         """Test cache safety with concurrent writes."""
@@ -195,7 +211,19 @@ class TestCachedProviderUncovered:
             def collect(self, content):
                 self.call_count += 1
                 time.sleep(0.01)  # Simulate work
-                return {"count": self.call_count}
+                obs = make_observation(
+                    provider="CountingProvider",
+                    category="quality",
+                    signal="count",
+                    confidence=0.9,
+                    message=str(self.call_count),
+                )
+                return ProviderObservation(
+                    provider="CountingProvider",
+                    model="test",
+                    observations=[obs],
+                    raw_text=content,
+                )
         
         provider = CountingProvider()
         cache = ThreadSafeCache()
@@ -231,13 +259,37 @@ class TestCachedProviderUncovered:
             def __init__(self):
                 self.model = "v1"
             def collect(self, content):
-                return {"provider": "1"}
+                obs = make_observation(
+                    provider="Provider1",
+                    category="quality",
+                    signal="p1",
+                    confidence=0.9,
+                    message="1",
+                )
+                return ProviderObservation(
+                    provider="Provider1",
+                    model=self.model,
+                    observations=[obs],
+                    raw_text=content,
+                )
         
         class Provider2:
             def __init__(self):
                 self.model = "v1"
             def collect(self, content):
-                return {"provider": "2"}
+                obs = make_observation(
+                    provider="Provider2",
+                    category="quality",
+                    signal="p2",
+                    confidence=0.9,
+                    message="2",
+                )
+                return ProviderObservation(
+                    provider="Provider2",
+                    model=self.model,
+                    observations=[obs],
+                    raw_text=content,
+                )
         
         cache = DummyCache()
         
@@ -248,7 +300,8 @@ class TestCachedProviderUncovered:
         
         # First provider sets cache
         result1 = cp1.collect("test", policy={})
-        assert result1 == {"provider": "1"}
+        assert isinstance(result1, ProviderObservation)
+        assert result1.observations[0].message == "1"
         
         # Second provider with same input should get cached result from first
         # Both use provider class name in key, so results may differ
