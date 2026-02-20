@@ -12,7 +12,7 @@ Implements deterministic normalization of LLM outputs (severity, confidence, sig
 [![Documentation Status](https://readthedocs.org/projects/ai-slop-gate/badge/?version=latest)](https://ai-slop-gate.readthedocs.io/en/latest/?badge=latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
-![Stage](https://img.shields.io/badge/stage-Beta-blue)
+![Stage](https://img.shields.io/badge/stage-Stable-blue)
 ![Docker](https://img.shields.io/badge/docker-GHCR-success)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/SergUdo/ai-slop-gate?sort=semver)
 ![Cosign Verified](https://img.shields.io/badge/cosign-verified-brightgreen?logo=sigstore)
