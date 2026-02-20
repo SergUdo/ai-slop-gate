@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import fnmatch
 from typing import List, Any
 from dotenv import load_dotenv
 
@@ -108,6 +109,36 @@ def build_include_filter(ctx: RuntimeContext, include_paths: List[str]):
         return False
     return is_included
 
+def build_exclude_filter(exclude_paths, exclude_secret_files):
+    all_patterns = list(exclude_paths) + list(exclude_secret_files)
+    
+    def is_excluded(file_path: str) -> bool:
+        if not file_path or file_path in ("root", "unknown"):
+            return False
+        fp = file_path.replace(os.sep, "/").lstrip("./")
+        for pattern in all_patterns:
+            pat = pattern.replace(os.sep, "/").lstrip("./")
+            if fnmatch.fnmatch(fp, pat):
+                return True
+            # "docs/**" — префікс
+            if pat.endswith("/**"):
+                prefix = pat[:-3]
+                if fp == prefix or fp.startswith(prefix + "/"):
+                    return True
+            # "**/name" — any path ending with name
+            if pat.startswith("**/"):
+                suffix = pat[3:]
+                parts = fp.split("/")
+                for i in range(len(parts)):
+                    if fnmatch.fnmatch("/".join(parts[i:]), suffix):
+                        return True
+            # "**/name/**" — any path containing name as a segment
+            if not any(c in pat for c in ("*", "?", "[")):
+                if fp == pat or fp.endswith("/" + pat):
+                    return True
+        return False
+    return is_excluded
+
 def extract_location(obs: Observation):
     """Extract file path and line number from an observation."""
     file_path = "root"
@@ -135,7 +166,12 @@ def run_cli(ctx: RuntimeContext) -> int:
 
     try:
         logger.info(f"Loading policy file: {ctx.policy_path}")
-        policy_config, rules = load_policy(ctx.policy_path)
+        policy_config, rules, exclude_paths, exclude_secret_files = load_policy(ctx.policy_path)
+        exclude_filter = build_exclude_filter(exclude_paths, exclude_secret_files)
+
+        enforcement_override = getattr(ctx, 'enforcement', None)
+        if enforcement_override:
+            logger.info(f"  ⚠️  Enforcement overridden via CLI: {enforcement_override.upper()}")
 
         include_filter = None
         if policy_config.include_paths:
@@ -208,6 +244,8 @@ def run_cli(ctx: RuntimeContext) -> int:
                 provider_obs_count = 0
                 for obs in result.observations:
                     f_path, _ = extract_location(obs)
+                    if exclude_filter(f_path):
+                        continue
                     if not include_filter or include_filter(f_path):
                         all_observations.append(obs)
                         provider_obs_count += 1
@@ -257,6 +295,8 @@ def run_cli(ctx: RuntimeContext) -> int:
                 f_path, _ = extract_location(obs)
                 if os.path.basename(f_path) == "policy.yml" and policy_dir != target_dir:
                     continue
+                if exclude_filter(f_path):
+                    continue
                 if not include_filter or include_filter(f_path):
                     all_observations.append(obs)
                     compliance_obs_count += 1
@@ -272,6 +312,14 @@ def run_cli(ctx: RuntimeContext) -> int:
         engine = PolicyEngine(rules)
         decision = engine.evaluate(all_observations)
         logger.info(f"  ✅ Policy Verdict: {decision.mode.value.upper()}")
+
+        # Apply enforcement override
+        effective_mode = decision.mode
+        if enforcement_override == "never":
+            effective_mode = DecisionMode.ADVISORY
+        elif enforcement_override == "advisory" and decision.mode == DecisionMode.BLOCKING:
+            logger.warning("⚠️  --enforcement=advisory: policy would BLOCK but overridden to ADVISORY")
+            effective_mode = DecisionMode.ADVISORY
 
         # Step 4: Report
         annotations = []
@@ -289,8 +337,8 @@ def run_cli(ctx: RuntimeContext) -> int:
 
         report = CheckReport(
             title="AI Slop Gate Report",
-            summary=f"Verdict: {decision.mode.value.upper()}. Found {len(annotations)} issues.",
-            status=decision.mode,
+            summary=f"Verdict: {effective_mode.value.upper()}. Found {len(annotations)} issues.",
+            status=effective_mode,
             annotations=annotations,
             reasons=decision.reasons,
         )
@@ -324,7 +372,7 @@ def run_cli(ctx: RuntimeContext) -> int:
         logger.info("=" * 60)
         logger.info("✅ Execution Completed Successfully")
         logger.info("=" * 60)
-        return 0 if decision.mode != DecisionMode.BLOCKING else 1
+        return 0 if effective_mode != DecisionMode.BLOCKING else 1
 
     except Exception as e:
         logger.error(f"❌ Execution failed: {str(e)}", exc_info=True)

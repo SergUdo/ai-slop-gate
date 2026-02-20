@@ -31,6 +31,7 @@ def main():
             # Other parameters
             policy_path=args.policy,
             verbose=args.verbose,
+            enforcement=getattr(args, 'enforcement', None),
             compliance=getattr(args, 'compliance', False),
             compliance_only=getattr(args, 'compliance_only', False),
             # Cache parameters

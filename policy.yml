@@ -10,8 +10,7 @@ include_paths:
 # ============================================================================
 exclude_paths:
   # Build artifacts (removed 189 findings)
-  - "docs/_build/**"
-  - "docs/_static/**"
+  - "docs/**"
   - "build/**"
   - "dist/**"
   
@@ -40,6 +39,8 @@ exclude_secret_files:
   - "**/example_*.yml"  # Example workflows
   - "**/example_*.md"  # Example reports
   - "package-lock.json"  # npm dependencies
+  - "policy.yml"
+  - "**/policy.yml"
 
 # Whitelisted domains for GDPR checks (removes 173+ warnings)
 allowed_external_domains:

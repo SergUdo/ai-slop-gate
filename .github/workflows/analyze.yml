@@ -8,82 +8,64 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  # Fast static analysis (always runs)
-  # static-analysis:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: "3.11"
-  #         cache: pip
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
 
-  #     - name: Install ai-slop-gate
-  #       run: |
-  #         python -m pip install --upgrade pip
-  #         pip install -e .
+      - name: Install ai-slop-gate
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
 
-  #     - name: Load policy (CLI reads policy.yml here)
-  #       run: |
-  #         python - << 'EOF'
-  #         from ai_slop_gate.cli.utils import load_policy
-  #         load_policy("policy.yml")
-  #         print("Policy loaded successfully")
-  #         EOF
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.50.4
 
-  #     - name: Remove non-code folders from analysis
-  #       run: |
-  #         rm -rf docs
-  #         rm -rf scripts
-  #         rm -rf ai_slop_gate/tests
-  #         find . -name "*.md" -delete
-  #         find . -name "*.rst" -delete
-  #         rm -f policy.yml   # safe now
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b /usr/local/bin
 
-  #     - name: Run Static Analysis
-  #       run: |
-  #         python -m ai_slop_gate.cli run \
-  #           --provider static_pipeline \
-  #           --policy policy.yml \
-  #           --path .
+      - name: Run Static Analysis
+        run: |
+          python -m ai_slop_gate.cli run \
+            --provider static_pipeline \
+            --policy policy.yml \
+            --path . \
+            --enforcement advisory
 
-
-
-
-  # LLM analysis with cache (PR only)
   llm-analysis:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
-      - name: Remove non-code folders from analysis
-        run: |
-          rm -rf docs
-          rm -rf scripts
-          find . -name "*.md" -delete
-          find . -name "*.rst" -delete
-      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-      
+
       - name: Install ai-slop-gate
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-      
+
       - name: Cache LLM responses
         uses: actions/cache@v3
         with:
           path: .ai-slop-cache
           key: llm-cache-${{ hashFiles('**/*.py', '**/*.js') }}
           restore-keys: llm-cache-
-      
+
       - name: Run Groq Analysis
         env:
           GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
@@ -93,36 +75,42 @@ jobs:
             --provider groq \
             --llm-local \
             --github-repo ${{ github.repository }} \
+            --pr-id ${{ github.event.pull_request.number }} \
             --policy policy.yml \
-            --path .
+            --path . \
+            --enforcement advisory
 
-  # Compliance check
   compliance:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Remove non-code folders from analysis
-        run: |
-          rm -rf docs
-          rm -rf scripts
-          find . -name "*.md" -delete
-          find . -name "*.rst" -delete
-      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-      
+
       - name: Install ai-slop-gate
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-      
-      - name: Run Compliance Check (only on code folder)
+
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.50.4
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b /usr/local/bin
+
+      - name: Run Compliance Check
         run: |
           python -m ai_slop_gate.cli run \
             --compliance \
             --policy policy.yml \
-            --path ai_slop_gate
+            --path ai_slop_gate \
+            --enforcement advisory
+            

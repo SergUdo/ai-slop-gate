@@ -43,4 +43,7 @@ class RuntimeContext:
     # Cache configuration
     cache_dir: str = ".ai-slop-cache"
     no_cache: bool = False
+
+    # Enforcement override
+    enforcement: Optional[str] = None
     

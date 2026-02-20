@@ -73,6 +73,13 @@ def build_parser():
     )
 
     run_cmd.add_argument(
+        "--enforcement",
+        choices=["never", "advisory", "blocking"],
+        default=None,
+        help="Override enforcement level from policy.yml (never | advisory | blocking)",
+    )
+
+    run_cmd.add_argument(
         "--compliance", 
         action="store_true", 
         help="Run compliance checks"

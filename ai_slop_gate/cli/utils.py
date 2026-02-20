@@ -78,4 +78,9 @@ def load_policy(path: str):
         include_paths=include_paths,
     )
 
-    return policy_config, rules
+    # EXCLUDE PATHS — повертаємо окремо, не чіпаємо frozen dataclass
+    exclude_paths = [str(p) for p in data.get("exclude_paths", [])]
+    exclude_secret_files = [str(p) for p in data.get("exclude_secret_files", [])]
+
+    return policy_config, rules, exclude_paths, exclude_secret_files
+
