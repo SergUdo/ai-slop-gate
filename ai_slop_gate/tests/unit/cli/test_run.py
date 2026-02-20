@@ -116,7 +116,7 @@ class TestRunCli:
     @patch("ai_slop_gate.cli.run.get_providers")
     def test_run_cli_basic(self, mock_get_providers, mock_load_policy, mock_context):
         mock_policy = FakePolicy()
-        mock_load_policy.return_value = (mock_policy, [])
+        mock_load_policy.return_value = (mock_policy, [], [], [])
         mock_get_providers.return_value = [MagicMock(kind="static", collect=lambda base_path: MagicMock(observations=[]))]
 
         with patch("ai_slop_gate.cli.run.logging.basicConfig"):
@@ -128,7 +128,7 @@ class TestRunCli:
 
     @patch("ai_slop_gate.cli.run.load_policy")
     def test_run_cli_loads_policy_file(self, mock_load_policy, mock_context):
-        mock_load_policy.return_value = (FakePolicy(), [])
+        mock_load_policy.return_value = (FakePolicy(), [], [], [])
         with patch("ai_slop_gate.cli.run.get_providers"):
             with patch("ai_slop_gate.cli.run.logging.basicConfig"):
                 with patch("ai_slop_gate.cli.run.logger"):
@@ -137,7 +137,7 @@ class TestRunCli:
 
     @patch("ai_slop_gate.cli.run.load_policy")
     def test_run_cli_custom_policy_path(self, mock_load_policy):
-        mock_load_policy.return_value = (FakePolicy(), [])
+        mock_load_policy.return_value = (FakePolicy(), [], [], [])
         ctx = RuntimeContext(providers=["static"], path=".", policy_path="custom/policy.yml")
 
         with patch("ai_slop_gate.cli.run.get_providers"):
@@ -150,7 +150,7 @@ class TestRunCli:
     @patch("ai_slop_gate.cli.run.load_policy")
     @patch("ai_slop_gate.cli.run.get_providers")
     def test_run_cli_gets_providers(self, mock_get_providers, mock_load_policy, mock_context):
-        mock_load_policy.return_value = (FakePolicy(), [])
+        mock_load_policy.return_value = (FakePolicy(), [], [], [])
         mock_get_providers.return_value = [MagicMock(kind="static", collect=lambda base_path: MagicMock(observations=[]))]
 
         with patch("ai_slop_gate.cli.run.logging.basicConfig"):
@@ -163,7 +163,7 @@ class TestRunCli:
     @patch("ai_slop_gate.cli.run.get_providers")
     @patch.dict(os.environ, {"GITHUB_TOKEN": "env_token"})
     def test_run_cli_uses_env_github_token(self, mock_get_providers, mock_load_policy, mock_context):
-        mock_load_policy.return_value = (FakePolicy(), [])
+        mock_load_policy.return_value = (FakePolicy(), [], [], [])
         mock_get_providers.return_value = [MagicMock(kind="static", collect=lambda base_path: MagicMock(observations=[]))]
 
         with patch("ai_slop_gate.cli.run.logging.basicConfig"):
@@ -175,7 +175,7 @@ class TestRunCli:
     @patch("ai_slop_gate.cli.run.load_policy")
     @patch("ai_slop_gate.cli.run.get_providers")
     def test_run_cli_sets_up_logging(self, mock_get_providers, mock_load_policy):
-        mock_load_policy.return_value = (FakePolicy(), [])
+        mock_load_policy.return_value = (FakePolicy(), [], [], [])
         mock_get_providers.return_value = [MagicMock(kind="static", collect=lambda base_path: MagicMock(observations=[]))]
 
         ctx = RuntimeContext(providers=["static"], path=".", verbose=True)
@@ -189,7 +189,7 @@ class TestRunCli:
     @patch("ai_slop_gate.cli.run.load_policy")
     @patch("ai_slop_gate.cli.run.get_providers")
     def test_run_cli_logs_starting_message(self, mock_get_providers, mock_load_policy):
-        mock_load_policy.return_value = (FakePolicy(), [])
+        mock_load_policy.return_value = (FakePolicy(), [], [], [])
         mock_get_providers.return_value = [MagicMock(kind="static", collect=lambda base_path: MagicMock(observations=[]))]
 
         with patch("ai_slop_gate.cli.run.logging.basicConfig"):
@@ -201,7 +201,7 @@ class TestRunCli:
     @patch("ai_slop_gate.cli.run.load_policy")
     @patch("ai_slop_gate.cli.run.get_providers")
     def test_run_cli_github_context_parameters(self, mock_get_providers, mock_load_policy):
-        mock_load_policy.return_value = (FakePolicy(), [])
+        mock_load_policy.return_value = (FakePolicy(), [], [], [])
         mock_get_providers.return_value = [MagicMock(kind="static", collect=lambda base_path: MagicMock(observations=[]))]
 
         ctx = RuntimeContext(

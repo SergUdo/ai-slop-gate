@@ -76,7 +76,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(minimal_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, rules = load_policy("policy.yml")
+            policy_config, rules, exclude_paths, exclude_secret_files = load_policy("policy.yml")
             
             assert policy_config is not None
             assert rules == []
@@ -87,7 +87,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(complete_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, rules = load_policy("policy.yml")
+            policy_config, rules, exclude_paths, exclude_secret_files = load_policy("policy.yml")
             
             assert policy_config is not None
             assert len(rules) == 1
@@ -100,7 +100,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(complete_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, rules = load_policy("policy.yml")
+            policy_config, rules, exclude_paths, exclude_secret_files = load_policy("policy.yml")
             
             assert isinstance(rules, list)
             assert len(rules) == 1
@@ -111,7 +111,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(minimal_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.compliance.enabled is False
             assert policy_config.compliance.license_audit.enabled is False
@@ -123,7 +123,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(complete_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.compliance.license_audit.enabled is True
             assert "GPL-3.0" in policy_config.compliance.license_audit.forbidden_licenses
@@ -134,7 +134,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(complete_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             sec_cfg = policy_config.compliance.security_audit
             assert sec_cfg.enabled is True
@@ -149,7 +149,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(complete_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             gdpr_cfg = policy_config.compliance.gdpr_detection
             assert gdpr_cfg.enabled is True
@@ -164,7 +164,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(minimal_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.enforcement == "advisory"
 
@@ -173,7 +173,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(minimal_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.compliance.data_residency_mode == "advisory"
 
@@ -189,7 +189,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.compliance.license_audit.severity == "high"
 
@@ -205,7 +205,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.compliance.security_audit.severity == "critical"
 
@@ -214,7 +214,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(minimal_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config is not None
             assert hasattr(policy_config, 'enforcement')
@@ -225,7 +225,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(complete_policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            _, rules = load_policy("policy.yml")
+            _, rules, _, _ = load_policy("policy.yml")
             
             assert isinstance(rules, list)
             # Check that rules have required PolicyRule fields
@@ -250,7 +250,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, rules = load_policy("policy.yml")
+            policy_config, rules, _, _ = load_policy("policy.yml")
             
             assert len(rules) == 0
 
@@ -266,7 +266,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, rules = load_policy("policy.yml")
+            policy_config, rules, _, _ = load_policy("policy.yml")
             
             assert len(rules) == 3
             assert rules[0].id == "rule1"
@@ -284,7 +284,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.ai_provider == policy_yaml["ai_provider"]
 
@@ -299,7 +299,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.code_quality == policy_yaml["code_quality"]
 
@@ -313,7 +313,7 @@ class TestLoadPolicy:
         policy_str = yaml.dump(policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.infrastructure_security == policy_yaml["infrastructure_security"]
 
@@ -328,6 +328,6 @@ class TestLoadPolicy:
         policy_str = yaml.dump(policy_yaml)
         
         with patch("builtins.open", mock_open(read_data=policy_str)):
-            policy_config, _ = load_policy("policy.yml")
+            policy_config, _, _, _ = load_policy("policy.yml")
             
             assert policy_config.ai_slop == policy_yaml["ai_slop"]

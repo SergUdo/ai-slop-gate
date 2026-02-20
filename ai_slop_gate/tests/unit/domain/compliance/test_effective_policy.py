@@ -21,7 +21,7 @@ rules: []
 """
     )
 
-    policy_cfg, _ = load_policy(str(policy_path))
+    policy_cfg, _, _, _ = load_policy(str(policy_path))
 
     assert policy_cfg.compliance.license_audit.forbidden_licenses is not None
     assert "GPL-3.0" in policy_cfg.compliance.license_audit.forbidden_licenses

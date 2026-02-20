@@ -8,7 +8,7 @@ def test_load_policy_empty(tmp_path: Path):
     p = tmp_path / "policy.yml"
     p.write_text("rules: []")
 
-    cfg, rules = load_policy(str(p))
+    cfg, rules, exclude_paths, exclude_secret_files = load_policy(str(p))
 
     assert isinstance(cfg, PolicyConfig)
     assert rules == []
@@ -28,7 +28,7 @@ rules:
       message: "Hello"
 """)
 
-    cfg, rules = load_policy(str(p))
+    cfg, rules, exclude_paths, exclude_secret_files = load_policy(str(p))
 
     assert len(rules) == 1
     assert isinstance(rules[0], PolicyRule)
