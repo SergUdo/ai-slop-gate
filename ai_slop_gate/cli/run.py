@@ -340,7 +340,7 @@ def run_cli(ctx: RuntimeContext) -> int:
             summary=f"Verdict: {effective_mode.value.upper()}. Found {len(annotations)} issues.",
             status=effective_mode,
             annotations=annotations,
-            reasons=decision.reasons,
+            reasons=list(dict.fromkeys(decision.reasons)),
         )
 
         # Step 5: Reporters
