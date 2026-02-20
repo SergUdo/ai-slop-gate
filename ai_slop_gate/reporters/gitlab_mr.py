@@ -73,11 +73,16 @@ class GitLabMRReporter(Reporter):
         self._post_mr_comment(body)
 
     def _post_mr_comment(self, body: str) -> None:
-        """Post comment to GitLab MR."""
+        """Post comment to GitLab Merge Request."""
         url = f"{self.api_url}/projects/{self.project_path}/merge_requests/{self.mr_iid}/notes"
         
+        if self.token.startswith("glpat-"):
+            auth_header = "PRIVATE-TOKEN"
+        else:
+            auth_header = "JOB-TOKEN"
+            
         headers = {
-            "PRIVATE-TOKEN": self.token,
+            auth_header: self.token,
             "Content-Type": "application/json"
         }
         
@@ -86,12 +91,9 @@ class GitLabMRReporter(Reporter):
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
-            logger.info(f"✅ Successfully posted GitLab MR comment to {self.project_path}!{self.mr_iid}")
+            logger.info(f"✅ Successfully posted GitLab MR comment!")
         except requests.exceptions.RequestException as e:
             logger.error(f"❌ Failed to post GitLab MR comment: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                logger.error(f"Response status: {e.response.status_code}")
-                logger.error(f"Response body: {e.response.text}")
 
     def _group_annotations(self, annotations: List[CheckAnnotation]) -> Dict[str, List[CheckAnnotation]]:
         """Group annotations by signal type."""

@@ -45,9 +45,9 @@
         echo "   Project: $CI_PROJECT_PATH"
         echo "   MR IID: $CI_MERGE_REQUEST_IID"
 
-        if [ -n "$GITLAB_API_TOKEN" ]; then
-          GITLAB_TOKEN="$GITLAB_API_TOKEN"
-          echo "✅ DEBUG: Using GITLAB_API_TOKEN (recommended)"
+        if [ -n "$AI_SLOP_GATE_TOKEN" ]; then
+          GITLAB_TOKEN="$AI_SLOP_GATE_TOKEN"
+          echo "✅ DEBUG: Using AI_SLOP_GATE_TOKEN (recommended)"
         else
           GITLAB_TOKEN="$CI_JOB_TOKEN"
           echo "⚠️  DEBUG: Using CI_JOB_TOKEN (may have limited permissions)"
