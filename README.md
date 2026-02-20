@@ -269,68 +269,21 @@ Full Docker documentation: [docs/source/DOCKER.md](docs/source/DOCKER.md)
 
 ### GitHub Actions (minimal)
 
-```yaml
-name: AI Slop Gate
-on: [pull_request]
+- [Example workflow for static analyze](docs/source/examples/example_workflow_static.yml)
 
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+- [Example workflow for gemini analyze](docs/source/examples/example_workflow_gemini.yml)
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
+- [Example workflow for groq analyze](docs/source/examples/example_workflow_groq.yml)
 
-      - name: Install ai-slop-gate
-        run: pip install -e .
+- [Example workflow for compliance analyze](docs/source/examples/example_workflow_compliance.yml)
 
-      - name: Cache LLM responses
-        uses: actions/cache@v3
-        with:
-          path: .ai-slop-cache
-          key: llm-cache-${{ hashFiles('**/*.py', '**/*.js') }}
-          restore-keys: llm-cache-
+- [Example policy.yml](docs/source/examples/example_policy_minimal.yml)
 
-      - name: Run Static Analysis
-        run: |
-          python -m ai_slop_gate.cli run \
-            --provider static \
-            --policy policy.yml \
-            --enforcement advisory
+### GitLab CI/CD (minimal)
 
-      - name: Run LLM Analysis
-        env:
-          GROQ_API_KEY: ${{ secrets.SLOPE_GATE_GROQ }}
-        run: |
-          python -m ai_slop_gate.cli run \
-            --provider groq \
-            --llm-local \
-            --policy policy.yml \
-            --enforcement advisory
-```
+- [Example workflow for Gitlab CI](docs/source/examples/.gitlab-ci.yml)
 
 Full integration guide: [docs/source/INTEGRATIONS.md](docs/source/INTEGRATIONS.md)
-
----
-
-## Test Your Workflow
-
-Try ai-slop-gate on a demo repository with intentional violations:
-
-```bash
-git clone https://github.com/SergUdo/slop_test
-
-# The target repo has its own policy.yml — auto-discovered
-python -m ai_slop_gate.cli run \
-  --provider groq \
-  --llm-local \
-  --path slop_test \
-  --policy slop_test/policy.yml
-```
 
 **Live example:** See [this PR](https://github.com/SergUdo/slop_test/pull/7) where ai-slop-gate automatically commented on violations.
 
