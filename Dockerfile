@@ -82,6 +82,7 @@ USER appuser
 ENTRYPOINT ["ai-slop-gate"]
 CMD ["--help"]
 
+# HEALTHCHECK for basic sanity check of Python environment and key dependencies
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD python -c "import ai_slop_gate; import github; print('OK')" || exit 1
+  CMD python -c "import ai_slop_gate; import github; from google.genai import Client; print('OK')" || exit 1
   
