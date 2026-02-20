@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": {
+  "engages": {
     "node": ">=20.0.0"
   },
   "scripts": {
@@ -11,9 +11,19 @@
     "lint:fix": "eslint . --fix"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "eslint": "^8.56.0",
+    "eslint": "^10.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
     "eslint-plugin-no-secrets": "^0.8.9"
+  },
+  "dependencies": {
+    "glob": "^11.1.0",
+    "minimatch": "^10.2.1",
+    "tar": "^7.5.9"
+  },
+  "overrides": {
+    "ajv": "^8.18.0",
+    "minimatch": "^10.2.1",
+    "glob": "^11.1.0"
   }
 }
