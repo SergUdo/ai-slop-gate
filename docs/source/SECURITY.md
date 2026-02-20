@@ -25,7 +25,7 @@ Only the latest version of AI Slop Gate is supported for security updates.
 ## Reporting a Vulnerability
 If you discover a security vulnerability, please do not open a public issue. Instead, follow these steps:
 
-1. **Report:** Send an email to [YOUR_EMAIL@example.com] or use GitHub's private vulnerability reporting feature.
+1. **Report:** Send an email to [sergii.udovichenko@gmail.com] or use GitHub's private vulnerability reporting feature.
 2. **Acknowledgement:** You will receive an acknowledgement within 48 hours.
 3. **Disclosure:** We follow a 90-day responsible disclosure policy. We will coordinate a fix and public announcement.
 
