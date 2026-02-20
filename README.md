@@ -1,13 +1,6 @@
 # ai-slop-gate
 
-**Status: Active Development (Beta)**
-
-*ai-slop-gate is evolving rapidly. While we have implemented robust **DevSecOps gates** (SBOM, License Audit, CVE Scanning), the core AI reasoning logic and APIs are subject to change.*
-
----
-
-**ai-slop-gate** — Open-source CI/CD tool combining static analysis and multi-LLM (Groq, Gemini, Ollama) code review to detect low-intent AI-generated code.  
-Implements deterministic normalization of LLM outputs (severity, confidence, signals) for audit-friendly automated quality gates.
+**ai-slop-gate** — open-source **CI/CD** tool combining **static analysis** and **multi-LLM** (`Groq`, `Gemini`, `Ollama`) code review to detect low-intent AI-generated code. Implements deterministic normalization of LLM outputs (severity, confidence, signals) for audit-friendly automated quality gates with built-in **DevSecOps** checks: `SBOM` generation, `License` audit, and `CVE` scanning.
 
 [![Documentation Status](https://readthedocs.org/projects/ai-slop-gate/badge/?version=latest)](https://ai-slop-gate.readthedocs.io/en/latest/?badge=latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -80,7 +73,7 @@ ai-slop-gate is **NOT**:
 - A formal security scanner or compliance certification tool
 - A guarantee that AI-generated code is correct or safe
 
-**Disclaimer:** This tool supports compliance workflows but does not guarantee legal compliance with EU AI Act or DORA regulations.
+**Disclaimer:** This tool supports compliance workflows but does not guarantee legal compliance with `EU Cyber Resilience Act` or `DORA` regulations.
 
 ---
 
@@ -151,33 +144,11 @@ repository and fail with token-limit errors.
 
 Place this in the root of any repository you want to scan — the gate will auto-discover it:
 
-```yaml
-# policy.yml
-version: "v1.4"
-project_name: "my-project"
+- [Example custom policy.yml](docs/source/examples/example_policy_minimal.yml)
 
-enforcement: advisory   # start here; switch to blocking after tuning
+or using default policy:
 
-# Required for LLM providers — scopes what gets sent to the API
-include_paths:
-  - src   # adjust to your source directory
-
-ai_provider:
-  name: groq
-  models:
-    groq: llama-3.3-70b-versatile
-
-compliance:
-  enabled: false
-
-rules:
-  - id: block-hardcoded-secrets
-    when:
-      signal: "hardcoded_.*"
-    then:
-      action: blocking
-      message: "Hardcoded secret detected."
-```
+- [Default policy.yml](policy.yml) - If you decide to use the default `policy.yml`, you don't need to provide anything in your repo, it is in the Docker image.
 
 ---
 
@@ -267,7 +238,7 @@ Full Docker documentation: [docs/source/DOCKER.md](docs/source/DOCKER.md)
 
 ## CI/CD Integration
 
-### GitHub Actions (minimal)
+### GitHub Actions examples workflows:
 
 - [Example workflow for static analyze](docs/source/examples/example_workflow_static.yml)
 
@@ -277,9 +248,7 @@ Full Docker documentation: [docs/source/DOCKER.md](docs/source/DOCKER.md)
 
 - [Example workflow for compliance analyze](docs/source/examples/example_workflow_compliance.yml)
 
-- [Example policy.yml](docs/source/examples/example_policy_minimal.yml)
-
-### GitLab CI/CD (minimal)
+### GitLab CI/CD example workflow:
 
 - [Example workflow for Gitlab CI](docs/source/examples/.gitlab-ci.yml)
 
