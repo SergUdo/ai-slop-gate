@@ -2,3 +2,4 @@ PyGithub>=2.5.0
 PyYAML>=6.0
 python-dotenv>=1.0.0
 requests
+google-genai
