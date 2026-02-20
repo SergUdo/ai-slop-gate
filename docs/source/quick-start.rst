@@ -254,5 +254,4 @@ Fix permissions:
 For more help, see:
 
 - `GitHub Issues <https://github.com/SergUdo/ai-slop-gate/issues>`_
-- `Discussions <https://github.com/SergUdo/ai-slop-gate/discussions>`_
 - `Full Documentation <https://ai-slop-gate.readthedocs.io/>`_

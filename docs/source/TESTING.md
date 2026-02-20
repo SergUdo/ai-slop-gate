@@ -699,4 +699,3 @@ pytest ai_slop_gate/tests/test_integration/test_cache.py
 Testing issues?
 1. Check [GitHub Issues](https://github.com/SergUdo/ai-slop-gate/issues)
 2. Read [Documentation](https://ai-slop-gate.readthedocs.io/)
-3. Ask in [Discussions](https://github.com/SergUdo/ai-slop-gate/discussions)
