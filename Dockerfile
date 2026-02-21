@@ -65,6 +65,7 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
 
 # Copy application code
 COPY --chown=appuser:appuser . .
+RUN npm ci --omit=dev
 
 # Install application
 RUN /opt/venv/bin/pip install --no-cache-dir --no-deps .
