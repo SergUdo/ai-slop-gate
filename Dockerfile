@@ -53,6 +53,9 @@ ENV PYTHONPATH="/opt/venv/lib/python3.12/site-packages"
 # Copy Node.js binaries
 COPY --from=node-binaries /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-binaries /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+RUN npm install -g npm@latest
 
 # Copy security tools
 COPY --from=trivy-bin /usr/local/bin/trivy /usr/local/bin/trivy
@@ -60,8 +63,8 @@ COPY --from=syft-bin /syft /usr/local/bin/syft
 RUN chmod +x /usr/local/bin/trivy /usr/local/bin/syft
 
 # Create symlinks for npm/npx
-RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
-    ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # Copy application code
 COPY --chown=appuser:appuser . .

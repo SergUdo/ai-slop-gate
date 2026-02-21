@@ -195,7 +195,7 @@ LLM providers automatically exclude the following from API calls (regardless of 
 - Lock files: `package-lock.json`, `poetry.lock`, `yarn.lock`, etc.
 - Minified bundles: `*.min.js`
 
-Only source code extensions are sent: `.py`, `.js`, `.ts`, `.go`, `.tf`, `.yml` (app config only), etc.
+Only source code extensions are sent: `.py`, `.js`, `.ts`, `.rb`, `.cs`, `.yml` (app config only), etc.
 
 ---
 
