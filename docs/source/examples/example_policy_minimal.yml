@@ -64,4 +64,3 @@ rules:
     then:
       action: advisory
       message: "Code quality issue detected."
-      

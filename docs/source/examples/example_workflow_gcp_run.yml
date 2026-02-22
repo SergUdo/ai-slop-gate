@@ -1,0 +1,52 @@
+# Draft GitHub Actions workflow to execute a GCP Cloud Run Job for AI Slop Gate analysis
+
+name: GCP Cloud Run Analysis
+
+on:
+  # Allow manual triggering of the workflow from GitHub Actions UI
+  workflow_dispatch:
+  # Run on pushes to main branch
+  push:
+    branches: [ main ]
+  # Run on pull requests to main branch
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  execute-analysis:
+    runs-on: ubuntu-latest
+    
+    # Set environment variables for GCP project and region, and job name
+    env:
+      PROJECT_ID: ${{ secrets.PROJECT_ID }}
+      REGION: europe-west3
+      JOB_NAME: ai-slop-gate-eu
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Google Auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.PROJECT_ID }}
+
+      - name: Execute Cloud Run Job
+        run: |
+          echo "Starting AI Slop Gate analysis in GCP ($REGION)..."
+          gcloud run jobs execute ${{ env.JOB_NAME }} \
+            --region ${{ env.REGION }} \
+            --wait \
+            --format="value(status.conditions[0].message)"
+            
+      - name: Fetch Logs on Failure
+        if: failure()
+        run: |
+          gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=${{ env.JOB_NAME }}" \
+            --limit 20 \
+            --region ${{ env.REGION }}

@@ -140,17 +140,27 @@ repository and fail with token-limit errors.
 3. `./policy.yml` — current working directory
 4. Bundled package default (permissive, not recommended for LLM use)
 
-### Minimal policy for a target repository
+---
 
-Place this in the root of any repository you want to scan — the gate will auto-discover it:
+### Policy Configuration
 
-- [Example custom policy.yml](docs/source/examples/example_policy_minimal.yml)
+**ai-slop-gate** is designed for speed and flexibility. You can start with zero configuration or fine-tune it for complex compliance needs.
 
-or using default policy:
+### Option 1: Zero-Config Start (Recommended)
+Don't have a policy yet? The gate uses a **robust built-in security policy** by default. It’s pre-configured to detect common AI-generated anti-patterns and basic security flaws.
 
-- [Default policy.yml](policy.yml) - If you decide to use the default `policy.yml`, you don't need to provide anything in your repo, it is in the Docker image.
+Just run the Docker container or CLI; no configuration files are required for your first scan.
+
+### Option 2: Custom Policy Control
+To tailor the gate to your project's specific standards (e.g., custom severity levels or specific GDPR rules), place a `policy.yml` in your repository root. The gate will auto-discover it.
+
+* **Auto-discovery:** Name your file `policy.yml` in the root.
+* **Manual path:** Use the `--policy ./my-custom-rules.yml` flag.
+
+[📄 View Minimal Policy Template](docs/source/examples/example_policy_minimal.yml)
 
 ---
+
 
 ## Run Your First Analysis
 
