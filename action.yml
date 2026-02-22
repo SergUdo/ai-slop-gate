@@ -1,0 +1,52 @@
+name: 'AI Slop Gate'
+description: 'AI-powered code quality gate with Static, LLM (Groq, Gemini), and Compliance analysis.'
+author: 'SergUdo'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  provider:
+    description: 'Analysis provider (static_pipeline, groq, gemini, ollama)'
+    required: false
+    default: 'static_pipeline'
+  policy:
+    description: 'Path to policy file'
+    required: false
+    default: 'policy.yml'
+  enforcement:
+    description: 'Enforcement level (blocking, advisory)'
+    required: false
+    default: 'advisory'
+  compliance:
+    description: 'Enable compliance checks (License, SBOM, CVE)'
+    required: false
+    default: 'false'
+  slope-gate-groq:
+    description: 'Groq API Key (passed to SLOPE_GATE_GROQ)'
+    required: false
+  gemini-api-key:
+    description: 'Gemini API Key'
+    required: false
+
+runs:
+  using: 'docker'
+  # Use the latest image from GitHub Container Registry. You can also specify a version tag for stability.
+  image: 'docker://ghcr.io/sergudo/ai-slop-gate:latest'
+  env:
+    # Pass API keys as environment variables to the container
+    SLOPE_GATE_GROQ: ${{ inputs.slope-gate-groq }}
+    GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+
+  args:
+    - 'run'
+    - '--provider'
+    - ${{ inputs.provider }}
+    - '--policy'
+    - ${{ inputs.policy }}
+    - '--enforcement'
+    - ${{ inputs.enforcement }}
+    - '--path'
+    - '.'
+    # If compliance is enabled, add the --compliance flag; otherwise, omit it
+    - ${{ inputs.compliance == 'true' && '--compliance' || '' }}

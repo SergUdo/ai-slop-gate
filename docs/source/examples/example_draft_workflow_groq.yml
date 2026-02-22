@@ -1,0 +1,11 @@
+steps:
+  - uses: actions/checkout@v4
+
+  - name: Run AI Slop Gate
+    uses: SergUdo/ai-slop-gate@main
+    with:
+      provider: 'groq'
+      slope-gate-groq: ${{ secrets.SLOPE_GATE_GROQ }}
+      compliance: 'true'
+      enforcement: 'advisory'
+      policy: 'policy.yml'
