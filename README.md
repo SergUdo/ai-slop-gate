@@ -81,6 +81,7 @@ ai-slop-gate is **NOT**:
 
 - **Languages:** Python, JavaScript/TypeScript, Ruby, Java, C++, C#
 - **Infrastructure:** Docker, Kubernetes, Terraform
+> Note: The above refers to static analyzers. LLMs can analyze any files and infrastructure.
 
 ---
 
@@ -221,13 +222,13 @@ LLM responses are cached automatically to save tokens and speed up repeat runs:
 
 ```bash
 # Cache enabled by default
-python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml -path /your/project
 
 # Disable cache (for debugging prompt changes only)
-python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --no-cache
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --no-cache -path /your/project
 
 # Custom cache directory
-python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --cache-dir /tmp/cache
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --cache-dir /tmp/cache -path /your/project
 ```
 
 ---

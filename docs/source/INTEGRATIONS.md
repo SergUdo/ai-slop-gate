@@ -10,9 +10,6 @@ Complete guide for integrating ai-slop-gate into your CI/CD pipelines.
 |---|---|
 | GitHub Actions | Full Support |
 | GitLab CI | Full Support |
-| Jenkins | Community |
-| Azure DevOps | Community |
-| CircleCI | Community |
 
 ---
 
@@ -85,7 +82,7 @@ rules:
 | Provider | API key required | Mode |
 |---|---|---|
 | `static` / `static_pipeline` | No | Deterministic — secrets, Dockerfile, PII, supply-chain |
-| `groq` | `GROQ_API_KEY` | LLM — PR diff or `--llm-local` |
+| `groq` | `SLOPE_GATE_GROQ` | LLM — PR diff or `--llm-local` |
 | `gemini` | `GEMINI_API_KEY` | LLM — PR diff or `--llm-local` |
 | `ollama` | No (local) | LLM — local only, 100% private |
 
@@ -345,7 +342,7 @@ stages:
   - analyze
 
 variables:
-  GROQ_API_KEY: $GROQ_API_KEY
+  GROQ_API_KEY: $SLOPE_GATE_GROQ
   GITLAB_TOKEN: $GITLAB_TOKEN
 
 # ── Static analysis ─────────────────────────────────────────────────────────
@@ -370,7 +367,7 @@ llm_analysis:
   stage: analyze
   image: ghcr.io/sergudo/ai-slop-gate:latest
   variables:
-    GROQ_API_KEY: $GROQ_API_KEY
+    GROQ_API_KEY: $SLOPE_GATE_GROQ
   cache:
     key: llm-cache-$CI_COMMIT_REF_SLUG
     paths:
@@ -429,97 +426,6 @@ Go to **Settings → CI/CD → Variables** and add (protected + masked):
 | `GROQ_API_KEY` | Groq API key |
 | `GEMINI_API_KEY` | Google Gemini API key (if using Gemini) |
 | `GITLAB_TOKEN` | GitLab access token with `api` scope |
-
----
-
-## Jenkins
-
-```groovy
-pipeline {
-    agent any
-    environment {
-        GROQ_API_KEY = credentials('groq-api-key')
-    }
-    stages {
-        stage('AI Slop Gate') {
-            steps {
-                sh '''
-                    pip install -e .
-                    python -m ai_slop_gate.cli run \
-                      --provider static groq \
-                      --llm-local \
-                      --policy policy.yml \
-                      --enforcement advisory \
-                      --path .
-                '''
-            }
-        }
-    }
-}
-```
-
----
-
-## Azure DevOps
-
-```yaml
-trigger:
-  - main
-
-pool:
-  vmImage: 'ubuntu-latest'
-
-steps:
-- script: pip install -e .
-  displayName: 'Install ai-slop-gate'
-
-- script: |
-    python -m ai_slop_gate.cli run \
-      --provider static \
-      --policy policy.yml \
-      --enforcement advisory \
-      --path .
-  env:
-    GROQ_API_KEY: $(GROQ_API_KEY)
-  displayName: 'Run AI Slop Gate'
-```
-
----
-
-## CircleCI
-
-```yaml
-version: 2.1
-
-jobs:
-  analyze:
-    docker:
-      - image: cimg/python:3.11
-    steps:
-      - checkout
-      - run:
-          name: Install ai-slop-gate
-          command: pip install -e .
-      - restore_cache:
-          keys:
-            - llm-cache-{{ checksum "**/*.py" }}
-      - run:
-          name: Static Analysis
-          command: |
-            python -m ai_slop_gate.cli run \
-              --provider static \
-              --policy policy.yml \
-              --enforcement advisory
-      - save_cache:
-          key: llm-cache-{{ checksum "**/*.py" }}
-          paths:
-            - .ai-slop-cache
-
-workflows:
-  main:
-    jobs:
-      - analyze
-```
 
 ---
 

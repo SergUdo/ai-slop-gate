@@ -86,7 +86,7 @@ Specify which provider(s) to run.
 |---|---|---|
 | `static` / `static_pipeline` | No | Fast deterministic static analysis |
 | `gemini` | `GEMINI_API_KEY` | Google Gemini LLM |
-| `groq` | `GROQ_API_KEY` | Groq LLM (Llama 3.3) |
+| `groq` | `SLOPE_GATE_GROQ` | Groq LLM (Llama 3.3) |
 | `ollama` | No (local) | Local Ollama LLM |
 
 **Examples:**
@@ -362,7 +362,7 @@ rules:
 
 ```bash
 export GEMINI_API_KEY="your-gemini-key"
-export GROQ_API_KEY="your-groq-key"
+export SLOPE_GATE_GROQ="your-groq-key"
 ```
 
 ### GitHub / GitLab Tokens
@@ -389,7 +389,7 @@ python -m ai_slop_gate.cli run \
 ### LLM Analysis on Local Files
 
 ```bash
-export GROQ_API_KEY="your-key"
+export SLOPE_GATE_GROQ="your-key"
 
 python -m ai_slop_gate.cli run \
   --provider groq \
@@ -424,7 +424,7 @@ python -m ai_slop_gate.cli run \
 
 ```bash
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
-export GROQ_API_KEY="your-key"
+export SLOPE_GATE_GROQ="your-key"
 
 python -m ai_slop_gate.cli run \
   --provider groq \
@@ -439,7 +439,7 @@ python -m ai_slop_gate.cli run \
 
 ```bash
 export GITLAB_TOKEN="glpat-xxxxxxxxxxxx"
-export GROQ_API_KEY="your-key"
+export SLOPE_GATE_GROQ="your-key"
 
 python -m ai_slop_gate.cli run \
   --provider groq \

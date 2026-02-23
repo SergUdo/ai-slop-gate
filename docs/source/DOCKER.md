@@ -44,7 +44,7 @@ docker run --rm \
 ```bash
 docker run --rm \
   -v $(pwd):/src \                # Mount your project to /src inside the container
-  -e GROQ_API_KEY=$GROQ_API_KEY \ # Pass API keys as environment variables
+  -e GROQ_API_KEY=$SLOPE_GATE_GROQ \ # Pass API keys as environment variables
   ghcr.io/sergudo/ai-slop-gate:latest \
   run \
     --provider groq \
@@ -261,7 +261,7 @@ docker run --rm \
 
 ```bash
 # ✅ GOOD — key not in command history
--e GROQ_API_KEY=$GROQ_API_KEY
+-e SLOPE_GATE_GROQ=$SLOPE_GATE_GROQ
 
 # ❌ BAD — key visible in shell history and docker inspect
 run --groq-key "gsk_xxxx"
