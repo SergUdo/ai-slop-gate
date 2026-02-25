@@ -177,6 +177,9 @@ python -m ai_slop_gate.cli run --compliance-only --policy policy.yml
 
 # Advisory mode — findings shown, CI never blocked
 python -m ai_slop_gate.cli run --provider static --policy policy.yml --enforcement advisory
+
+# Examples for starting in console
+python -m ai_slop_gate.cli run --provider gemini --llm-local --policy policy.yml --github-repo SergUdo/slop_test --pr-id 2
 ```
 
 ---
@@ -281,16 +284,6 @@ python -m pytest ai_slop_gate/tests \
   --cov-report=term-missing \
   --cov-report=html
 ```
-
----
-
-## Security & Compliance
-
-- Vulnerability scanning: every build scanned by Trivy
-- SBOM generation: full transparency with Syft (SPDX-JSON)
-- License compliance: automated gates for restrictive licenses
-- Data sovereignty: local LLM support for GDPR compliance
-- EU compliance: supports NIS2, DORA, and EU AI Act requirements
 
 ---
 
