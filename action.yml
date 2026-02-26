@@ -7,9 +7,9 @@ branding:
 
 inputs:
   provider:
-    description: 'Analysis provider (static_pipeline, groq, gemini, ollama)'
+    description: 'Analysis provider (static, groq, gemini, ollama)'
     required: false
-    default: 'static_pipeline'
+    default: 'static'
   policy:
     description: 'Path to policy file'
     required: false
