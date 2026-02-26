@@ -2,13 +2,18 @@
 
 **ai-slop-gate** — open-source **CI/CD** tool combining **static analysis** and **multi-LLM** (`Groq`, `Gemini`, `Ollama`) code review to detect low-intent AI-generated code. Implements deterministic normalization of LLM outputs (severity, confidence, signals) for audit-friendly automated quality gates with built-in **DevSecOps** checks: `SBOM` generation, `License` audit, and `CVE` scanning.
 
-[![Documentation Status](https://readthedocs.org/projects/ai-slop-gate/badge/?version=latest)](https://ai-slop-gate.readthedocs.io/en/latest/?badge=latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
-![Stage](https://img.shields.io/badge/stage-Stable-blue)
-![Docker](https://img.shields.io/badge/docker-GHCR-success)
-![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/SergUdo/ai-slop-gate?sort=semver)
-![Cosign Verified](https://img.shields.io/badge/cosign-verified-brightgreen?logo=sigstore)
+
+[![Docker Publish](https://github.com/SergUdo/ai-slop-gate/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/SergUdo/ai-slop-gate/actions/workflows/docker-publish.yml)
+[![Tests](https://github.com/SergUdo/ai-slop-gate/actions/workflows/tests.yml/badge.svg)](https://github.com/SergUdo/ai-slop-gate/actions/workflows/tests.yml)
+[![Code Analysis](https://github.com/SergUdo/ai-slop-gate/actions/workflows/analyze.yml/badge.svg)](https://github.com/SergUdo/ai-slop-gate/actions/workflows/analyze.yml)
+[![Release](https://github.com/SergUdo/ai-slop-gate/actions/workflows/release.yml/badge.svg)](https://github.com/SergUdo/ai-slop-gate/actions/workflows/release.yml)
+[![Documentation](https://readthedocs.org/projects/ai-slop-gate/badge/?version=latest)](https://ai-slop-gate.readthedocs.io/en/latest/?badge=latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub release](https://img.shields.io/github/v/release/SergUdo/ai-slop-gate?sort=semver)](https://github.com/SergUdo/ai-slop-gate/releases/latest)
+[![Docker](https://img.shields.io/badge/docker-GHCR-2496ED?logo=docker&logoColor=white)](https://github.com/SergUdo/ai-slop-gate/pkgs/container/ai-slop-gate)
+[![Cosign](https://img.shields.io/badge/cosign-signed-success?logo=sigstore&logoColor=white)](https://github.com/SergUdo/ai-slop-gate/releases)
+[![SBOM](https://img.shields.io/badge/SBOM-included-blue)](https://github.com/SergUdo/ai-slop-gate/releases)
+[![GitHub stars](https://img.shields.io/github/stars/SergUdo/ai-slop-gate?style=social)](https://github.com/SergUdo/ai-slop-gate/stargazers)
 
 ---
 
