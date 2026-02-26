@@ -1,5 +1,5 @@
 name: 'AI Slop Gate'
-description: 'Secure CI/CD from AI slop. Multi-LLM & static analysis for code quality, GDPR compliance, SBOM generation and Trivy integrity. Signed with Cosign.'
+description: 'Secure CI/CD from AI slop. Multi-LLM & static analysis for GDPR, NIS2, SBOM and code quality. Signed with Cosign.'
 author: 'SergUdo'
 branding:
   icon: 'shield'
