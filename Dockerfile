@@ -71,7 +71,7 @@ COPY --chown=appuser:appuser . .
 RUN npm ci --omit=dev
 
 # Install application
-RUN /opt/venv/bin/pip install --no-cache-dir --no-deps .
+RUN /opt/venv/bin/pip install --no-cache-dir -e .
 
 # Create cache directory for Trivy (non-root writable)
 RUN mkdir -p /app/.trivy-cache && chown -R appuser:appuser /app/.trivy-cache
