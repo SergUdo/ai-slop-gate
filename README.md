@@ -171,19 +171,39 @@ To tailor the gate to your project's specific standards (e.g., custom severity l
 ## Run Your First Analysis
 
 ```bash
-# Static analysis (fast, no API key required)
-python -m ai_slop_gate.cli run --provider static --policy policy.yml
+# Clone the repository
+git clone https://github.com/SergUdo/ai-slop-gate.git
+cd ai-slop-gate
 
-# LLM analysis on local files
-python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+# Create .env file with your API key(s)
+touch .env
+
+# Example content:
+# SLOPE_GATE_GROQ=your_key_here
+# GEMINI_API_KEY=your_key_here
+# GITHUB_TOKEN=your_token_here
+
+# Static analysis (fast, no API key required)
+python -m ai_slop_gate.cli run --provider static --policy policy.yml --path /your/project
+
+# LLM Groq analysis on local files
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --path /your/project
+
+# LLM Gemini analysis on local files
+python -m ai_slop_gate.cli run --provider gemini --llm-local --policy policy.yml --path /your/project
 
 # Compliance check only
-python -m ai_slop_gate.cli run --compliance-only --policy policy.yml
+python -m ai_slop_gate.cli run --compliance --policy policy.yml --path /your/project
 
 # Advisory mode — findings shown, CI never blocked
-python -m ai_slop_gate.cli run --provider static --policy policy.yml --enforcement advisory
+python -m ai_slop_gate.cli run --provider static --policy policy.yml --enforcement advisory --path /your/project
 
-# Examples for starting in console
+# Analyze a GitHub Pull Request (PR #2 from SergUdo/slop_test)
 python -m ai_slop_gate.cli run --provider gemini --llm-local --policy policy.yml --github-repo SergUdo/slop_test --pr-id 2
 ```
 
@@ -199,7 +219,7 @@ python -m ai_slop_gate.cli run --provider gemini --llm-local --policy policy.yml
 
 ```bash
 # Override policy enforcement from CLI
-python -m ai_slop_gate.cli run --provider static --policy policy.yml --enforcement advisory
+python -m ai_slop_gate.cli run --provider static --policy policy.yml --enforcement advisory --path /your/project
 ```
 
 ---
@@ -230,13 +250,13 @@ LLM responses are cached automatically to save tokens and speed up repeat runs:
 
 ```bash
 # Cache enabled by default
-python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml -path /your/project
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --path /your/project
 
 # Disable cache (for debugging prompt changes only)
-python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --no-cache -path /your/project
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --no-cache --path /your/project
 
 # Custom cache directory
-python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --cache-dir /tmp/cache -path /your/project
+python -m ai_slop_gate.cli run --provider groq --llm-local --policy policy.yml --cache-dir /tmp/cache --path /your/project
 ```
 
 ---
@@ -273,7 +293,7 @@ Full Docker documentation: [docs/source/DOCKER.md](docs/source/DOCKER.md)
 
 Full integration guide: [docs/source/INTEGRATIONS.md](docs/source/INTEGRATIONS.md)
 
-**Live example:** See [this PR](https://github.com/SergUdo/slop_test/pull/7) where ai-slop-gate automatically commented on violations.
+**Live example:** See [this PR](https://github.com/SergUdo/slop_test/pull/2) where ai-slop-gate automatically commented on violations.
 
 ---
 

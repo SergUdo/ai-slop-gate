@@ -50,8 +50,16 @@ class GeminiProvider(LlmProvider):
             try:
                 response = self.client.models.generate_content(
                     model=self.model,
-                    contents=prompt,
+                    contents=[
+                        {
+                            "role": "user",
+                            "parts": [
+                                {"text": prompt}
+                            ]
+                        }
+                    ]
                 )
+
 
                 raw_text = response.text.strip()
                 clean_json = raw_text
