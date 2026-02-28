@@ -25,7 +25,7 @@ FROM node:20-slim AS node-binaries
 # ============================
 # Stage 3 — Runtime Image (Hardened, Non-Root)
 # ============================
-FROM python:3.12-slim
+FROM python:3.12-alpine
 
 ARG BUILD_SHA
 ENV APP_SHA=${BUILD_SHA}
@@ -69,8 +69,8 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && 
 
 # Copy application code
 COPY --chown=appuser:appuser . .
-RUN npm ci --omit=dev
-RUN npm update minimatch
+# RUN npm ci --omit=dev
+RUN rm -f package-lock.json && npm install --omit=dev
 
 # Install application
 RUN /opt/venv/bin/pip install --no-cache-dir -e .
