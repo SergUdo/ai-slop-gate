@@ -29,20 +29,20 @@ FROM python:3.12-alpine
 
 ARG BUILD_SHA
 ENV APP_SHA=${BUILD_SHA}
+# В Alpine DEBIAN_FRONTEND не потрібен, але можна залишити
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Create non-root user early
-RUN groupadd -r appuser --gid=1000 && \
-    useradd -r -g appuser --uid=1000 --home-dir=/app --shell=/sbin/nologin appuser
+# Виправляємо створення користувача для Alpine (UID/GID 1000)
+RUN addgroup -g 1000 -S appuser && \
+    adduser -u 1000 -S appuser -G appuser -h /app -s /sbin/nologin -D appuser
 
-# Install system dependencies
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+# Встановлюємо системні залежності через apk (Alpine менеджер)
+RUN apk update && apk upgrade && apk add --no-cache \
     git \
     curl \
     ca-certificates \
-    && apt-get purge -y --auto-remove \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    nodejs \
+    npm
 
 WORKDIR /app
 
@@ -68,9 +68,11 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && 
     ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # Copy application code
+COPY package.json package-lock.json ./
+RUN rm -f package-lock.json && \
+    npm install --omit=dev && \
+    npm cache clean --force
 COPY --chown=appuser:appuser . .
-# RUN npm ci --omit=dev
-RUN rm -f package-lock.json && npm install --omit=dev
 
 # Install application
 RUN /opt/venv/bin/pip install --no-cache-dir -e .
