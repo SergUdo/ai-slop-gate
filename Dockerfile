@@ -74,7 +74,7 @@ COPY --chown=appuser:appuser . .
 
 # Install project dependencies with updated packages
 RUN npm ci --omit=dev && \
-    npm install minimatch@10.2.3 --no-save && \
+    npm update minimatch tar cross-spawn glob && \
     npm cache clean --force
 
 # Install application
