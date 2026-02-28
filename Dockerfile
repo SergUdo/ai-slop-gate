@@ -1,13 +1,14 @@
 # ============================
 # Stage 1 — Python dependencies
 # ============================
-FROM python:3.12-slim AS python-builder
+FROM python:3.12-alpine AS python-builder
 WORKDIR /build
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     gcc \
+    musl-dev \
     python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+    git
 
 COPY requirements.txt .
 # Install to /opt/venv instead of user directory
