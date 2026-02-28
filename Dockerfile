@@ -70,6 +70,7 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && 
 # Copy application code
 COPY --chown=appuser:appuser . .
 RUN npm ci --omit=dev
+RUN npm update minimatch
 
 # Install application
 RUN /opt/venv/bin/pip install --no-cache-dir -e .
