@@ -271,6 +271,18 @@ docker run --rm -v $(pwd):/src \
   run --provider static --policy /src/policy.yml --path /src
 ```
 
+Local build and run:
+
+```bash
+docker build --no-cache -t ai-slop-gate:latest .
+
+docker run --rm \
+  -v /path_your_local_test_repo:/data \
+  ai-slop-gate:latest \
+  run --provider static --policy policy.yml --path /data
+
+```
+
 Full Docker documentation: [docs/source/DOCKER.md](docs/source/DOCKER.md)
 
 ---

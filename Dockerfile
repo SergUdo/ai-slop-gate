@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# Install to /opt/venv instead of user directory
 RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
@@ -19,7 +18,7 @@ RUN python -m venv /opt/venv && \
 # ============================
 FROM aquasec/trivy:latest AS trivy-bin
 FROM anchore/syft:latest AS syft-bin
-FROM node:20-slim AS node-binaries
+FROM node:22-slim AS node-binaries
 
 # ============================
 # Stage 3 — Runtime Image (Hardened, Non-Root)
@@ -53,32 +52,39 @@ ENV PYTHONPATH="/opt/venv/lib/python3.12/site-packages"
 # Copy Node.js binaries
 COPY --from=node-binaries /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-binaries /usr/local/lib/node_modules /usr/local/lib/node_modules
+
+# Create symlinks for npm/npx
 RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
     ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
-RUN npm install -g npm@latest
+
+# Update npm to latest
+RUN npm install -g npm@latest && \
+    npm cache clean --force
+
+# Verify npm/npx work
+RUN node --version && npm --version && npx --version
 
 # Copy security tools
 COPY --from=trivy-bin /usr/local/bin/trivy /usr/local/bin/trivy
 COPY --from=syft-bin /syft /usr/local/bin/syft
 RUN chmod +x /usr/local/bin/trivy /usr/local/bin/syft
 
-# Create symlinks for npm/npx
-RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
-    ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
-
 # Copy application code
 COPY --chown=appuser:appuser . .
-RUN npm ci --omit=dev
+
+# Install project dependencies with updated packages
+RUN npm ci --omit=dev && \
+    npm install minimatch@10.2.3 --no-save && \
+    npm cache clean --force
 
 # Install application
 RUN /opt/venv/bin/pip install --no-cache-dir -e .
 
-# Create cache directory for Trivy (non-root writable)
-RUN mkdir -p /app/.trivy-cache && chown -R appuser:appuser /app/.trivy-cache
-ENV TRIVY_CACHE_DIR=/app/.trivy-cache
+# Create cache directories
+RUN mkdir -p /app/.trivy-cache /app/.ai-slop-cache && \
+    chown -R appuser:appuser /app/.trivy-cache /app/.ai-slop-cache
 
-# Create cache directory for AI Slop Gate
-RUN mkdir -p /app/.ai-slop-cache && chown -R appuser:appuser /app/.ai-slop-cache
+ENV TRIVY_CACHE_DIR=/app/.trivy-cache
 
 # Switch to non-root user
 USER appuser
@@ -86,7 +92,5 @@ USER appuser
 ENTRYPOINT ["ai-slop-gate"]
 CMD ["--help"]
 
-# HEALTHCHECK for basic sanity check of Python environment and key dependencies
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD python -c "import ai_slop_gate; import github; from google.genai import Client; print('OK')" || exit 1
-  

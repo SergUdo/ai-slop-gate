@@ -19,6 +19,7 @@ CVE-2022-3520
 
 # cross-spawn: Regular expression denial of service
 CVE-2024-21538
+CVE-2026-0861
 
 # --- Low/Medium noise ---
 # You can also ignore by ID if you see specific library issues that are false positives
