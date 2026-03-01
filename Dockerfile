@@ -16,8 +16,8 @@ RUN python -m venv /opt/venv && \
 # ============================
 # Stage 2 — Security Tools & Node (External bins)
 # ============================
-FROM aquasec/trivy:latest AS trivy-bin
-FROM anchore/syft:latest AS syft-bin
+FROM aquasec/trivy:0.69.1 AS trivy-bin
+FROM ghcr.io/anchore/syft:v1.38.2 AS syft-bin
 FROM node:22-slim AS node-binaries
 
 # ============================
@@ -28,6 +28,13 @@ FROM python:3.12-slim
 ARG BUILD_SHA
 ENV APP_SHA=${BUILD_SHA}
 ENV DEBIAN_FRONTEND=noninteractive
+
+# OCI Labels — додай сюди
+LABEL org.opencontainers.image.source="https://github.com/SergUdo/ai-slop-gate"
+LABEL org.opencontainers.image.description="Policy-driven AI, supply-chain and compliance gate"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.revision="${BUILD_SHA}"
+
 
 # Create non-root user early
 RUN groupadd -r appuser --gid=1000 && \
@@ -74,7 +81,6 @@ COPY --chown=appuser:appuser . .
 
 # Install project dependencies with updated packages
 RUN npm ci --omit=dev && \
-    npm update minimatch tar cross-spawn glob && \
     npm cache clean --force
 
 # Install application

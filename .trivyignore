@@ -61,4 +61,9 @@ CC-BY-3.0
 BSD-2-Clause
 BSD-3-Clause
 restricted
+# CVE-2025-61726 - Go stdlib HIGH
+# No fix available upstream yet
+# Affects: syft/trivy gobinaries, not application code
+# Review: when syft/trivy release updated builds
+CVE-2025-61726
 
