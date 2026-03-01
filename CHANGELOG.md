@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-arch Docker support (amd64, arm64)
 - Google Cloud Secret Manager integration
 
+## [1.2.3] - 2026-03-01
+
+### Security
+- **HIGH:** Fixed CVE-2026-27903 in minimatch — updated from 10.2.2 to 10.2.3
+- **HIGH:** Pinned trivy to 0.69.1, syft to v1.42.1 to address Go stdlib CVEs
+- **HIGH:** Added CVE-2026-24051 to .trivyignore (otel/sdk in syft gobinary, upstream not yet patched)
+
+### Changed
+- Pinned external Docker images: `aquasec/trivy:0.69.1`, `ghcr.io/anchore/syft:v1.42.1`
+- Added OCI labels (`source`, `description`, `licenses`, `revision`)
+- Removed `npm update` workaround — replaced with direct minimatch pin in `package.json`
+- Updated `package-lock.json` to reflect resolved dependency versions
+
+### Added
+- Integrated [Renovate](https://developer.mend.io/) for automated dependency updates — Docker images, npm and pip packages will be updated automatically via PR
+
 ## [1.2.2] - 2026-02- - 2026-02-27
 
 ### Security

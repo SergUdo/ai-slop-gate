@@ -66,4 +66,18 @@ restricted
 # Affects: syft/trivy gobinaries, not application code
 # Review: when syft/trivy release updated builds
 CVE-2025-61726
+# .trivyignore
+# CVE-2026-27903. CVE-2026-27904 - minimatch HIGH
+# False positive: Trivy flags ^10.2.1 range in @eslint/config-array
+# Resolved version in lockfile and node_modules: 10.2.3 (patched)
+# Verified: npm ls minimatch shows 10.2.3 everywhere
+# Date: 2026-03-01
+CVE-2026-27904
+CVE-2026-27903
+# CVE-2026-24051 - HIGH otel/sdk v1.39.0 in syft v1.42.1
+# Fix available in otel v1.40.0 but syft has not updated dependency yet
+# Affects: syft gobinary only, not application code
+# Remove when syft releases with otel >= v1.40.0
+# Date: 2026-03-01
+CVE-2026-24051
 
