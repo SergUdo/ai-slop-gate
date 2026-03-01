@@ -324,6 +324,30 @@ python -m pytest ai_slop_gate/tests \
 
 ---
 
+## Verify image signature
+
+**Obtain the Public Key**
+
+The public key `cosign.pub` is located in the root of this repository. If you haven't cloned the repo, you can download the key manually:
+
+`curl -O https://raw.githubusercontent.com/sergudo/ai-slop-gate/main/cosign.pub`
+
+**Run Verification**
+
+Use the following command to verify the signature of a specific version (e.g., `1.2.2`).
+```bash
+# Verify the image using the local cosign.pub file
+cosign verify --key cosign.pub ghcr.io/sergudo/ai-slop-gate:1.2.2
+```
+
+**Expected Output**
+
+A successful verification will return a JSON object with critical identity and signatures details, confirming:
+The image digest matches the signature.
+The signature was created using the trusted private key.
+
+---
+
 ## Contributing
 
 - [Architecture Overview](docs/source/ARCHITECTURE.md)
