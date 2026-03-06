@@ -66,10 +66,11 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && 
 
 # Update npm to latest
 RUN npm install -g npm@latest && \
+    npm install -g ts-prune && \
     npm cache clean --force
 
 # Verify npm/npx work
-RUN node --version && npm --version && npx --version
+RUN node --version && npm --version && npx --version && ts-prune --version
 
 # Copy security tools
 COPY --from=trivy-bin /usr/local/bin/trivy /usr/local/bin/trivy

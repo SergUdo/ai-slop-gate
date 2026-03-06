@@ -117,7 +117,7 @@ Creates a default `policy.yml` in the current directory.
 GITHUB_TOKEN=your_github_personal_access_token
 GEMINI_API_KEY=your_google_gemini_api_key
 GROQ_API_KEY=your_groq_api_key
-GITLAB_TOKEN=your_gitlab_token   # For GitLab integration
+AI_SLOP_GATE_TOKEN=your_gitlab_token   # For GitLab integration
 ```
 
 ## Analysis Examples & Reports
@@ -180,6 +180,9 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e .
 
+# Install Node.js dependencies (Required for static analysis tools)
+npm install
+
 # Create .env file with your API key(s)
 touch .env
 
@@ -187,6 +190,7 @@ touch .env
 # SLOPE_GATE_GROQ=your_key_here
 # GEMINI_API_KEY=your_key_here
 # GITHUB_TOKEN=your_token_here
+# AI_SLOP_GATE_TOKEN=your_gitlab_token   # iF you using GitLab integration
 
 # Static analysis (fast, no API key required)
 python -m ai_slop_gate.cli run --provider static --policy policy.yml --path /your/project
