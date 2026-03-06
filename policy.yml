@@ -67,7 +67,6 @@ ai_provider:
   models: 
     gemini: gemini-2.5-flash
     groq: llama-3.3-70b-versatile 
-    groq_native: gemma-2-9b 
     local: llama3.1:8b 
     ollama: qwen2.5-coder:1.5b
   default_provider: gemini
