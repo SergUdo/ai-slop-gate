@@ -132,7 +132,7 @@ jobs:
       - name: Install Trivy
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b /usr/local/bin v0.50.4
+            | sh -s -- -b /usr/local/bin v0.69.2
 
       - name: Install Syft
         run: |
@@ -610,7 +610,7 @@ Install them explicitly in the workflow before running static analysis:
 - name: Install Trivy
   run: |
     curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-      | sh -s -- -b /usr/local/bin v0.50.4
+      | sh -s -- -b /usr/local/bin v0.69.2
 
 - name: Install Syft
   run: |

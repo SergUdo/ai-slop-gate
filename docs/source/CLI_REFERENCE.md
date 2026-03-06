@@ -566,7 +566,7 @@ Install the required tools before running static analysis in CI:
 ```bash
 # Trivy
 curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-  | sh -s -- -b /usr/local/bin v0.50.4
+  | sh -s -- -b /usr/local/bin v
 
 # Syft
 curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \

@@ -98,8 +98,8 @@ jobs:
 
       - name: Install Trivy
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b /usr/local/bin v0.50.4
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh  \
+            | sh -s -- -b . v0.69.2 ./trivy image --severity HIGH,CRITICAL ai-slop-gate:latest
 
       - name: Install Syft
         run: |
