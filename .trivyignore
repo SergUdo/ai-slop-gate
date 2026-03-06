@@ -80,4 +80,12 @@ CVE-2026-27903
 # Remove when syft releases with otel >= v1.40.0
 # Date: 2026-03-01
 CVE-2026-24051
+# CVE-2026-29786 - HIGH in internal npm dependency (node-tar)
+# This affects the global npm binary, not the application itself.
+# Application code uses tar v7.5.10 (verified in package-lock.json).
+CVE-2026-29786
+
+# CVE-2025-15558 - HIGH in Trivy gobinary (docker/cli)
+# Inherent to the Trivy tool itself, no fix available in current build.
+CVE-2025-15558
 
