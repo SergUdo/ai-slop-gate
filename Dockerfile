@@ -16,7 +16,7 @@ RUN python -m venv /opt/venv && \
 # ============================
 # Stage 2 — Security Tools & Node (External bins)
 # ============================
-FROM aquasec/trivy:0.69.1 AS trivy-bin
+FROM aquasec/trivy:0.69.2 AS trivy-bin
 FROM ghcr.io/anchore/syft:v1.42.1 AS syft-bin
 FROM node:22-slim AS node-binaries
 

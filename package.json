@@ -19,12 +19,12 @@
   "dependencies": {
     "glob": "^11.1.0",
     "minimatch": "10.2.3",
-    "tar": "^7.5.9"
+    "tar": "^7.5.10"
   },
   "overrides": {
     "ajv": "^8.18.0",
     "glob": "^11.1.0",
     "minimatch": "10.2.3",
-    "tar": "^7.5.9"
+    "tar": "^7.5.10"
   }
 }
