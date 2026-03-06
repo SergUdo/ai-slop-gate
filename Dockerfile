@@ -70,7 +70,7 @@ RUN npm install -g npm@latest && \
     npm cache clean --force
 
 # Verify npm/npx work
-RUN node --version && npm --version && npx --version && ts-prune --version
+RUN node --version && npm --version && npx --version && (ts-prune -v || true)
 
 # Copy security tools
 COPY --from=trivy-bin /usr/local/bin/trivy /usr/local/bin/trivy

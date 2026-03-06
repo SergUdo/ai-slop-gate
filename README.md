@@ -181,7 +181,8 @@ source .venv/bin/activate
 pip install -e .
 
 # Install Node.js dependencies (Required for static analysis tools)
-npm install
+npm install 
+npm install -g ts-prune
 
 # Create .env file with your API key(s)
 touch .env
