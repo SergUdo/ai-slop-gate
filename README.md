@@ -90,6 +90,19 @@ ai-slop-gate is **NOT**:
 
 ---
 
+## Supply Chain & Security
+
+The gate automatically generates industry-standard security artifacts during every run:
+
+| Artifact | Format | Description |
+|----------|--------|-------------|
+| `sbom.json` | Syft Native | Complete inventory of all dependencies |
+| `sbom-spdx.json` | SPDX 2.3 | Compliance-ready format for EU CRA / NTIA |
+| `sbom-cyclonedx.json` | CycloneDX 1.6 | Modern SBOM for automation pipelines |
+| `sbom-cyclonedx-vex.json` | CycloneDX + VEX | Vulnerability report linked to components |
+
+These files are saved in the scanned directory and can be uploaded as CI/CD artifacts.
+
 ## Getting Started
 
 ### Installation
