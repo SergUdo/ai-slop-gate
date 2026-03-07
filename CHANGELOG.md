@@ -8,8 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
+- Generate SBOM in Test Repository Workflow
 - Multi-arch Docker support (amd64, arm64)
+- EU AI Act Compliance - Risk Category Classification
+- EU AI Act Compliance - Accuracy Metrics Reporting
+- Enhanced GDPR Compliance - Data Flow Visualization
+- Dependency License Compatibility Check
 - Google Cloud Secret Manager integration
+- NIS2 Directive - Supply Chain Incident Reporting
+
+## [1.2.4] - 2026-03-06
+
+### Fixed
+- **Security**: Resolved vulnerability **CVE-2026-29786** in the base image by updating dependencies and the underlying Docker system layers.
+- **Groq Provider**: Fixed 404 Not Found errors in CI/CD environments; implemented a universal OpenAI-compatible endpoint for all model types (Llama, Gemma, Mixtral).
+- **Environment**: Updated `policy.yml` loading logic to prioritize local project files over the image-embedded defaults, ensuring configuration flexibility in GitLab CI.
+
+### Changed
+- Optimized `Dockerfile` to reduce attack surface by removing redundant packages that triggered security scanners.
 
 ## [1.2.3] - 2026-03-01
 
