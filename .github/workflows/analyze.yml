@@ -57,7 +57,7 @@ jobs:
       - name: Install ai-slop-gate
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[analysis]"
 
       - name: Cache LLM responses
         uses: actions/cache@v3
@@ -94,7 +94,7 @@ jobs:
       - name: Install ai-slop-gate
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[analysis]"
 
       - name: Install Trivy
         run: |
