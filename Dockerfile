@@ -86,7 +86,7 @@ RUN npm ci --omit=dev && \
     npm cache clean --force
 
 # Install application
-RUN /opt/venv/bin/pip install --no-cache-dir -e .
+RUN /opt/venv/bin/pip install --no-cache-dir -e ".[dev]"
 
 # Create cache directories
 RUN mkdir -p /app/.trivy-cache /app/.ai-slop-cache && \

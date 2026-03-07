@@ -3,3 +3,4 @@ PyYAML>=6.0
 python-dotenv>=1.0.0
 requests
 google-genai
+vulture>=2.14

@@ -13,178 +13,141 @@ permissions:
 
 jobs:
   static-analysis:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache ai-slop-gate cache directory
+      # Restore dependencies to allow Syft/Trivy to see full metadata
+      - name: Restore dependencies
+        run: |
+          if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt --quiet || true
+          fi
+          if [ -f "package-lock.json" ]; then
+            npm ci --quiet || true
+          fi
+          echo "✅ Dependency restore complete"
+
+      - name: Cache ai-slop-gate data
         uses: actions/cache@v4
         with:
           path: ~/.cache/ai-slop-gate
-          key: ai-slop-gate-cache-${{ runner.os }}-${{ hashFiles('**/*.py', '**/*.yml', '**/*.yaml') }}
-          restore-keys: |
-            ai-slop-gate-cache-${{ runner.os }}-
+          key: ai-slop-gate-cache-${{ runner.os }}-${{ hashFiles('**/*.py', 'policy.yml') }}
 
-      # Run static analysis
-      - name: Static Analysis (ai-slop-gate)
+      - name: Run Static Analysis
         id: static_gate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
         run: |
           mkdir -p ~/.cache/ai-slop-gate
           
-          # Check if policy.yml exists, otherwise use default
           POLICY_FLAG=""
-          if [ -f "${{ github.workspace }}/policy.yml" ]; then
-            echo "📋 Using custom policy.yml"
+          if [ -f "policy.yml" ]; then
             POLICY_FLAG="--policy /data/policy.yml"
-          else
-            echo "📋 Using default policy"
           fi
           
-          # Run static analysis and capture output
-          set +e  # Disable exit on error temporarily
+          # FIX: Running as root to avoid "Permission Denied" on /data mount
+          # The files created here (sbom.json etc) will live on the runner's disk
           docker run --rm \
+            --user root \
             -v "${{ github.workspace }}:/data" \
             -v ~/.cache/ai-slop-gate:/root/.cache/ai-slop-gate \
             -e GITHUB_TOKEN \
             ghcr.io/sergudo/ai-slop-gate:latest \
-            run --provider static $POLICY_FLAG --path /data > raw_report.txt 2>&1
+            run --provider static $POLICY_FLAG --path /data > raw_report.txt 2>&1 || true
           
-          EXIT_CODE=$?
-          set -e  # Re-enable exit on error
-          
-          # Always show report
           cat raw_report.txt
           
-          # Save exit code for later steps
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-          
-          # Extract verdict (default to UNKNOWN if not found)
+          # Parse outputs for the PR comment
           VERDICT=$(grep "Policy Verdict:" raw_report.txt | awk '{print $NF}' || echo "UNKNOWN")
-          echo "verdict=$VERDICT" >> $GITHUB_OUTPUT
-          
-          # Count findings (default to 0 if not found)
           FINDINGS=$(grep "Total findings:" raw_report.txt | awk '{print $NF}' || echo "0")
-          echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+          COMP_COUNT=$(grep "Generated SBOM with" raw_report.txt | sed -E 's/.*with ([0-9]+) dependencies.*/\1/' | head -1 || echo "0")
+          CVE_COUNT=$(grep "Trivy Scan Complete. Found" raw_report.txt | sed -E 's/.*Found ([0-9]+) vulnerabilities.*/\1/' | head -1 || echo "0")
           
-          # Log extracted values
-          echo "📊 Extracted values:"
-          echo "   Exit code: $EXIT_CODE"
-          echo "   Verdict: $VERDICT"
-          echo "   Findings: $FINDINGS"
-          
-          # Don't fail here - let continue-on-error handle it
-          exit 0
+          # Extract top 10 components for PR visibility
+          if [ -f "sbom.json" ]; then
+             TOP10=$(jq -r '.artifacts[:10] | .[] | "- \(.name) (\(.version))"' sbom.json | sed 's/$/\\n/' | tr -d '\n')
+          else
+             TOP10="No components found."
+          fi
 
-      # Post comment on PR (always, not just on failure)
-      - name: Post Static Analysis Report to PR
+          echo "verdict=$VERDICT" >> $GITHUB_OUTPUT
+          echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+          echo "components=$COMP_COUNT" >> $GITHUB_OUTPUT
+          echo "cves=$CVE_COUNT" >> $GITHUB_OUTPUT
+          echo "top10=$TOP10" >> $GITHUB_OUTPUT
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-reports-${{ github.run_number }}
+          path: |
+            sbom*.json
+          retention-days: 90
+
+      - name: Post PR Report
         if: github.event_name == 'pull_request' && always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Extract clean report
+          # Extract the formatted report from logs
           sed -n '/=== AI SLOP GATE REPORT ===/,/=== END OF REPORT ===/p' raw_report.txt > clean_report.md
           
-          # Check if report was extracted
           if [ ! -s clean_report.md ]; then
-            echo "⚠️ Warning: Could not extract report from raw_report.txt"
-            echo "=== NO REPORT GENERATED ===" > clean_report.md
-            echo "The static analysis may have failed to run properly." >> clean_report.md
+            echo "⚠️ No report found in logs" > clean_report.md
           fi
           
-          # Get values with defaults
           VERDICT="${{ steps.static_gate.outputs.verdict }}"
           FINDINGS="${{ steps.static_gate.outputs.findings }}"
           
-          # Set defaults if empty
-          VERDICT="${VERDICT:-UNKNOWN}"
-          FINDINGS="${FINDINGS:-0}"
+          # Determine Emoji and Status label
+          EMOJI="❓"
+          STATUS="UNKNOWN"
+          if [ "$VERDICT" = "BLOCKING" ]; then EMOJI="🚨"; STATUS="**BLOCKING**"; fi
+          if [ "$VERDICT" = "ADVISORY" ]; then EMOJI="⚠️"; STATUS="**ADVISORY**"; fi
+          if [ "$VERDICT" = "ALLOW" ]; then EMOJI="✅"; STATUS="**PASSED**"; fi
           
-          echo "📊 Report values:"
-          echo "   Verdict: $VERDICT"
-          echo "   Findings: $FINDINGS"
+          cat > pr_comment.md << EOF
+          ## $EMOJI AI Slop Gate Analysis
           
-          # Determine emoji and status based on verdict
-          if [ "$VERDICT" = "BLOCKING" ]; then
-            EMOJI="🚨"
-            STATUS="**BLOCKING** - Action Required"
-          elif [ "$VERDICT" = "ADVISORY" ]; then
-            EMOJI="⚠️"
-            STATUS="**ADVISORY** - Review Recommended"
-          elif [ "$VERDICT" = "ALLOW" ]; then
-            EMOJI="✅"
-            STATUS="**PASSED** - No Issues Found"
-          else
-            EMOJI="❓"
-            STATUS="**UNKNOWN** - Check logs"
-          fi
-          
-          # Create professional comment
-          cat > final_comment.md << EOF
-          ## $EMOJI AI Slop Gate Static Analysis
-          
-          **Status:** $STATUS  
+          **Status:** $STATUS
           **Findings:** $FINDINGS issue(s) detected
           
           ---
-          
-          EOF
-          
-          # Append the clean report
-          cat clean_report.md >> final_comment.md
-          
-          # Add footer with fix guide ONLY if there are violations
-          if [ "$FINDINGS" != "0" ] && [ "$VERDICT" != "ALLOW" ]; then
-            cat >> final_comment.md << EOF
+          $(cat clean_report.md)
           
           ---
+          ### Supply Chain Information (SBOM)
+          - **Components detected:** ${{ steps.static_gate.outputs.components }}
+          - **CVEs found (Trivy):** ${{ steps.static_gate.outputs.cves }}
+          - **Standards:** SPDX 2.3, CycloneDX 1.6
           
           <details>
-          <summary>📚 How to fix common issues</summary>
-          
-          ### Hardcoded Secrets
-          1. Move secrets to environment variables or secret management system
-          2. Use \`.env\` files (add to \`.gitignore\`)
-          3. For CI/CD, use GitHub Secrets or similar
-          
-          ### Dangerous Functions
-          1. Review usage of \`eval()\`, \`exec()\`, \`system()\`
-          2. Sanitize all user inputs
-          3. Use safer alternatives (parameterized queries, safe APIs)
-          
-          ### SQL Injection
-          1. Use parameterized queries/prepared statements
-          2. Never concatenate user input into SQL strings
-          3. Use ORM frameworks when possible
-          
-          ### TODOs
-          1. Complete or document security-related TODOs
-          2. Create issues for tracking
-          3. Remove completed TODOs
-          
+          <summary> Component Preview (Top 10)</summary>
+
+          ${{ steps.static_gate.outputs.top10 }}
+
           </details>
+
+          <sub> Report ID: \`${{ github.run_id }}\`</sub>
           EOF
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body-file pr_comment.md --repo ${{ github.repository }}
+
+      # Final step to fail the build if policy is BLOCKING
+      - name: Final Verdict
+        if: always()
+        run: |
+          if [ "${{ steps.static_gate.outputs.verdict }}" = "BLOCKING" ]; then
+            echo "❌ FAIL: Blocking security issues or policy violations found."
+            exit 1
           fi
           
-          # Always add footer
-          cat >> final_comment.md << EOF
+          # Clean up generated files so they don't get committed by accident 
+          # (though GitHub checkout usually cleans up anyway)
+          rm -f sbom*.json raw_report.txt clean_report.md pr_comment.md
           
-          <sub>🤖 Powered by [AI Slop Gate](https://github.com/SergUdo/ai-slop-gate) | Run: \`${{ github.run_id }}\`</sub>
-          EOF
-          
-          # Post comment
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body-file final_comment.md \
-            --repo ${{ github.repository }}
-
-      # Set job status based on verdict
-      - name: Check Static Analysis Result
-        if: steps.static_gate.outputs.verdict == 'BLOCKING'
-        run: |
-          echo "❌ Static analysis found blocking violations"
-          exit 1

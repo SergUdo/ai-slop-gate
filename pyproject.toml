@@ -29,3 +29,6 @@ ai_slop_gate = ["**/*.prompt"]
 dev = [
   "pytest>=8.0"
 ]
+analysis = [
+  "vulture>=2.11"
+]

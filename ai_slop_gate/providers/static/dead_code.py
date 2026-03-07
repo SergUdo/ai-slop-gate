@@ -16,6 +16,7 @@ import os
 import re
 import logging
 import subprocess
+import vulture
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 from ai_slop_gate.providers.base import BaseProvider, ProviderObservation

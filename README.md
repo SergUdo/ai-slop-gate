@@ -92,7 +92,7 @@ ai-slop-gate is **NOT**:
 
 ## Supply Chain & Security
 
-The gate automatically generates industry-standard security artifacts during every run:
+The gate automatically generates industry-standard security artifacts **when running the Static Analysis provider** (`--provider static`) or **CI/CD Integration**: See the [GitHub Actions Static Analysis Example](docs/source/examples/example_workflow_static.yml) for a ready-to-use configuration:
 
 | Artifact | Format | Description |
 |----------|--------|-------------|
