@@ -22,12 +22,12 @@ jobs:
       - name: Install ai-slop-gate
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[analysis]"
 
       - name: Install Trivy
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh  \
-            | sh -s -- -b . v0.69.2 ./trivy image --severity HIGH,CRITICAL ai-slop-gate:latest
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.69.2
 
       - name: Install Syft
         run: |
@@ -98,8 +98,8 @@ jobs:
 
       - name: Install Trivy
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh  \
-            | sh -s -- -b . v0.69.2 ./trivy image --severity HIGH,CRITICAL ai-slop-gate:latest
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.69.2
 
       - name: Install Syft
         run: |

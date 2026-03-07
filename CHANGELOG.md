@@ -8,7 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Generate SBOM in Test Repository Workflow
 - Multi-arch Docker support (amd64, arm64)
 - EU AI Act Compliance - Risk Category Classification
 - EU AI Act Compliance - Accuracy Metrics Reporting
@@ -16,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency License Compatibility Check
 - Google Cloud Secret Manager integration
 - NIS2 Directive - Supply Chain Incident Reporting
+
+## [1.2.5] - 2026-03-07
+
+### Added
+- **SBOM**: `SBOMProvider` now saves all three formats to disk (`sbom.json`, `sbom-spdx.json`, `sbom-cyclonedx.json`) alongside the scanned project, making artifacts available for download without additional workflow steps.
+- **SBOM**: `TrivyProvider` now saves `sbom-cyclonedx-vex.json` (CycloneDX + CVE) to disk during the security scan.
+
+### Fixed
+- **Docker**: Added `vulture` to `[project.optional-dependencies]` and updated install target to `.[analysis]` to resolve `ModuleNotFoundError: No module named 'vulture'` in CI.
 
 ## [1.2.4] - 2026-03-06
 
