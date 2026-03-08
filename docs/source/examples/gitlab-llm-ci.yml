@@ -1,0 +1,21 @@
+# Add this configuration to your project's .gitlab-ci.yml file 
+# to enable AI Slop Gate analysis for your Merge Requests.
+# Ensure you have set up the required API keys in Settings -> CI/CD -> Variables.
+
+include:
+  - remote: 'https://raw.githubusercontent.com/sergudo/ai-slop-gate/main/ci/gate-template.yml'
+
+variables:
+  SLOP_PROVIDERS: "gemini" # or groq
+  GEMINI_API_KEY: $GEMINI_API_KEY
+  SLOPE_GATE_GROQ: $SLOPE_GATE_GROQ
+  # Your Gitlab CI/CD token with permissions to create comments on MRs
+  AI_SLOP_GATE_TOKEN: $AI_SLOP_GATE_TOKEN
+
+ai_slop_analysis:
+  extends: .slop_gate_base
+  stage: test
+  before_script:
+    - pip install google-genai
+  rules:
+    - if: $CI_MERGE_REQUEST_IID

@@ -92,7 +92,7 @@ ai-slop-gate is **NOT**:
 
 ## Supply Chain & Security
 
-The gate automatically generates industry-standard security artifacts **when running the Static Analysis provider** (`--provider static`) or **CI/CD Integration**: See the [GitHub Actions Static Analysis Example](docs/source/examples/example_workflow_static.yml) for a ready-to-use configuration:
+The gate automatically generates industry-standard security artifacts **when running the Static Analysis provider locally** (`--provider static`) or **CI/CD Integration**: See the [GitHub Actions Static Analysis Example](docs/source/examples/example_workflow_static.yml) or **GitLab CI/CD**: [Static Analysis Pipeline Example](docs/source/examples/gitlab-static-ci.yml) for a ready-to-use configuration:
 
 | Artifact | Format | Description |
 |----------|--------|-------------|
@@ -201,10 +201,14 @@ npm install -g ts-prune
 touch .env
 
 # Example content:
-# SLOPE_GATE_GROQ=your_key_here
-# GEMINI_API_KEY=your_key_here
-# GITHUB_TOKEN=your_token_here
-# AI_SLOP_GATE_TOKEN=your_gitlab_token   # iF you using GitLab integration
+
+# --- LLM Provider Settings (Required for --provider gemini) ---
+# SLOPE_GATE_GROQ=your_key_here          # Required if using Groq models
+# GEMINI_API_KEY=your_key_here           # Required if using Google Gemini models
+
+# --- Repository Access (Required for GitHub/GitLab integration) ---
+# GITHUB_TOKEN=your_token_here           # Required for local CLI tests (use Classic PAT or Fine-grained)
+# AI_SLOP_GATE_TOKEN=your_gitlab_token   # Required for GitLab MR analysis
 
 # Static analysis (fast, no API key required)
 python -m ai_slop_gate.cli run --provider static --policy policy.yml --path /your/project
@@ -221,7 +225,11 @@ python -m ai_slop_gate.cli run --compliance --policy policy.yml --path /your/pro
 # Advisory mode — findings shown, CI never blocked
 python -m ai_slop_gate.cli run --provider static --policy policy.yml --enforcement advisory --path /your/project
 
-# Analyze a GitHub Pull Request (PR #2 from SergUdo/slop_test)
+# Example analyze a GitHub Pull Request use console locally (PR #2 from repo SergUdo/slop_test)
+# 1. Set your token
+export GITHUB_TOKEN=ghp_your_secret_token_here
+export GEMINI_API_KEY=your_api_key_here
+# 2. Run the analysis
 python -m ai_slop_gate.cli run --provider gemini --llm-local --policy policy.yml --github-repo SergUdo/slop_test --pr-id 2
 ```
 
@@ -319,7 +327,9 @@ Full Docker documentation: [docs/source/DOCKER.md](docs/source/DOCKER.md)
 
 ### GitLab CI/CD example workflow:
 
-- [Example workflow for Gitlab CI](docs/source/examples/.gitlab-ci.yml)
+- [Example static workflow for Gitlab CI](docs/source/examples/gitlab-static-ci.yml)
+
+- [Example LLM workflow for Gitlab CI](docs/source/examples/gitlab-llm-ci.yml)
 
 Full integration guide: [docs/source/INTEGRATIONS.md](docs/source/INTEGRATIONS.md)
 
@@ -352,10 +362,10 @@ The public key `cosign.pub` is located in the root of this repository. If you ha
 
 **Run Verification**
 
-Use the following command to verify the signature of a specific version (e.g., `1.2.2`).
+Use the following command to verify the signature of a specific version (e.g., `1.2.6`).
 ```bash
 # Verify the image using the local cosign.pub file
-cosign verify --key cosign.pub ghcr.io/sergudo/ai-slop-gate:1.2.2
+cosign verify --key cosign.pub ghcr.io/sergudo/ai-slop-gate:1.2.6
 ```
 
 **Expected Output**

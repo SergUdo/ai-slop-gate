@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Google Cloud Secret Manager integration
 - NIS2 Directive - Supply Chain Incident Reporting
 
+## [1.2.6] - 2026-03-08
+
+### Added
+- **GitLab CI/CD**: Added a complete template (`gitlab-static-ci.yml`) for automated SBOM generation and artifact archival in GitLab pipelines.
+- **Documentation**: Enhanced "Supply Chain & Security" section in README with instructions for both GitHub and GitLab integrations.
+- **Documentation**: Added clear environment variable guides for local CLI testing and repository integration.
+
 ## [1.2.5] - 2026-03-07
 
 ### Added
