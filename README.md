@@ -129,7 +129,7 @@ Creates a default `policy.yml` in the current directory.
 # .env file
 GITHUB_TOKEN=your_github_personal_access_token
 GEMINI_API_KEY=your_google_gemini_api_key
-GROQ_API_KEY=your_groq_api_key
+SLOPE_GATE_GROQ=your_groq_api_key
 AI_SLOP_GATE_TOKEN=your_gitlab_token   # For GitLab integration
 ```
 
