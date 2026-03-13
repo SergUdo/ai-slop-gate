@@ -314,7 +314,7 @@ Full integration guide: [docs/source/INTEGRATIONS.md](docs/source/INTEGRATIONS.m
 curl -O https://raw.githubusercontent.com/sergudo/ai-slop-gate/main/cosign.pub
 
 # Verify
-cosign verify --key cosign.pub ghcr.io/sergudo/ai-slop-gate:1.2.6
+cosign verify --key cosign.pub ghcr.io/sergudo/ai-slop-gate:1.2.8
 ```
 
 ---
