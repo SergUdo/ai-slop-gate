@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Agent Skills**: Added `skills/ai-slop-gate/SKILL.md` — published to Tessl registry for AI agent discovery and installation via `npx tessl install ai-slop-gate`.
 - **Copilot Instructions**: Added `.github/copilot-instructions.md` — full architectural context for GitHub Copilot Chat with provider inventory, contracts, and contribution rules.
 - **Documentation**: Added "Working with AI Assistants" section to `CONTRIBUTING.md` covering Copilot, Tessl, and Claude workflows.
+- **Tessl Registry**: Published agent skill to [tessl.io/registry/ai-slop-gate/ai-slop-gate](https://tessl.io/registry/ai-slop-gate/ai-slop-gate) — install with `npx tessl install ai-slop-gate`.
 
 ### Changed
 - **Documentation**: Rebuilt `ARCHITECTURE.md` from snapshot v7.5.0 — correct stage (6), full provider inventory (20+ providers), decision modes, Cache and Compliance sidecar sections.

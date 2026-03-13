@@ -4,9 +4,8 @@ description: Contribute to ai-slop-gate — an open-source CI/CD policy gate tha
 license: MIT
 metadata:
   author: SergUdo
-  version: "1.2.6"
-  snapshot: "7.4.0"
-  repository: https://github.com/SergUdo/ai-slop-gate
+  version: "1.2.8"
+  snapshot: "7.5.0"
 compatibility: Python 3.12+, pytest, GitHub Actions
 ---
 

@@ -21,6 +21,7 @@
 [![Docker](https://img.shields.io/badge/docker-GHCR-2496ED?logo=docker&logoColor=white)](https://github.com/SergUdo/ai-slop-gate/pkgs/container/ai-slop-gate)
 [![Cosign](https://img.shields.io/badge/cosign-signed-success?logo=sigstore&logoColor=white)](https://github.com/SergUdo/ai-slop-gate/releases)
 [![SBOM](https://img.shields.io/badge/SBOM-included-blue)](https://github.com/SergUdo/ai-slop-gate/releases)
+[![Tessl Skill](https://img.shields.io/badge/agent--skill-tessl-6366f1)](https://tessl.io/registry/ai-slop-gate/ai-slop-gate)
 
 ---
 
