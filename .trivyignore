@@ -89,3 +89,14 @@ CVE-2026-29786
 # Inherent to the Trivy tool itself, no fix available in current build.
 CVE-2025-15558
 
+# CVE-2026-25210: libexpat1
+# Rationale: No fixed version available in Debian stable yet. 
+# The tool does not process untrusted XML files using system-level libexpat.
+CVE-2026-25210
+
+# CVE-2026-4105: libsystemd0 and libudev1
+# Rationale: This is a privilege escalation via D-Bus RegisterMachine method.
+# In our container, we run as a non-root user (appuser), and there is no 
+# systemd/D-Bus daemon running. Exploitation is impossible in this environment.
+CVE-2026-4105
+

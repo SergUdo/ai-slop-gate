@@ -100,6 +100,7 @@ python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e .
 npm install                  # Required for JS/TS static analysis
+npm install ts-prune
 ```
 
 ### Initialize Policy
