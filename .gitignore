@@ -63,3 +63,5 @@ cache/
 .test-cache/
 .ai-slop-cache-test/
 
+.tessl/tiles/
+.tessl/RULES.md

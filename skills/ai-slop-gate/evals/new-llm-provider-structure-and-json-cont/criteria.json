@@ -1,0 +1,66 @@
+{
+  "context": "Tests whether the agent correctly implements a new LLM provider following the project's conventions: correct file location, class hierarchy, interface methods, kind value, prompt registration, and the LLM JSON contract enforced by the prompt.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Correct file location",
+      "max_score": 8,
+      "description": "Provider implementation is in ai_slop_gate/providers/llm/mistral.py (not in a different directory or named differently)"
+    },
+    {
+      "name": "Extends LlmProvider",
+      "max_score": 8,
+      "description": "MistralProvider extends LlmProvider (not BaseProvider directly)"
+    },
+    {
+      "name": "kind = 'llm'",
+      "max_score": 8,
+      "description": "Class attribute kind is set to exactly the string 'llm'"
+    },
+    {
+      "name": "analyze() implemented",
+      "max_score": 8,
+      "description": "Provider implements analyze(code, input_file) returning ProviderObservation"
+    },
+    {
+      "name": "analyze_pr() implemented",
+      "max_score": 8,
+      "description": "Provider implements analyze_pr(repo, pr_id, token) — not left as NotImplementedError default"
+    },
+    {
+      "name": "Prompt file location",
+      "max_score": 8,
+      "description": "Prompt file is placed at ai_slop_gate/providers/llm/prompts/mistral/ (not at a different path)"
+    },
+    {
+      "name": "Prompt enforces top-level 'issues' key",
+      "max_score": 12,
+      "description": "The prompt file instructs the model to return JSON with a top-level key named 'issues' (the exact word 'issues' appears as the required JSON key)"
+    },
+    {
+      "name": "Prompt prohibits markdown/extra text",
+      "max_score": 8,
+      "description": "The prompt file explicitly states no markdown, no text outside JSON, or equivalent instruction that forbids non-JSON output"
+    },
+    {
+      "name": "Prompt enforces snake_case signal",
+      "max_score": 8,
+      "description": "The prompt instructs the model to produce a 'signal' field in snake_case format"
+    },
+    {
+      "name": "Prompt enforces severity enum",
+      "max_score": 8,
+      "description": "The prompt restricts severity to the values low, medium, high, critical"
+    },
+    {
+      "name": "Registry registration shown",
+      "max_score": 8,
+      "description": "registry_patch.py shows the provider being registered in providers/registry.py (imports or calls that add MistralProvider to the registry)"
+    },
+    {
+      "name": "CLI option shown",
+      "max_score": 8,
+      "description": "registry_patch.py or implementation_notes.md shows --provider mistral being added as a CLI option"
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "context": "Tests whether the agent correctly identifies architecture violations (engine doing IO/printing/exits, compliance inside engine, business logic in CLI) and produces a refactored example following the correct separation: thin CLI, pure engine, compliance as sidecar running after providers and before reporters, with correct exit codes.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Engine IO violation identified",
+      "max_score": 8,
+      "description": "architecture_review.md identifies that the engine must not do IO, printing, or exit calls — and flags the print/sys.exit calls inside the engine in the draft"
+    },
+    {
+      "name": "CLI thinness violation identified",
+      "max_score": 8,
+      "description": "architecture_review.md identifies that the CLI should only do argument parsing and wiring, not contain policy or compliance logic"
+    },
+    {
+      "name": "Compliance sidecar placement identified",
+      "max_score": 12,
+      "description": "architecture_review.md explains that compliance must run as a sidecar AFTER providers and BEFORE reporters, not inline with providers"
+    },
+    {
+      "name": "Engine is pure in refactored example",
+      "max_score": 8,
+      "description": "refactored_example.py shows PolicyEngine with no print(), sys.exit(), or file IO calls"
+    },
+    {
+      "name": "Compliance runs after providers",
+      "max_score": 8,
+      "description": "refactored_example.py calls the compliance sidecar after all provider results are collected, not inside the provider loop"
+    },
+    {
+      "name": "Compliance runs before reporters",
+      "max_score": 8,
+      "description": "refactored_example.py calls reporters after the compliance sidecar (not before)"
+    },
+    {
+      "name": "Compliance profiles mentioned",
+      "max_score": 9,
+      "description": "architecture_review.md names at least two of the three compliance profiles: default, eu, eu-strict"
+    },
+    {
+      "name": "Compliance activation flags",
+      "max_score": 7,
+      "description": "architecture_review.md mentions that compliance is enabled via policy.compliance.enabled or --compliance / --compliance-only flags"
+    },
+    {
+      "name": "Correct exit code for blocking",
+      "max_score": 8,
+      "description": "refactored_example.py exits with code 1 when decision mode is 'blocking' and code 0 for allow or advisory"
+    },
+    {
+      "name": "Compliance checks described",
+      "max_score": 9,
+      "description": "architecture_review.md mentions at least two of: forbidden licenses (GPL/AGPL), secret detection, GDPR data residency as what compliance sidecar checks"
+    },
+    {
+      "name": "CLI only wires components",
+      "max_score": 8,
+      "description": "refactored_example.py shows CLI code that only calls/wires engine, providers, compliance, and reporters without containing business logic"
+    },
+    {
+      "name": "No compliance inside engine",
+      "max_score": 7,
+      "description": "refactored_example.py does NOT call any compliance check from within the PolicyEngine class/function"
+    }
+  ]
+}

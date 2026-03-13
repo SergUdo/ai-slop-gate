@@ -1,0 +1,66 @@
+{
+  "context": "Tests whether the agent follows the static provider conventions (correct location, kind, collect() method, ProviderObservation return), writes tests with positive and negative cases, and correctly explains the cache rules (LLM-only caching, cache key composition, no provider-specific cache logic).",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Correct static file location",
+      "max_score": 7,
+      "description": "Provider is placed in ai_slop_gate/providers/static/ (not in llm/ or elsewhere)"
+    },
+    {
+      "name": "Extends BaseProvider",
+      "max_score": 7,
+      "description": "DeadLinkProvider (or equivalent) extends BaseProvider"
+    },
+    {
+      "name": "kind = 'static'",
+      "max_score": 7,
+      "description": "Class attribute kind is set to 'static' (not 'llm' or 'infra')"
+    },
+    {
+      "name": "collect() implemented",
+      "max_score": 7,
+      "description": "Provider implements collect(base_path) returning a ProviderObservation"
+    },
+    {
+      "name": "ProviderObservation fields correct",
+      "max_score": 7,
+      "description": "Returned ProviderObservation includes provider, model, observations, and raw_text fields"
+    },
+    {
+      "name": "Test positive case",
+      "max_score": 7,
+      "description": "Unit tests include a test that verifies the provider detects an issue when dead/broken links are present"
+    },
+    {
+      "name": "Test negative case",
+      "max_score": 7,
+      "description": "Unit tests include a test that verifies the provider returns no observations for clean input with no links"
+    },
+    {
+      "name": "Cache LLM-only rule",
+      "max_score": 13,
+      "description": "cache_design_review.md states that CachedProvider wraps LLM providers only, NOT static providers"
+    },
+    {
+      "name": "Cache key components",
+      "max_score": 13,
+      "description": "cache_design_review.md lists all five required cache key components: provider_id, model, profile, policy_hash, and input_fingerprint"
+    },
+    {
+      "name": "Engineer proposal rejected",
+      "max_score": 10,
+      "description": "cache_design_review.md explicitly concludes that caching static providers is NOT appropriate (rejects the engineer's proposal)"
+    },
+    {
+      "name": "No provider-specific logic in cache",
+      "max_score": 7,
+      "description": "cache_design_review.md explains that provider-specific logic must NOT be added to the cache layer"
+    },
+    {
+      "name": "Duplicate call prevention",
+      "max_score": 8,
+      "description": "cache_design_review.md explains that the same cache key must never trigger an LLM call twice"
+    }
+  ]
+}
