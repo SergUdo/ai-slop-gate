@@ -259,9 +259,10 @@ These files are saved in the scanned directory and can be uploaded as CI/CD arti
 ```bash
 docker pull ghcr.io/sergudo/ai-slop-gate:latest
 
-docker run --rm -v $(pwd):/src \
+ docker run --rm \
+  -v /path_your_local_test_repo:/data \
   ghcr.io/sergudo/ai-slop-gate:latest \
-  run --provider static --policy /src/policy.yml --path /src
+  run --provider static --policy /app/policy.yml --path /data
 ```
 
 Local build and run:
