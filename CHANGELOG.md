@@ -8,13 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Multi-arch Docker support (amd64, arm64)
+- Add ArtifactReporter — Versioned JSON Analysis Report per PR
+- Add Trend Analysis - Derivative Signal for Findings Rate-of-Change
+- Implement Mistral AI Provider for EU Data Residency (GDPR/DSGVO Compliance)
+- Integrate GitHub Copilot SDK
+- Add Policy Verdict Layer for machine-readable agent decisions
+- Transform ai-slop-gate into a Cloud-Native Service with Enterprise Observability
 - EU AI Act Compliance - Risk Category Classification
 - EU AI Act Compliance - Accuracy Metrics Reporting
 - Enhanced GDPR Compliance - Data Flow Visualization
 - Dependency License Compatibility Check
 - Google Cloud Secret Manager integration
 - NIS2 Directive - Supply Chain Incident Reporting
+
+## [1.2.7] - 2026-03-13
+
+### Added
+- **Agent Skills**: Added `skills/ai-slop-gate/SKILL.md` — published to Tessl registry for AI agent discovery and installation via `npx tessl install ai-slop-gate`.
+- **Copilot Instructions**: Added `.github/copilot-instructions.md` — full architectural context for GitHub Copilot Chat with provider inventory, contracts, and contribution rules.
+- **Documentation**: Added "Working with AI Assistants" section to `CONTRIBUTING.md` covering Copilot, Tessl, and Claude workflows.
+
+### Changed
+- **Documentation**: Rebuilt `ARCHITECTURE.md` from snapshot v7.5.0 — correct stage (6), full provider inventory (20+ providers), decision modes, Cache and Compliance sidecar sections.
+- **Documentation**: Rebuilt `PROJECT_STRUCTURE.md` — complete directory tree including all static providers, `cache/`, `fixtures/`, `github/`.
+- **Documentation**: Restructured `README.md` — removed duplicate sections, unified feature descriptions, consistent Ollama coverage throughout.
+- **Documentation**: Updated `CONTRIBUTING.md` — correct `BaseProvider` contract, snapshot reference bumped to v7.5.0.
+
+### Fixed
+- **Snapshot**: Bumped `ai_slop_gate_snapshot.json` to v7.5.0 — fixed `stage` field (Stage 1 → Stage 6), added `base_classes`, `domain_models`, `llm_json_contract` sections, completed CLI flags, added `DeadCodeProvider` and `GitLabMRReporter` to inventory.
+
+### Security
+- **Docker**: Updated `tar` dependency to 7.5.11 to resolve CVE-2026-31802 (high severity).
+- **Docker**: Added `.trivyignore` for `libexpat1` (CVE-2026-25210) and `libsystemd0` (CVE-2026-4105) — no fix available in Debian stable; documented rationale based on low exploitability in container context.
 
 ## [1.2.6] - 2026-03-08
 

@@ -41,6 +41,12 @@ exclude_secret_files:
   - "package-lock.json"  # npm dependencies
   - "policy.yml"
   - "**/policy.yml"
+  - "CHANGELOG.md"
+  - "renovate.json"
+  - "skills/**/*.md"
+  - ".github/copilot-instructions.md"
+  - "docs/**/*.md"
+  - "**/example_*.yml"
 
 # Whitelisted domains for GDPR checks (removes 173+ warnings)
 allowed_external_domains:
