@@ -1,6 +1,6 @@
 {
   "name": "ai-slop-gate/ai-slop-gate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "summary": "Contribute to ai-slop-gate — an open-source CI/CD policy gate that detects AI-generated code slop, security issues, and compliance violations. Use when adding a new LLM provider (Gemini, Groq, Ollama) or static provider, writing analysis rules, extending the policy engine, working with reporters, fixing compliance sidecar logic, or writing tests. Activate when working with ai_slop_gate/ source tree, policy.yml, snapshot, or GitHub Actions workflows.",
   "skills": {
