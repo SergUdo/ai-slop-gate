@@ -41,7 +41,7 @@ Create a ``.env`` file in the project root:
 
    # Provider Keys (add based on your configuration)
    GEMINI_API_KEY=your_google_gemini_api_key
-   GROQ_API_KEY=your_groq_api_key
+   SLOPE_GATE_GROQ=your_groq_api_key
    GITLAB_TOKEN=your_gitlab_token  # For GitLab integration
 
 Your First Analysis

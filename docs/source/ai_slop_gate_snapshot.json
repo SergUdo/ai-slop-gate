@@ -1,63 +1,15 @@
 {
-  "snapshot_version": "7.4.0",
+  "snapshot_version": "7.5.0",
   "project": {
     "name": "ai-slop-gate",
-    "stage": "Stage 1",
+    "stage": "Stage 6",
     "status": "canonical",
-    "purpose": "Policy-driven AI, supply-chain and compliance gate for code and infrastructure"
+    "purpose": "Policy-driven AI, supply-chain and compliance gate for code and infrastructure",
+    "python_version": "3.12+",
+    "current_release": "1.2.6",
+    "repository": "https://github.com/SergUdo/ai-slop-gate",
+    "marketplace": "https://github.com/marketplace/actions/ai-slop-gate"
   },
-  "supported_languages": [
-    {
-      "language": "Ruby",
-      "support_level": "full",
-      "providers": ["StaticRubyProvider"]
-    },
-    {
-      "language": "Python",
-      "support_level": "full",
-      "providers": ["StaticPythonProvider"]
-    },
-    {
-      "language": "JavaScript",
-      "support_level": "full",
-      "providers": ["StaticJSProvider", "StaticTSJSProvider", "ESLintProvider"]
-    },
-    {
-      "language": "TypeScript",
-      "support_level": "full",
-      "providers": ["StaticTSJSProvider", "ESLintProvider"]
-    },
-    {
-      "language": "Java",
-      "support_level": "full",
-      "providers": ["StaticJavaProvider"]
-    },
-    {
-      "language": "C++",
-      "support_level": "full",
-      "providers": ["StaticCppProvider"]
-    },
-    {
-      "language": "C#",
-      "support_level": "full",
-      "providers": ["StaticCSharpProvider"]
-    },
-    {
-      "language": "Docker",
-      "support_level": "full",
-      "providers": ["StaticDockerProvider"]
-    },
-    {
-      "language": "Kubernetes",
-      "support_level": "full",
-      "providers": ["KubernetesStaticProvider", "K8sRuntimeProvider"]
-    },
-    {
-      "language": "Terraform",
-      "support_level": "full",
-      "providers": ["TerraformStaticProvider", "TerraformPlanProvider"]
-    }
-  ],
   "principles": {
     "no_hidden_logic": true,
     "policy_is_source_of_truth": true,
@@ -77,36 +29,199 @@
       "Policy engine evaluates observations",
       "Decision is produced",
       "Reporters render output",
-      "Exit code is derived from decision",
-      "Release pipeline runs (determine version → build → sign → publish)"
+      "Exit code is derived from decision"
     ]
+  },
+  "base_classes": {
+    "BaseProvider": {
+      "file": "ai_slop_gate/providers/base.py",
+      "type": "ABC",
+      "attributes": {
+        "name": "str",
+        "kind": "str — 'llm' | 'static' | 'infra'"
+      },
+      "methods": {
+        "analyze": {
+          "signature": "analyze(self, code: str, input_file: str = '') -> ProviderObservation",
+          "abstract": true,
+          "note": "LLM: analyze PR diff or code snippet"
+        },
+        "collect": {
+          "signature": "collect(self, base_path: str = '.') -> ProviderObservation",
+          "abstract": true,
+          "note": "Static/infra: scan a directory. LLM: delegates to LlmProvider.analyze_files()"
+        },
+        "analyze_pr": {
+          "signature": "analyze_pr(self, repo: str, pr_id: int, token: str) -> ProviderObservation",
+          "abstract": false,
+          "note": "Optional. Default raises NotImplementedError. LLM providers may override."
+        }
+      }
+    },
+    "LlmProvider": {
+      "file": "ai_slop_gate/providers/llm/llm_provider.py",
+      "extends": "BaseProvider",
+      "kind": "llm",
+      "constants": {
+        "MAX_CHUNK_SIZE": 20000
+      },
+      "methods": {
+        "analyze": {
+          "abstract": true,
+          "note": "Implemented by each concrete LLM provider"
+        },
+        "collect": {
+          "abstract": false,
+          "note": "Delegates to analyze_files(base_path)"
+        },
+        "analyze_files": {
+          "signature": "analyze_files(self, path: str) -> ProviderObservation",
+          "note": "Chunks repo files ≤20KB, calls analyze() per chunk, sleeps between requests"
+        },
+        "_load_prompt": {
+          "signature": "_load_prompt(self, provider_name: str, name: str) -> str",
+          "note": "Loads .prompt file from providers/llm/prompts/<provider_name>/<name>.prompt"
+        }
+      },
+      "excluded_from_llm_scan": [
+        ".env", ".env.*", ".env.example",
+        "policy.yml",
+        "docs/", "scripts/", ".ai-slop-cache/",
+        "package-lock.json", "poetry.lock", "yarn.lock",
+        "*.min.js"
+      ],
+      "allowed_extensions": [".py", ".js", ".ts", ".yaml", ".yml", ".dockerfile", ".md", ".txt", ".prompt", ".rb", ".cs", ".java", ".cpp", ".c"]
+    },
+    "Reporter": {
+      "file": "ai_slop_gate/reporters/base.py",
+      "type": "ABC",
+      "methods": {
+        "report": {
+          "signature": "report(self, report: CheckReport) -> None",
+          "abstract": true
+        }
+      }
+    },
+    "CacheBackend": {
+      "file": "ai_slop_gate/cache/",
+      "type": "ABC",
+      "methods": {
+        "get": { "signature": "get(self, key: str) -> Optional[Any]" },
+        "set": { "signature": "set(self, key: str, value: Any) -> None" }
+      }
+    }
+  },
+  "domain_models": {
+    "ProviderObservation": {
+      "file": "ai_slop_gate/providers/base.py",
+      "frozen": true,
+      "fields": {
+        "provider": "str",
+        "model": "str",
+        "observations": "List[Any]",
+        "raw_text": "str"
+      }
+    },
+    "Observation": {
+      "file": "ai_slop_gate/domain/observation.py",
+      "frozen": true,
+      "fields": {
+        "category": "str",
+        "signal": "str — snake_case identifier",
+        "confidence": "float — 0.0 to 1.0",
+        "message": "str — non-empty",
+        "severity": "Optional[Severity] — low|medium|high|critical",
+        "evidence": "Optional[Dict[str, Any]]",
+        "rule_id": "Optional[str]",
+        "location": "Optional[Location]"
+      }
+    },
+    "Location": {
+      "file": "ai_slop_gate/domain/observation.py",
+      "frozen": true,
+      "fields": {
+        "file": "str",
+        "line": "Optional[int]"
+      }
+    },
+    "Decision": {
+      "file": "ai_slop_gate/domain/decision.py",
+      "frozen": true,
+      "fields": {
+        "mode": "DecisionMode — allow|advisory|blocking",
+        "reasons": "List[str]",
+        "annotations": "Optional[List[Annotation]]"
+      }
+    },
+    "Annotation": {
+      "file": "ai_slop_gate/domain/decision.py",
+      "frozen": true,
+      "fields": {
+        "file": "str",
+        "line": "int",
+        "message": "str",
+        "level": "str"
+      }
+    },
+    "PolicyRule": {
+      "file": "ai_slop_gate/domain/policy.py",
+      "frozen": true,
+      "fields": {
+        "id": "str",
+        "when": "Dict[str, Any]",
+        "then": "Dict[str, Any]"
+      }
+    }
   },
   "cli": {
     "entrypoint": "python -m ai_slop_gate.cli.main",
     "commands": ["init", "run"],
-    "responsibility": "argument parsing and wiring only",
+    "responsibility": "argument parsing and wiring only — no business logic",
+    "files": {
+      "main.py": "CLI entrypoint and command dispatcher",
+      "run.py": "run command: run_analysis(args) -> Decision",
+      "args.py": "argument definitions",
+      "context.py": "runtime context object",
+      "logger.py": "logging configuration",
+      "utils.py": "CLI utilities"
+    },
     "flags": {
-      "--policy": "Path to policy.yml (required for run)",
-      "--provider": "Provider name (static, k8s-runtime, supply-chain, llm)",
-      "--input-file": "Input file for providers",
-      "--compliance": "Force enable compliance sidecar",
-      "--profile": "Override compliance profile",
-      "--enforcement": "never | advisory | blocking",
-      "--verbose": "Emit full resolved state and observations",
-      "--github-checks": "Emit GitHub Checks",
-      "--github-repo": "GitHub repository",
-      "--github-sha": "Commit SHA",
-      "--pr-id": "Pull Request ID"
+      "--policy": "Path to policy.yml. Required for run. Controls include_paths sent to providers.",
+      "--provider": "One or more provider names. Multiple allowed: --provider static groq",
+      "--path": "Project directory to analyse. Default: current directory",
+      "--llm-local": "Run LLM provider on local files instead of PR diff",
+      "--enforcement": "never | advisory | blocking — overrides policy enforcement",
+      "--compliance": "Force enable compliance sidecar alongside providers",
+      "--compliance-only": "Run compliance checks only, skip all providers",
+      "--profile": "Override compliance profile (default | eu | eu-strict)",
+      "--verbose": "Emit full resolved state, cache hits/misses, per-file progress",
+      "--cache-dir": "Cache directory for LLM responses. Default: .ai-slop-cache",
+      "--no-cache": "Disable LLM response caching (always call API)",
+      "--github-repo": "GitHub repository in owner/repo format",
+      "--pr-id": "Pull Request ID for PR diff analysis",
+      "--github-sha": "Commit SHA for GitHub Checks annotation",
+      "--github-token": "GitHub API token. Prefer GITHUB_TOKEN env var.",
+      "--gitlab-project": "GitLab project path (user/repo)",
+      "--mr-iid": "GitLab Merge Request IID",
+      "--gitlab-url": "GitLab instance URL. Default: https://gitlab.com",
+      "--gitlab-token": "GitLab API token. Prefer GITLAB_TOKEN env var."
+    },
+    "exit_codes": {
+      "0": "success — allow or advisory decision, or enforcement=never",
+      "1": "blocking decision with violations"
     }
   },
   "engine": {
     "type": "function-based",
+    "file": "ai_slop_gate/engine/provider_factory.py",
     "entry": "run_analysis(args) -> Decision",
     "responsibilities": [
       "load policy",
       "resolve effective compliance config",
-      "invoke providers",
-      "merge observations",
+      "instantiate providers via registry",
+      "invoke providers (collect or analyze)",
+      "merge observations from all providers",
+      "optionally run compliance sidecar",
       "invoke policy engine",
       "return decision"
     ],
@@ -119,49 +234,129 @@
   "policy": {
     "format": "policy.yml",
     "versioned": true,
+    "discovery_order": [
+      "--policy <explicit path>",
+      "<--path>/policy.yml",
+      "./policy.yml",
+      "bundled package default (permissive)"
+    ],
     "sections": [
       "enforcement",
+      "include_paths",
       "ai_provider",
       "compliance",
       "profiles",
       "rules"
     ],
     "rules_engine": {
-      "inputs": "observations",
-      "outputs": "Decision(mode, reasons)"
+      "file": "ai_slop_gate/domain/policy_engine.py",
+      "inputs": "List[Observation]",
+      "outputs": "Decision(mode, reasons, annotations)"
     }
   },
   "providers": {
-    "contract": {
-      "static": "collect(input) -> list[Observation]",
-      "llm": "analyze(inputs) -> list[Observation]"
+    "base_class": "BaseProvider (ai_slop_gate/providers/base.py)",
+    "registry": "ai_slop_gate/providers/registry.py",
+    "cache_wrapper": "CachedProvider — wraps LLM providers only",
+    "llm": {
+      "base": "LlmProvider (ai_slop_gate/providers/llm/llm_provider.py)",
+      "providers": {
+        "GeminiProvider": {
+          "file": "ai_slop_gate/providers/llm/gemini.py",
+          "name": "gemini",
+          "kind": "llm",
+          "api_key_env": "GEMINI_API_KEY",
+          "analyze_pr": true,
+          "prompts": ["providers/llm/prompts/gemini/deep.prompt"]
+        },
+        "GroqProvider": {
+          "file": "ai_slop_gate/providers/llm/groq.py",
+          "name": "groq",
+          "kind": "llm",
+          "api_key_env": "SLOPE_GATE_GROQ",
+          "analyze_pr": true,
+          "prompts": [
+            "providers/llm/prompts/groq/deep.prompt",
+            "providers/llm/prompts/groq/fast.prompt"
+          ]
+        },
+        "OllamaProvider": {
+          "file": "ai_slop_gate/providers/llm/ollama.py",
+          "name": "ollama",
+          "kind": "llm",
+          "api_key_env": null,
+          "analyze_pr": false,
+          "prompts": [
+            "providers/llm/prompts/ollama/qwen.prompt",
+            "providers/llm/prompts/ollama/mistral.prompt"
+          ]
+        }
+      },
+      "llm_json_contract": {
+        "description": "All LLM prompts must instruct the model to return exactly this structure",
+        "format": {
+          "issues": [
+            {
+              "category": "string",
+              "signal": "snake_case_identifier",
+              "message": "non-empty string",
+              "severity": "low|medium|high|critical",
+              "confidence": "float 0.0-1.0",
+              "file": "path/to/file.py",
+              "line": "integer, not a range"
+            }
+          ]
+        },
+        "rules": [
+          "Return ONLY a JSON object",
+          "Top-level key must be 'issues'",
+          "No markdown, no prose, no text outside JSON",
+          "No line ranges — single integer only",
+          "No code snippets in output"
+        ]
+      }
     },
-    "builtins": [
-      "StaticProvider",
-      "StaticSecurityProvider",
-      "StaticPipelineProvider",
-      "ESLintProvider",
-      "StaticDockerProvider",
-      "StaticJSProvider",
-      "StaticPythonProvider",
-      "StaticTSJSProvider",
-      "K8sRuntimeProvider",
-      "KubernetesStaticProvider",
-      "TerraformPlanProvider",
-      "TerraformStaticProvider",
-      "SupplyChainProvider",
-      "TrivyProvider",
-      "SBOMProvider",
-      "StaticRubyProvider",
-      "StaticJavaProvider",
-      "StaticCSharpProvider",
-      "StaticCppProvider"
-    ]
+    "static": {
+      "builtins": [
+        { "class": "StaticProvider",          "name": "static",           "kind": "static", "file": "providers/static/static.py" },
+        { "class": "StaticSecurityProvider",  "name": "static_security",  "kind": "static", "file": "providers/static/static_security.py" },
+        { "class": "StaticPipelineProvider",  "name": "static_pipeline",  "kind": "static", "file": "providers/static/static_pipeline.py" },
+        { "class": "StaticPythonProvider",    "name": "static_python",    "kind": "static", "file": "providers/static/static_python.py" },
+        { "class": "StaticJSProvider",        "name": "static_js",        "kind": "static", "file": "providers/static/static_js.py" },
+        { "class": "StaticTSJSProvider",      "name": "static_ts_js",     "kind": "static", "file": "providers/static/static_ts_js.py" },
+        { "class": "StaticDockerProvider",    "name": "static_docker",    "kind": "static", "file": "providers/static/static_docker.py" },
+        { "class": "StaticCppProvider",       "name": "cpp_static",       "kind": "static", "file": "providers/static/cpp_static.py" },
+        { "class": "StaticCSharpProvider",    "name": "csharp_static",    "kind": "static", "file": "providers/static/csharp_static.py" },
+        { "class": "StaticJavaProvider",      "name": "java_static",      "kind": "static", "file": "providers/static/java_static.py" },
+        { "class": "StaticRubyProvider",      "name": "ruby_static",      "kind": "static", "file": "providers/static/ruby_static.py" },
+        { "class": "ESLintProvider",          "name": "eslint",           "kind": "static", "file": "providers/static/eslint.py" },
+        { "class": "KubernetesStaticProvider","name": "k8s_static",       "kind": "static", "file": "providers/static/k8s_static.py" },
+        { "class": "TerraformStaticProvider", "name": "terraform_static", "kind": "static", "file": "providers/static/terraform_static.py" },
+        { "class": "TerraformPlanProvider",   "name": "terraform_plan",   "kind": "static", "file": "providers/static/terraform_plan.py" },
+        { "class": "SupplyChainProvider",     "name": "supply_chain",     "kind": "static", "file": "providers/static/supply_chain.py" },
+        { "class": "TrivyProvider",           "name": "trivy",            "kind": "static", "file": "providers/static/trivy.py" },
+        { "class": "SBOMProvider",            "name": "sbom",             "kind": "static", "file": "providers/static/sbom.py" },
+        { "class": "DeadCodeProvider",        "name": "dead_code",        "kind": "static", "file": "providers/static/dead_code.py" },
+        { "class": "K8sRuntimeProvider",      "name": "k8s_runtime",      "kind": "infra",  "file": "providers/static/k8s_runtime.py" }
+      ]
+    }
   },
+  "supported_languages": [
+    { "language": "Python",     "support_level": "full", "providers": ["StaticPythonProvider", "GeminiProvider", "GroqProvider", "OllamaProvider"] },
+    { "language": "JavaScript", "support_level": "full", "providers": ["StaticJSProvider", "StaticTSJSProvider", "ESLintProvider"] },
+    { "language": "TypeScript", "support_level": "full", "providers": ["StaticTSJSProvider", "ESLintProvider"] },
+    { "language": "Ruby",       "support_level": "full", "providers": ["StaticRubyProvider"] },
+    { "language": "Java",       "support_level": "full", "providers": ["StaticJavaProvider"] },
+    { "language": "C++",        "support_level": "full", "providers": ["StaticCppProvider"] },
+    { "language": "C#",         "support_level": "full", "providers": ["StaticCSharpProvider"] },
+    { "language": "Docker",     "support_level": "full", "providers": ["StaticDockerProvider"] },
+    { "language": "Kubernetes", "support_level": "full", "providers": ["KubernetesStaticProvider", "K8sRuntimeProvider"] },
+    { "language": "Terraform",  "support_level": "full", "providers": ["TerraformStaticProvider", "TerraformPlanProvider"] }
+  ],
   "cache": {
     "purpose": "Prevent repeated LLM token spending",
-    "scope": "LLM providers only",
-    "integration": "via CachedProvider wrapper",
+    "scope": "LLM providers only — static providers are NEVER cached",
+    "integration": "CachedProvider wrapper (ai_slop_gate/providers/cached_provider.py)",
     "non_goals": [
       "performance optimization",
       "caching static providers",
@@ -182,6 +377,7 @@
       "file": {
         "usage": "default runtime cache",
         "location": ".ai-slop-cache/",
+        "flag": "--cache-dir to override",
         "tracked_in_git": false
       },
       "memory": {
@@ -193,64 +389,128 @@
       "policy change",
       "profile change",
       "model change"
-    ]
+    ],
+    "cli_flags": {
+      "--cache-dir": "override cache directory",
+      "--no-cache": "disable caching entirely (increases API costs)"
+    }
   },
   "compliance": {
     "role": "sidecar",
-    "enabled_by": ["policy.compliance.enabled", "--compliance flag"],
+    "enabled_by": [
+      "policy.compliance.enabled = true",
+      "--compliance flag (adds alongside providers)",
+      "--compliance-only flag (skips all providers)"
+    ],
     "capabilities": [
-      "forbidden license detection",
+      "forbidden license detection (GPL-2.0, GPL-3.0, AGPL-3.0)",
       "secret detection",
-      "data residency enforcement (EU)"
+      "data residency enforcement (EU)",
+      "PII detection"
     ],
     "profiles": {
       "default": "inherits base compliance config",
       "eu": "enforces GPL/AGPL ban and EU residency",
       "eu-strict": "blocking enforcement"
-    }
+    },
+    "modules": [
+      "domain/compliance/detector.py",
+      "domain/compliance/enforcement.py",
+      "domain/compliance/gateway.py",
+      "domain/compliance/pipeline.py",
+      "domain/compliance/profile_resolver.py",
+      "domain/compliance/profiles.py",
+      "domain/compliance/rules.py"
+    ]
   },
   "observations": {
     "immutable": true,
-    "fields": [
-      "category",
-      "signal",
-      "confidence",
-      "evidence",
-      "source"
-    ]
+    "dataclass": "Observation (ai_slop_gate/domain/observation.py)",
+    "fields": {
+      "category": "str",
+      "signal": "str — snake_case identifier for the rule/pattern detected",
+      "confidence": "float — 0.0 to 1.0",
+      "message": "str — non-empty human-readable description",
+      "severity": "Optional[Severity] — low|medium|high|critical",
+      "evidence": "Optional[Dict[str, Any]]",
+      "rule_id": "Optional[str]",
+      "location": "Optional[Location] — { file: str, line: Optional[int] }"
+    }
   },
   "decision": {
+    "dataclass": "Decision (ai_slop_gate/domain/decision.py)",
     "modes": ["allow", "advisory", "blocking"],
     "exit_code_mapping": {
       "allow": 0,
       "advisory": 0,
       "blocking": 1
+    },
+    "fields": {
+      "mode": "DecisionMode — allow|advisory|blocking",
+      "reasons": "List[str]",
+      "annotations": "Optional[List[Annotation]]"
     }
   },
   "reporters": {
-    "stdout": "human-readable",
-    "github_pr": "PR comment",
-    "github_checks": "check-run annotations"
+    "base": "Reporter ABC (ai_slop_gate/reporters/base.py)",
+    "contract": "report(self, report: CheckReport) -> None",
+    "all_reporters_are_provider_agnostic": true,
+    "implementations": {
+      "ConsoleReporter": {
+        "file": "ai_slop_gate/reporters/console.py",
+        "output": "stdout",
+        "description": "Human-readable output, short or verbose mode"
+      },
+      "GitHubPRReporter": {
+        "file": "ai_slop_gate/reporters/github_pr.py",
+        "output": "GitHub PR comment",
+        "description": "Posts analysis results as PR comment via GitHub API"
+      },
+      "GitHubChecksReporter": {
+        "file": "ai_slop_gate/reporters/github_checks.py",
+        "output": "GitHub Check Run",
+        "description": "Creates check-run with inline annotations"
+      },
+      "GitLabMRReporter": {
+        "file": "ai_slop_gate/reporters/gitlab_mr.py",
+        "output": "GitLab MR comment",
+        "description": "Posts analysis results as MR comment via GitLab API"
+      }
+    }
   },
   "tests": {
     "philosophy": "lock architectural contracts, not implementation",
+    "framework": "pytest",
+    "structure": {
+      "unit": "ai_slop_gate/tests/unit/",
+      "integration": "ai_slop_gate/tests/integration/"
+    },
     "critical_invariants": [
       "LLM token is not spent twice for same cache key",
       "cache key changes on input or policy change",
-      "static providers are never cached"
-    ]
+      "static providers are never cached",
+      "PolicyEngine and Reporters are provider-agnostic",
+      "Engine performs no IO or exit calls"
+    ],
+    "commands": {
+      "run": "python -m pytest ai_slop_gate/tests -v",
+      "coverage": "python -m pytest ai_slop_gate/tests --cov=ai_slop_gate --cov-report=term-missing"
+    }
   },
   "non_goals": [
-    "automatic fixing",
+    "automatic code fixing",
     "code rewriting",
     "business logic inside CLI",
     "provider-specific policy logic",
-    "caching for non-LLM providers"
+    "caching for non-LLM providers",
+    "formal security certification",
+    "guarantee of AI-generated code correctness"
   ],
   "distribution": {
-    "registry": "ghcr.io/public",
+    "docker_registry": "ghcr.io/sergudo/ai-slop-gate",
     "visibility": "public",
-    "purpose": "Open-source distribution of images for easy CI/CD integration"
+    "github_marketplace": "https://github.com/marketplace/actions/ai-slop-gate",
+    "documentation": "https://ai-slop-gate.readthedocs.io"
   },
   "release": {
     "pipeline": {
@@ -292,11 +552,12 @@
     "signing": {
       "tool": "cosign",
       "mode": "key-pair",
-      "public_key_location": "repo root /cosign.pub (public)",
+      "public_key_location": "repo root /cosign.pub",
       "required_secrets": ["COSIGN_PRIVATE_KEY", "COSIGN_PASSWORD"]
     },
     "sbom_and_scanning": {
       "sbom_tool": "anchore/sbom-action (syft)",
+      "sbom_formats": ["sbom.json", "sbom-spdx.json", "sbom-cyclonedx.json", "sbom-cyclonedx-vex.json"],
       "vuln_scanner": "trivy",
       "scan_target": "release image tag(s)",
       "artifacts": ["sbom-spdx.json", "trivy-results.sarif"]
@@ -306,9 +567,6 @@
       "tags_emitted": ["vX.Y.Z", "latest (default branch only)", "sha-<short>"],
       "visibility": "public",
       "signing_verified": true
-    },
-    "artifacts": {
-      "upload": ["sbom-spdx.json", "trivy-results.sarif", "CHANGELOG.md"]
     }
   },
   "secrets_required_for_release": {
@@ -316,5 +574,6 @@
     "COSIGN_PRIVATE_KEY": "contents of cosign.key (private)",
     "COSIGN_PASSWORD": "password protecting cosign.key",
     "GITHUB_TOKEN": "automated changelog/release creation (default secret)"
-  }
+  },
+  "snapshot_update_rule": "Any architectural change must: (1) update this file, (2) bump snapshot_version, (3) align with roadmap. No snapshot update = not canonical."
 }
