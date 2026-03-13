@@ -23,6 +23,9 @@
 [![SBOM](https://img.shields.io/badge/SBOM-included-blue)](https://github.com/SergUdo/ai-slop-gate/releases)
 [![Tessl Skill](https://img.shields.io/badge/agent--skill-tessl-6366f1)](https://tessl.io/registry/ai-slop-gate/ai-slop-gate)
 
+Agents working on this codebase get 1.19x better results with the
+[ai-slop-gate skill](https://tessl.io/registry/ai-slop-gate/ai-slop-gate) installed.
+
 ---
 
 ## Documentation
