@@ -41,6 +41,11 @@ Full documentation: **[ai-slop-gate.readthedocs.io](https://ai-slop-gate.readthe
 **ai-slop-gate** detects **low-intent AI-generated code** in Pull Requests and local repositories. It combines fast deterministic static analysis with deep LLM reasoning, normalizes outputs into structured observations, and applies policy-driven enforcement.
 
 It combines deterministic static analysis with multi-LLM reasoning, normalizes outputs into structured observations, and applies policy-driven enforcement suitable for CI/CD governance and DevSecOps workflows.
+**Core Slop Criteria** (LLM-based detection targets):
+
+- **Hallucinated logic** — code that references non-existent APIs, functions, or dependencies plausible-sounding but fabricated by the model *(dependency-level hallucination — see [Supply Chain & DevSecOps](#supply-chain--devsecops) section below)*.
+- **Redundant metadata** — comments, docstrings, or annotations that restate the obvious without adding informational value (a common LLM tic under low-effort prompting).
+- **Contradictory annotations** — docstrings/comments that describe behavior the code doesn't actually implement, or type hints that contradict runtime logic.
 
 **Goals:** 
 - **Detect AI Slop:** Identify messy, repetitive, or context-free AI-generated code
