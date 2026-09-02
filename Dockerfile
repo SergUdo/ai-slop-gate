@@ -16,8 +16,8 @@ RUN python -m venv /opt/venv && \
 # ============================
 # Stage 2 — Security Tools & Node (External bins)
 # ============================
-FROM aquasec/trivy:0.69.2 AS trivy-bin
-FROM ghcr.io/anchore/syft:v1.42.1 AS syft-bin
+FROM aquasec/trivy:0.74.0 AS trivy-bin
+FROM ghcr.io/anchore/syft:v1.51.1 AS syft-bin
 FROM node:22-slim AS node-binaries
 
 # ============================
@@ -42,7 +42,6 @@ RUN groupadd -r appuser --gid=1000 && \
 
 # Install system dependencies
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    git \
     curl \
     ca-certificates \
     tar \
@@ -66,7 +65,7 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && 
     ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # Update npm to latest
-RUN npm install -g npm@latest tar@7.5.11 && \
+RUN npm install -g npm@latest tar@7.5.22 && \
     npm install -g ts-prune && \
     npm cache clean --force
 

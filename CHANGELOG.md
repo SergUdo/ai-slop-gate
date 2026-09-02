@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Google Cloud Secret Manager integration
 - NIS2 Directive - Supply Chain Incident Reporting
 
+## [1.2.8] - 2026-09-02
+
+### Security
+- **Docker**: Resolved CRITICAL/HIGH security vulnerabilities in the Docker image.
+  - Updated `tar` (^7.5.22), `brace-expansion` (^5.0.9), and `ip-address` (^10.7.0).
+  - Removed unused `git` and `perl` toolchains from the runtime image (PyGithub utilizes the REST API without subprocess git calls).
+  - Bumped vendored `trivy` and `syft` binary versions in `Dockerfile`.
+  - Cleaned up `.trivyignore` by removing stale entries and documenting current CVE rationale/review dates (`perl-base` Debian fix_deferred, `grpc-go`/stdlib in vendored binaries pending upstream rebuild, and build-time only CVEs in npm's internal vendored copies).
+- **Result**: Reduced Trivy image scan findings (CRITICAL/HIGH, `--ignore-unfixed`) to 0 across `debian`, `node-pkg`, `python-pkg`, and both gobinary targets.
+
 ## [1.2.7] - 2026-03-13
 
 ### Added

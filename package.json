@@ -17,14 +17,16 @@
     "eslint-plugin-no-secrets": "^0.8.9"
   },
   "dependencies": {
+    "brace-expansion": "5.0.9",
     "glob": "^11.1.0",
+    "ip-address": "10.7.0",
     "minimatch": "10.2.3",
-    "tar": "^7.5.11"
+    "tar": "^7.5.22"
   },
   "overrides": {
     "ajv": "^8.18.0",
     "glob": "^11.1.0",
     "minimatch": "10.2.3",
-    "tar": "^7.5.11"
+    "tar": "^7.5.22"
   }
 }

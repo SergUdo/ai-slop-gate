@@ -1,102 +1,49 @@
-# AI Slop Gate - Trivy Ignore List
-# Policy: Ignore vulnerabilities without a fixed version or those 
-# inherent to the base Debian/Python slim image that are under investigation.
+# ai-slop-gate — Trivy vulnerability ignore list
+# Only CVEs confirmed unreachable in our usage, or waiting on an
+# upstream release we don't control. Review dates are attached via
+# `exp:YYYY-MM-DD` — Trivy stops ignoring automatically after that
+# date, so re-run `trivy image` then and remove the line if a fix
+# has landed, or extend the date if still waiting.
 
-# --- Example of OS-level vulnerabilities (Glibc / OpenSSL) ---
-# CVE-2024-XXXX: Vulnerability in glibc that has no fix for Debian Bookworm yet.
-# CVE-2023-YYYY: OpenSSL issue not reachable via AI Slop Gate CLI logic.
+# ---------------------------------------------------------------------
+# perl-base (Debian essential package, pulled in by dpkg/apt itself —
+# cannot be removed. We never invoke perl or any perl module.)
+# No fixed version from Debian security team yet for most of these.
+# ---------------------------------------------------------------------
+CVE-2026-13221
+CVE-2026-42496
+CVE-2026-8376
+CVE-2026-42497
+CVE-2026-48962
+CVE-2026-57432
+CVE-2026-57433
+CVE-2026-9538
 
-# --- Specific Ignored CVEs (based on your scan) ---
+# ---------------------------------------------------------------------
+# usr/local/bin/trivy and usr/local/bin/syft (vendored Go binaries
+# from aquasec/trivy and ghcr.io/anchore/syft — we don't control
+# their build; waiting on next upstream release with patched deps)
+# ---------------------------------------------------------------------
+CVE-2026-84304 exp:2026-09-20
+CVE-2026-27145 exp:2026-09-20
+CVE-2026-33818 exp:2026-09-20
+CVE-2026-39821 exp:2026-09-20
+CVE-2026-39822 exp:2026-09-20
+CVE-2026-42504 exp:2026-09-20
+CVE-2026-46600 exp:2026-09-20
+CVE-2026-56853 exp:2026-09-20
+CVE-2026-56858 exp:2026-09-20
+CVE-2026-56859 exp:2026-09-20
+CVE-2026-56860 exp:2026-09-20
+CVE-2026-56862 exp:2026-09-20
 
-# node-tar: Arbitrary file creation (often found in Node-slim base)
-# We ignore this because we don't use npm/node to extract untrusted archives.
-CVE-2024-28863
-CVE-2022-3517
-
-# glob: Command Injection (found in node_modules of npm)
-# CLI only uses node for internal execution, not for parsing user glob patterns via JS.
-CVE-2022-3520
-
-# cross-spawn: Regular expression denial of service
-CVE-2024-21538
-CVE-2026-0861
-
-# --- Low/Medium noise ---
-# You can also ignore by ID if you see specific library issues that are false positives
-
-# Allowed Licenses (Ignore them from failing the build)
-MIT
-Apache-2.0
-BSD-3-Clause
-Python-2.0
-PSF-2.0
-GPL-2.0
-GPL-2.0-only
-GPL-2.0-or-later
-GPL-3.0
-GPL-3.0-only
-GPL-3.0-or-later
-LGPL-2.0
-LGPL-2.0-or-later
-LGPL-2.1
-LGPL-2.1-only
-LGPL-2.1-or-later
-LGPL-3.0
-MPL-2.0
-GPL-1.0-only
-GPL-2.0-only
-GPL-2.0-or-later
-GPL-3.0-only
-GPL-3.0-or-later
-LGPL-2.0-only
-LGPL-2.0-or-later
-LGPL-2.1-only
-LGPL-2.1-or-later
-LGPL-3.0-only
-LGPL-3.0-or-later
-CC-BY-3.0
-Zlib
-X11
-CC-BY-3.0
-BSD-2-Clause
-BSD-3-Clause
-restricted
-# CVE-2025-61726 - Go stdlib HIGH
-# No fix available upstream yet
-# Affects: syft/trivy gobinaries, not application code
-# Review: when syft/trivy release updated builds
-CVE-2025-61726
-# .trivyignore
-# CVE-2026-27903. CVE-2026-27904 - minimatch HIGH
-# False positive: Trivy flags ^10.2.1 range in @eslint/config-array
-# Resolved version in lockfile and node_modules: 10.2.3 (patched)
-# Verified: npm ls minimatch shows 10.2.3 everywhere
-# Date: 2026-03-01
-CVE-2026-27904
-CVE-2026-27903
-# CVE-2026-24051 - HIGH otel/sdk v1.39.0 in syft v1.42.1
-# Fix available in otel v1.40.0 but syft has not updated dependency yet
-# Affects: syft gobinary only, not application code
-# Remove when syft releases with otel >= v1.40.0
-# Date: 2026-03-01
-CVE-2026-24051
-# CVE-2026-29786 - HIGH in internal npm dependency (node-tar)
-# This affects the global npm binary, not the application itself.
-# Application code uses tar v7.5.10 (verified in package-lock.json).
-CVE-2026-29786
-
-# CVE-2025-15558 - HIGH in Trivy gobinary (docker/cli)
-# Inherent to the Trivy tool itself, no fix available in current build.
-CVE-2025-15558
-
-# CVE-2026-25210: libexpat1
-# Rationale: No fixed version available in Debian stable yet. 
-# The tool does not process untrusted XML files using system-level libexpat.
-CVE-2026-25210
-
-# CVE-2026-4105: libsystemd0 and libudev1
-# Rationale: This is a privilege escalation via D-Bus RegisterMachine method.
-# In our container, we run as a non-root user (appuser), and there is no 
-# systemd/D-Bus daemon running. Exploitation is impossible in this environment.
-CVE-2026-4105
-
+# ---------------------------------------------------------------------
+# npm's own internal vendored copies (usr/local/lib/node_modules/npm/
+# node_modules/*) — build-time tool only, not our application code.
+# Our own dependencies (tar, brace-expansion, ip-address in
+# package.json) are already patched to safe versions.
+# ---------------------------------------------------------------------
+CVE-2026-73566 exp:2026-09-20
+CVE-2026-14257 exp:2026-09-20
+CVE-2026-69152 exp:2026-09-20
+CVE-2026-69192 exp:2026-09-20
