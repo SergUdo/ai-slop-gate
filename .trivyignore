@@ -47,3 +47,16 @@ CVE-2026-73566 exp:2026-09-20
 CVE-2026-14257 exp:2026-09-20
 CVE-2026-69152 exp:2026-09-20
 CVE-2026-69192 exp:2026-09-20
+
+# False positives from pip 26.2.x embedded SBOM.
+# pip/_vendor/bom.cdx.json declares:
+#   msgpack 1.1.2
+#   setuptools 70.3.0
+# Actual runtime versions in /opt/venv:
+#   msgpack 1.2.2
+#   setuptools 84.0.0
+# Trivy detects the embedded pip SBOM as a separate package source.
+# Revisit when pip ships an updated vendored SBOM.
+
+GHSA-6v7p-g79w-8964
+CVE-2025-47273
