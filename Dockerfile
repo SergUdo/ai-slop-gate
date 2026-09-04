@@ -11,7 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN python -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir --upgrade "pip>=26.2.0" && \
+    /opt/venv/bin/pip install --no-cache-dir --upgrade \
+        "pip>=26.2.0" \
+        "setuptools>=78.1.1" && \
     /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 # ============================
@@ -112,4 +114,3 @@ CMD ["--help"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD python -c "import ai_slop_gate; import github; from google.genai import Client; print('OK')" || exit 1
-  
