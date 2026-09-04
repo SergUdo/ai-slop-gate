@@ -268,10 +268,23 @@ These files are saved in the scanned directory and can be uploaded as CI/CD arti
 ```bash
 docker pull ghcr.io/sergudo/ai-slop-gate:latest
 
- docker run --rm \
+docker run --rm \
   -v /path_your_local_test_repo:/data \
   ghcr.io/sergudo/ai-slop-gate:latest \
   run --provider static --policy /app/policy.yml --path /data
+```
+
+```bash
+# Gemini
+export GEMINI_API_KEY="your-api-key"
+
+docker pull ghcr.io/sergudo/ai-slop-gate:latest
+
+docker run --rm \
+  -e GEMINI_API_KEY \
+  -v /path_your_local_test_repo:/data \
+  ghcr.io/sergudo/ai-slop-gate:latest \
+  run --provider gemini --llm-local --policy /app/policy.yml --path /data
 ```
 
 Local build and run:
