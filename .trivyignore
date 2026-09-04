@@ -60,6 +60,7 @@ CVE-2026-69192 exp:2026-09-20
 
 GHSA-6v7p-g79w-8964
 CVE-2025-47273
+CVE-2026-59890
 
 # Syft is an official prebuilt binary currently compiled with Go 1.26.3.
 # CVE-2026-42505 requires Go >= 1.26.5.
@@ -69,3 +70,11 @@ CVE-2025-47273
 
 CVE-2026-42505
 CVE-2026-42507
+
+# Trivy and Syft are official prebuilt binaries bundled into the image.
+# CVE-2026-56855 affects golang.org/x/crypto/ssh before v0.56.0.
+# Both bundled binaries currently contain golang.org/x/crypto v0.55.0.
+# The vulnerability was disclosed on 2026-09-02 and requires x/crypto >= v0.56.0.
+# Revisit when official Trivy/Syft releases are rebuilt with x/crypto >= v0.56.0.
+CVE-2026-56855
+CVE-2026-78662
