@@ -78,7 +78,7 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && 
     ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # Update npm to latest
-RUN npm install -g npm@latest tar@7.5.22 && \
+RUN npm install -g npm@11.19.1 tar@7.5.22 && \
     npm install -g ts-prune && \
     npm cache clean --force
 

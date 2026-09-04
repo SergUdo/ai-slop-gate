@@ -21,6 +21,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Google Cloud Secret Manager integration
 - NIS2 Directive - Supply Chain Incident Reporting
 
+## [1.2.9] - 2026-09-04
+
+### Security
+- ****Python/pip****: Resolved false-positive Trivy findings caused by the embedded SBOM shipped with pip 26.2.x.
+  - Updated runtime `setuptools` and `msgpack` versions to patched releases.
+  - Removed stale `.trivyignore` entries where the vulnerable versions were only reported by pip's embedded vendored SBOM and were not present in the runtime environment.
+- ****Node.js/npm****: Resolved vulnerable transitive dependencies detected in the npm runtime tree.
+  - Pinned npm to `11.19.1` instead of `npm@latest`.
+  - Updated the npm dependency tree to `undici@6.28.0` via `node-gyp@12.4.0`.
+  - Updated the npm dependency tree to `ip-address@10.5.0` via `socks@2.8.9`.
+  - Eliminated the vulnerable `undici@6.27.0` and `ip-address@10.2.0` versions previously nested inside npm.
+- ****Trivy verification****: Revalidated the resulting Docker dependency trees to ensure patched versions are actually present rather than relying on parallel global installations or ignore rules.
+
+
 ## [1.2.8] - 2026-09-02
 
 ### Security
