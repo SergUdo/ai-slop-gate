@@ -75,6 +75,10 @@ jobs:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy'
 
+      - name: Inspect Trivy results
+        run: |
+          grep -n -E "setuptools|msgpack|CVE-2025-47273|GHSA-6v7p-g79w-8964" trivy-results.sarif || true
+
       # --- SBOM Generation ---
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
