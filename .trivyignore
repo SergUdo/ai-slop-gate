@@ -60,3 +60,12 @@ CVE-2026-69192 exp:2026-09-20
 
 GHSA-6v7p-g79w-8964
 CVE-2025-47273
+
+# Syft is an official prebuilt binary currently compiled with Go 1.26.3.
+# CVE-2026-42505 requires Go >= 1.26.5.
+# CVE-2026-42507 requires Go >= 1.26.4.
+# No newer official Syft release/build with a patched Go toolchain is currently available.
+# Revisit when Anchore publishes a Syft build using Go >= 1.26.5.
+
+CVE-2026-42505
+CVE-2026-42507
