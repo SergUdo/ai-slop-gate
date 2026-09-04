@@ -52,6 +52,13 @@ jobs:
             BUILD_SHA=${{ github.sha }}
 
       # --- Security Scanning ---
+      - name: Verify Python security packages
+        run: |
+          docker run --rm --entrypoint /opt/venv/bin/python \
+            "${{ fromJson(steps.meta.outputs.json).tags[0] }}" \
+            -c "import setuptools, msgpack; print('setuptools', setuptools.__version__); print('msgpack', msgpack.__version__)"
+       
+        
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
