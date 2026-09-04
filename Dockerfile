@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN python -m venv /opt/venv && \
+    /opt/venv/bin/pip install --no-cache-dir --upgrade "pip>=26.2.0" && \
     /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 # ============================
@@ -35,7 +36,6 @@ LABEL org.opencontainers.image.description="Policy-driven AI, supply-chain and c
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.revision="${BUILD_SHA}"
 
-
 # Create non-root user early
 RUN groupadd -r appuser --gid=1000 && \
     useradd -r -g appuser --uid=1000 --home-dir=/app --shell=/sbin/nologin appuser
@@ -48,6 +48,17 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     && apt-get purge -y --auto-remove \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# --- NEW: remove base image's own system pip (CVE-2026-8643, HIGH) ---
+# Unused at runtime: the app and its deps are installed exclusively via
+# /opt/venv/bin/pip (see Stage 1 and the `pip install -e ".[dev]"` step below).
+RUN /usr/local/bin/python3 -m pip uninstall -y pip setuptools wheel 2>/dev/null || true && \
+    rm -rf /usr/local/lib/python3.12/site-packages/pip* \
+           /usr/local/lib/python3.12/site-packages/setuptools* \
+           /usr/local/lib/python3.12/site-packages/wheel* \
+           /usr/local/lib/python3.12/site-packages/pkg_resources \
+           /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.12
+# --- END NEW ---
 
 WORKDIR /app
 
@@ -101,3 +112,4 @@ CMD ["--help"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD python -c "import ai_slop_gate; import github; from google.genai import Client; print('OK')" || exit 1
+  
